@@ -1,31 +1,20 @@
 import { useState } from 'react';
 import { LogIn, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useLogin } from '../../hooks/useAuth';
 
 export default function Login() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState('');
+    const {mutate:UserLogin,isPending, isError, error} = useLogin();
 
-    const { login } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
         setIsSubmitting(true);
-
-        const result = await login(username, password);
-
-        setIsSubmitting(false);
-
-        if (result.success) {
-            navigate('/admin/dashboard');
-        } else {
-            setError(result.message);
-        }
+        UserLogin({username,password})
     };
 
     return (

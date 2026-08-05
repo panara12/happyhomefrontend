@@ -1,7 +1,14 @@
 import { TrendingUp, TrendingDown, Package, FileText, Store, Users, DollarSign, ShoppingCart, Receipt, RotateCcw, BarChart3 } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { useLoggedUserContext } from '../../context/loggedUserContext';
 
-export default function DashboardHome({ user }) {
-  const stats = user.role === 'admin' ? [
+export default function DashboardHome() {
+
+    const { loggedUser} = useLoggedUserContext();
+    const user =  loggedUser
+    console.log(user)
+
+  const stats = user?.userType === 'admin' ? [
     {
       label: 'Net Profit (Month)',
       value: '₹5.33L',
@@ -66,7 +73,7 @@ export default function DashboardHome({ user }) {
       icon: Users,
       color: 'bg-pink-500'
     },
-  ] : user.role === 'manager' ? [
+  ] : user.userType === 'manager' ? [
     {
       label: 'Store Revenue',
       value: '₹82,450',

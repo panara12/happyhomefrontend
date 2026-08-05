@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiHelper = axios.create({
-    baseURL:import.meta.env.VITE_SERVER_API,
+    baseURL: 'http://localhost:4000/',
     withCredentials:true,
     headers: {
         'Content-Type': 'application/json',

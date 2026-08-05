@@ -1,18 +1,24 @@
-import { useState } from 'react';
-import { Plus, Edit2, Shield, Users, Search, Calendar, CheckCircle, XCircle, Clock, DollarSign, Eye } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Edit2, Shield, Users, Search, Calendar, CheckCircle, XCircle, Clock, DollarSign, Eye, Computer, PersonStanding, PersonStandingIcon, Delete, Edit, DeleteIcon, Trash } from 'lucide-react';
 import { toast } from 'sonner';
+import { addUser, deleteUser, updateUser, useGetAllUsers } from '../../hooks/useUser';
+import { useStoreContext } from '../../context/storeContext';
 
 export default function UserManagement({ user }) {
   const [activeTab, setActiveTab] = useState('team');
+  const {stores, managers} = useStoreContext()
+  console.log("stores",stores)
+  const [users, setUsers] = useState([]);
+  const {data:userlist, isLoading, isError, error} = useGetAllUsers()
+  console.log(userlist);
+  useEffect(()=>{
+    if(!isLoading){
+      setUsers(userlist?.data.data)
+    }
+  })
+  console.log("userlsit",users)
+  
 
-  const [users, setUsers] = useState([
-    { id: 1, name: 'Admin User', username: 'admin', role: 'admin', email: 'admin@happyhome.com', store: 'All Stores', status: 'Active' },
-    { id: 2, name: 'Store Manager 1', username: 'manager1', role: 'manager', email: 'manager1@happyhome.com', store: 'Store 1', status: 'Active' },
-    { id: 3, name: 'Store Manager 2', username: 'manager2', role: 'manager', email: 'manager2@happyhome.com', store: 'Store 2', status: 'Active' },
-    { id: 4, name: 'Ramesh Kumar', username: 'sales1', role: 'sales', email: 'ramesh@happyhome.com', store: 'Store 1', status: 'Active' },
-    { id: 5, name: 'Priya Sharma', username: 'sales2', role: 'sales', email: 'priya@happyhome.com', store: 'Store 1', status: 'Active' },
-    { id: 6, name: 'Amit Patel', username: 'sales3', role: 'sales', email: 'amit@happyhome.com', store: 'Store 1', status: 'Active' },
-  ]);
 
   const [leaveApplications, setLeaveApplications] = useState([
     {
@@ -92,34 +98,71 @@ export default function UserManagement({ user }) {
       store: 'Store 1'
     },
   ]);
-
+  const addUserMutation = addUser();
+  const updateUserMutation = updateUser();
+  const deleteUserMutation = deleteUser(); 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showActiveUserModal, setShow]
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const [selectedUser, setSelectedUser] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
-    name: '',
+    fullName: '',
     username: '',
     email: '',
-    role: 'sales',
-    store: user.role === 'manager' && user.storeId ? `Store ${user.storeId}` : 'Store 1',
+    userType: '',
+    mobile: "",
+    storeId: "",
     password: ''
   });
 
-  const handleAddUser = () => {
-    if (formData.name && formData.username && formData.email) {
+  const handleAddUser = (e) => {
+    e.preventDefault();
+    if (formData.fullName && formData.username && formData.email) {
       setUsers([...users, {
         id: users.length + 1,
         ...formData,
         status: 'Active'
       }]);
-      setFormData({ name: '', username: '', email: '', role: 'sales', store: user.storeId ? `Store ${user.storeId}` : 'Store 1', password: '' });
+      addUserMutation.mutate(formData);
+      setFormData({ fullName: '', username: '', email: '', userType: '',mobile: "", storeId: "", password: '' });
       setShowAddModal(false);
       toast.success('Sales person added successfully!');
     } else {
       toast.error('Please fill all required fields');
     }
   };
+
+  const handleUpdateUser = (e) => {
+    e.preventDefault();
+    if (formData.fullName && formData.username && formData.email) {
+      updateUserMutation.mutate(formData, {
+    onSuccess: () => {
+        setShowUpdateModal(false);
+        toast.success("Updated successfully");
+    }
+});
+      setFormData({ fullName: '', username: '', email: '', userType: '',mobile: "", storeId: "", password: '' });
+      // setShowUpdateModal(false);
+      // toast.success('Sales person updated successfully!');
+    } else {
+      toast.error('Please fill all required fields');
+    }
+  };
+
+  const handleDeleteUser = (e)=>{
+      e.preventDefault();
+      deleteUserMutation.mutate({userId: selectedUser._id, storeId: selectedUser.storeId}, {
+        onSuccess: () => {
+            setShowDeleteModal(false);
+            toast.success("Deleted successfully");
+        }
+    });
+  }
 
   const handleLeaveApproval = (id, status) => {
     setLeaveApplications(leaveApplications.map(app =>
@@ -137,19 +180,19 @@ export default function UserManagement({ user }) {
   };
 
   const filteredUsers = users.filter(u => {
-    const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          u.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStore = user.role === 'admin' || (user.storeId && u.store === `Store ${user.storeId}`) || u.store === 'All Stores';
+    const matchesStore = user.userType === 'admin' || (user.storeId && u.store === `Store ${user.storeId}`) || u.store === 'All Stores';
     return matchesSearch && matchesStore;
   });
 
   const filteredLeaves = leaveApplications.filter(leave =>
-    user.role === 'admin' || (user.storeId && leave.store === `Store ${user.storeId}`)
+    user.userType === 'admin' || (user.storeId && leave.store === `Store ${user.storeId}`)
   );
 
   const filteredAdvances = advanceRequests.filter(adv =>
-    user.role === 'admin' || (user.storeId && adv.store === `Store ${user.storeId}`)
+    user.userType === 'admin' || (user.storeId && adv.store === `Store ${user.storeId}`)
   );
 
   const pendingLeaves = filteredLeaves.filter(l => l.status === 'Pending');
@@ -165,19 +208,21 @@ export default function UserManagement({ user }) {
     }
   };
 
-  const getRoleBadge = (role) => {
-    switch (role) {
+  const getRoleBadge = (userType) => {
+    switch (userType) {
       case 'admin': return 'bg-purple-100 text-purple-700';
       case 'manager': return 'bg-blue-100 text-blue-700';
       case 'sales': return 'bg-green-100 text-green-700';
+      case 'accounting': return 'bg-yellow-100 text-yellow-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
 
-  const getRoleIcon = (role) => {
-    switch (role) {
+  const getRoleIcon = (userType) => {
+    switch (userType) {
       case 'admin': return <Shield size={18} className="text-purple-600" />;
       case 'manager': return <Users size={18} className="text-blue-600" />;
+      case 'accounting': return <Computer size={18} className='text-yellow-600' />
       default: return <Users size={18} className="text-green-600" />;
     }
   };
@@ -188,7 +233,7 @@ export default function UserManagement({ user }) {
         <div>
           <h2 className="text-3xl font-bold text-gray-800">Sales Team Management</h2>
           <p className="text-gray-600 mt-1">
-            {user.role === 'admin' ? 'Manage team and approvals' : 'Manage your sales team and approve requests'}
+            {user.userType === 'admin' ? 'Manage team and approvals' : 'Manage your sales team and approve requests'}
           </p>
         </div>
         <button
@@ -204,7 +249,7 @@ export default function UserManagement({ user }) {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
           <p className="text-sm text-gray-600">Sales Team</p>
-          <p className="text-2xl font-bold text-gray-800 mt-1">{users.filter(u => u.role === 'sales').length}</p>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{userlist?.data.totalUsers}</p>
         </div>
         <div className="bg-yellow-50 rounded-lg shadow p-4 border-l-4 border-yellow-500">
           <p className="text-sm text-yellow-700">Pending Leaves</p>
@@ -288,6 +333,7 @@ export default function UserManagement({ user }) {
                     <th className="px-4 py-3 text-center">Role</th>
                     <th className="px-4 py-3 text-left">Store</th>
                     <th className="px-4 py-3 text-center">Status</th>
+                    <th className="px-4 py-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -296,28 +342,45 @@ export default function UserManagement({ user }) {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold">
-                            {u.name.charAt(0)}
+                            {u.fullName.charAt(0)}
                           </div>
-                          <span className="font-medium text-gray-800">{u.name}</span>
+                          <span className="font-medium text-gray-800">{u.fullName}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{u.username}</td>
                       <td className="px-4 py-3 text-gray-600">{u.email}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
-                          {getRoleIcon(u.role)}
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getRoleBadge(u.role)}`}>
-                            {u.role}
+                          {getRoleIcon(u.userType)}
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getRoleBadge(u.userType)}`}>
+                            {u.userType}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-700">{u.store}</td>
+                      <td className="px-4 py-3 text-gray-700">{u.storeId || "admin"}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          u.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          u.active === true ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                         }`}>
-                          {u.status}
+                          {u.active === true ? 'Active' : 'Deactive'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 space-x-3 text-center">
+                        <button className="text-blue-500 hover:text-blue-700" 
+                        onClick={() => {
+                          setSelectedUser(u);
+                          setFormData({...u, userId: u._id});
+                          setShowUpdateModal(true);
+                        }}>
+                          <Edit size={18} />
+                        </button>
+                        <button className="text-red-500 hover:text-red-700"
+                        onClick={() => {
+                          setSelectedUser(u);
+                          setShowDeleteModal(true);
+                        }}>
+                          <Trash size={18} />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -565,8 +628,8 @@ export default function UserManagement({ user }) {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
                 <input
                   type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({...formData, fullName: e.target.value})}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
                   placeholder="John Doe"
                 />
@@ -579,6 +642,16 @@ export default function UserManagement({ user }) {
                   onChange={(e) => setFormData({...formData, username: e.target.value})}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
                   placeholder="johndoe"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number *</label>
+                <input
+                  type="text"
+                  value={formData.mobile}
+                  onChange={(e) => setFormData({...formData, mobile: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                  placeholder="1234567890"
                 />
               </div>
               <div>
@@ -603,12 +676,29 @@ export default function UserManagement({ user }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Assign Store</label>
-                <input
-                  type="text"
-                  value={formData.store}
-                  readOnly
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
-                />
+                <select
+                  value={formData.storeId}
+                  onChange={(e) => setFormData({...formData, storeId: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Select a store</option>
+                  {stores.map((store) => {
+                    return <option key={store.storeId} value={store.storeId}>{store.name}</option>
+                  })}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">User role</label>
+                <select
+                  value={formData.userType}
+                  onChange={(e) => setFormData({...formData, userType: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Select a role</option>
+                  <option value="sales">Sales Person</option>
+                  <option value="manager">Manager</option>
+                  <option value="accounting">Accounting</option>
+                </select>
               </div>
             </div>
             <div className="flex gap-3 mt-6">
@@ -623,6 +713,155 @@ export default function UserManagement({ user }) {
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all"
               >
                 Add Sales Person
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* update user model */}
+      {showUpdateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Update Sales Person</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                <input
+                  type="text"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                  placeholder="John Doe"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Username *</label>
+                <input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({...formData, username: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                  placeholder="johndoe"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number *</label>
+                <input
+                  type="text"
+                  value={formData.mobile}
+                  onChange={(e) => setFormData({...formData, mobile: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                  placeholder="1234567890"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                  placeholder="john@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                  placeholder="••••••••"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assign Store</label>
+                <select
+                  value={formData.storeId}
+                  onChange={(e) => setFormData({...formData, storeId: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Select a store</option>
+                  {stores.map((store) => {
+                    return <option key={store.storeId} value={store.storeId}>{store.name}</option>
+                  })}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">User role</label>
+                <select
+                  value={formData.userType}
+                  onChange={(e) => setFormData({...formData, userType: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Select a role</option>
+                  <option value="sales">Sales Person</option>
+                  <option value="manager">Manager</option>
+                  <option value="accounting">Accounting</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowUpdateModal(false)}
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateUser}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all"
+              >
+                update Sales Person
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* delete user model */}
+      {showDeleteModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Delete Sales Person</h3>
+            <p className="text-gray-700 mb-6">Are you sure you want to delete <span className="font-medium">{selectedUser.fullName}</span>?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* active user model */}
+      {setShowActiveUserModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Active User</h3>
+            <p className="text-gray-700 mb-6">Are you sure you want to active <span className="font-medium">{selectedUser.fullName}</span>?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowActiveUserModal(false)}
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleActiveUser}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all"
+              >
+                Active
               </button>
             </div>
           </div>

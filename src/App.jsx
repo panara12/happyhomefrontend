@@ -1,45 +1,49 @@
 // src/App.jsx
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 import Login from "./pages/auth/Login";
 import Unauthorized from "./pages/error/Unauthorized";
 import NotFound from "./pages/error/NotFound";
 
-import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminRouter from "./pages/admin/AdminDashboard";
 // import ManagerDashboard from "./pages/manager/Dashboard";
 import StaffDashboard from "./pages/sales/SalesDashboard";
+import RoleProtectedRoute from "./routes/RoleProtectedRoute";
+import { LoggedUserContext, useLoggedUserContext } from "./context/loggedUserContext";
 
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
+      <LoggedUserContext.Provider value={useLoggedUserContext}>
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 
-          {/* Admin only */}
-          {/* element={<ProtectedRoute allowedRoles={["admin"]} />} */}
-          <Route>
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          </Route>
+        
+            <Route element={<ProtectedRoute />}>
+              {/* Admin only */}
+              <Route element={<RoleProtectedRoute allowedRoles={["admin"]} />}>
+                <Route path="/admin/*" element={<AdminRouter />} />
+              </Route>
 
-          {/* Manager only */}
-          {/* <Route element={<ProtectedRoute allowedRoles={["manager"]} />}>
-            <Route path="/manager/dashboard" element={<ManagerDashboard />} />
-          </Route> */}
+              {/* Manager only */}
+              {/* <Route element={<RoleProtectedRoute allowedRoles={["manager"]} />}>
+                <Route path="/manager/dashboard" element={<ManagerDashboard />} />
+              </Route> */}
 
-          {/* Staff, and also accessible to admin/manager */}
-          <Route element={<ProtectedRoute allowedRoles={["staff", "manager", "admin"]} />}>
-            <Route path="/sales/dashboard" element={<StaffDashboard />} />
-          </Route>
+              {/* Staff, and also accessible to admin/manager */}
+              <Route element={<RoleProtectedRoute allowedRoles={["staff", "manager", "admin"]} />}>
+                <Route path="/sales/dashboard" element={<StaffDashboard />} />
+              </Route>
+            
+            </Route>
 
           {/* Catch-all 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </AuthProvider>
+      </LoggedUserContext.Provider>
     </BrowserRouter>
   );
 }

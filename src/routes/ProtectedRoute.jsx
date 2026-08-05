@@ -1,19 +1,23 @@
 // src/routes/ProtectedRoute.jsx
-import { Navigate, Outlet } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { Navigate, Outlet } from "react-router-dom"
+import { useEffect } from "react"
+import { useGetLoggedUser } from "../hooks/useAuth"
+import { useDispatch } from "react-redux"
+import { setUserInfo } from "../store/slice/appSlice"
 
-export default function ProtectedRoute({ allowedRoles }) {
-  const { user } = useAuth();
+export default function ProtectedRoute() {
+  const { data, isLoading, isError } = useGetLoggedUser()
+  const dispatch = useDispatch()
 
-  if (!user) {
-    // not logged in
-    return <Navigate to="/login" replace />;
-  }
+  useEffect(() => {
+    if (data?.data?.user) {
+      dispatch(setUserInfo(data.data.user))
+    }
+  }, [data, dispatch])
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    // logged in but wrong role
-    return <Navigate to="/unauthorized" replace />;
-  }
+  if (isLoading) return <div>Loading...</div>
 
-  return <Outlet />; // renders the nested child route
+  if (isError) return <Navigate to="/login" replace />
+
+  return <Outlet />
 }
