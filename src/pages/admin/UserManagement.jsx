@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Plus, Edit2, Shield, Users, Search, Calendar, CheckCircle, XCircle, Clock, DollarSign, Eye, Computer, PersonStanding, PersonStandingIcon, Delete, Edit, DeleteIcon, Trash } from 'lucide-react';
+import { Plus, Edit2, Shield, Users, Search, Calendar, CheckCircle, XCircle, Clock, DollarSign, Eye, Computer, PersonStanding, PersonStandingIcon, Delete, Edit, DeleteIcon, Trash, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { addUser, deleteUser, updateUser, useGetAllUsers } from '../../hooks/useUser';
+import { activeUser, addUser, deleteUser, updateUser, useGetAllUsers } from '../../hooks/useUser';
 import { useStoreContext } from '../../context/storeContext';
 
 export default function UserManagement({ user }) {
@@ -101,9 +101,10 @@ export default function UserManagement({ user }) {
   const addUserMutation = addUser();
   const updateUserMutation = updateUser();
   const deleteUserMutation = deleteUser(); 
+  const activeUserMutation = activeUser();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [showActiveUserModal, setShow]
+  const [showActiveUserModal, setShowActiveUserModal]  = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const [selectedUser, setSelectedUser] = useState(null);
@@ -160,6 +161,15 @@ export default function UserManagement({ user }) {
         onSuccess: () => {
             setShowDeleteModal(false);
             toast.success("Deleted successfully");
+        }
+    });
+  }
+  const handleActiveUser = (e)=>{
+      e.preventDefault();
+      activeUserMutation.mutate({userId: selectedUser._id}, {
+        onSuccess: () => {
+            setShowActiveUserModal(false);
+            toast.success("User active successfully");
         }
     });
   }
@@ -374,13 +384,23 @@ export default function UserManagement({ user }) {
                         }}>
                           <Edit size={18} />
                         </button>
-                        <button className="text-red-500 hover:text-red-700"
-                        onClick={() => {
-                          setSelectedUser(u);
-                          setShowDeleteModal(true);
-                        }}>
-                          <Trash size={18} />
-                        </button>
+                        {
+                          u.active == true ? <button className="text-red-500 hover:text-red-700"
+                            onClick={() => {
+                              setSelectedUser(u);
+                              setShowDeleteModal(true);
+                            }}>
+                              <Trash size={18} />
+                            </button> :
+                            <button className="text-green-500 hover:text-green-700"
+                              onClick={() => {
+                                setSelectedUser(u);
+                                setShowActiveUserModal(true);
+                              }}>
+                                <Undo2 size={18} />
+                            </button>
+                        }
+                        
                       </td>
                     </tr>
                   ))}
@@ -845,7 +865,7 @@ export default function UserManagement({ user }) {
       )}
 
       {/* active user model */}
-      {setShowActiveUserModal && selectedUser && (
+      {showActiveUserModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-2xl font-bold text-gray-800 mb-6">Active User</h3>

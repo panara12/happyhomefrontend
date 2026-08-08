@@ -11,10 +11,13 @@ import AdminRouter from "./pages/admin/AdminDashboard";
 import StaffDashboard from "./pages/sales/SalesDashboard";
 import RoleProtectedRoute from "./routes/RoleProtectedRoute";
 import { LoggedUserContext, useLoggedUserContext } from "./context/loggedUserContext";
+import { Toaster } from "sonner";
+import AccountingRouter from "./pages/accounting/AccountingDashboard";
 
 export default function App() {
   return (
     <BrowserRouter>
+      <Toaster position="top-right" richColors />
       <LoggedUserContext.Provider value={useLoggedUserContext}>
         <Routes>
           {/* Public routes */}
@@ -26,6 +29,10 @@ export default function App() {
               {/* Admin only */}
               <Route element={<RoleProtectedRoute allowedRoles={["admin"]} />}>
                 <Route path="/admin/*" element={<AdminRouter />} />
+              </Route>
+
+              <Route element={<RoleProtectedRoute allowedRoles={["accounting"]} />}>
+                <Route path="/accounting/*" element={<AccountingRouter />} />
               </Route>
 
               {/* Manager only */}

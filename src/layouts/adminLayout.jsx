@@ -1,8 +1,8 @@
-// src/routes/admin/Layout.jsx
+// src/routes/Layout.jsx
 import React from "react"
 import { Menu, X, LogOut } from "lucide-react"
 
-const THEME = {
+const DEFAULT_THEME = {
   gradientFrom: "from-amber-900",
   gradientTo: "to-orange-900",
   activeBg: "bg-white",
@@ -11,20 +11,24 @@ const THEME = {
   idleText: "text-amber-100",
   border: "border-amber-700",
   panel: "bg-amber-800",
+  subtitleText: "text-amber-200",
+  subtitleText2: "text-amber-300",
 }
 
-export default function Layout({ title, logoSrc, items, activeId, onSelect, onLogout, user, children }) {
+export default function Layout({ title, subtitle, logoSrc, items, activeId, onSelect, onLogout, user, theme, children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
+  const T = { ...DEFAULT_THEME, ...theme }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar - Desktop */}
-      <div className={`hidden lg:flex lg:flex-col lg:w-64 bg-gradient-to-b ${THEME.gradientFrom} ${THEME.gradientTo} text-white overflow-y-auto`}>
-        <div className={`p-6 border-b ${THEME.border}`}>
+      <div className={`hidden lg:flex lg:flex-col lg:w-64 bg-gradient-to-b ${T.gradientFrom} ${T.gradientTo} text-white overflow-y-auto`}>
+        <div className={`p-6 border-b ${T.border}`}>
           {logoSrc && (
             <img src={logoSrc} alt={title} className="w-20 h-20 mx-auto mb-3 bg-white rounded-full p-2" />
           )}
           <h2 className="text-xl font-bold text-center">{title}</h2>
+          {subtitle && <p className={`text-xs ${T.subtitleText} text-center mt-1`}>{subtitle}</p>}
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -36,7 +40,7 @@ export default function Layout({ title, logoSrc, items, activeId, onSelect, onLo
                 key={item.id}
                 onClick={() => onSelect(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  isActive ? `${THEME.activeBg} ${THEME.activeText} shadow-lg` : `${THEME.hoverBg} ${THEME.idleText}`
+                  isActive ? `${T.activeBg} ${T.activeText} shadow-lg` : `${T.hoverBg} ${T.idleText}`
                 }`}
               >
                 <Icon size={20} />
@@ -47,12 +51,12 @@ export default function Layout({ title, logoSrc, items, activeId, onSelect, onLo
         </nav>
 
         {onLogout && (
-          <div className={`p-4 border-t ${THEME.border}`}>
+          <div className={`p-4 border-t ${T.border}`}>
             {user && (
-              <div className={`mb-3 p-3 ${THEME.panel} rounded-lg`}>
-                <p className="text-xs text-amber-200">Logged in as</p>
-                <p className="font-medium">{user.fullName}</p>
-                <p className="text-xs text-amber-300 capitalize">{user.userType}</p>
+              <div className={`mb-3 p-3 ${T.panel} rounded-lg`}>
+                <p className={`text-xs ${T.subtitleText}`}>Logged in as</p>
+                <p className="font-medium">{user.fullName || user.name}</p>
+                <p className={`text-xs ${T.subtitleText2} capitalize`}>{user.userType || user.role}</p>
               </div>
             )}
             <button
@@ -67,22 +71,22 @@ export default function Layout({ title, logoSrc, items, activeId, onSelect, onLo
       </div>
 
       {/* Mobile Header */}
-      <div className={`lg:hidden fixed top-0 left-0 right-0 bg-gradient-to-r ${THEME.gradientFrom} ${THEME.gradientTo} text-white z-50 shadow-lg`}>
+      <div className={`lg:hidden fixed top-0 left-0 right-0 bg-gradient-to-r ${T.gradientFrom} ${T.gradientTo} text-white z-50 shadow-lg`}>
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
             {logoSrc && <img src={logoSrc} alt={title} className="w-10 h-10 bg-white rounded-full p-1" />}
             <div>
               <h2 className="font-bold">{title}</h2>
-              {user && <p className="text-xs text-amber-200">{user.fullName}</p>}
+              {user && <p className={`text-xs ${T.subtitleText}`}>{user.fullName || user.name}</p>}
             </div>
           </div>
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 hover:bg-amber-800 rounded-lg">
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 hover:bg-black/20 rounded-lg">
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
 
         {mobileMenuOpen && (
-          <div className="bg-amber-900 border-t border-amber-700 max-h-[70vh] overflow-y-auto">
+          <div className={`bg-gradient-to-b ${T.gradientFrom} ${T.gradientTo} border-t ${T.border} max-h-[70vh] overflow-y-auto`}>
             <nav className="p-4 space-y-2">
               {items.map(item => {
                 const Icon = item.icon
@@ -95,7 +99,7 @@ export default function Layout({ title, logoSrc, items, activeId, onSelect, onLo
                       setMobileMenuOpen(false)
                     }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                      isActive ? "bg-white text-amber-900" : "hover:bg-amber-800 text-amber-100"
+                      isActive ? `${T.activeBg} ${T.activeText}` : `${T.hoverBg} ${T.idleText}`
                     }`}
                   >
                     <Icon size={20} />

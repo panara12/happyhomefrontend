@@ -37,3 +37,11 @@ export function deleteUser(){
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['getAllUsers'] }),
     })
 }
+
+export function activeUser(){
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: userApiService.activeUser,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['getAllUsers'] }),
+    });
+}
