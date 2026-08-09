@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, Search, Trash2, CheckCircle, XCircle, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -114,19 +114,19 @@ export default function DistributorReturns({ user }) {
     toast.success(`Return ${status === 'approved' ? 'approved' : 'rejected'} successfully`);
   };
 
-  const filteredReturns = returns.filter(ret =>
+  const filteredReturns = useMemo(() => returns.filter(ret =>
     ret.returnNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ret.distributorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ret.billNumber.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [returns, searchTerm]);
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: returns.length,
     pending: returns.filter(r => r.status === 'pending').length,
     approved: returns.filter(r => r.status === 'approved').length,
     rejected: returns.filter(r => r.status === 'rejected').length,
     totalAmount: returns.reduce((sum, r) => sum + r.totalAmount, 0)
-  };
+  }), [returns]);
 
   return (
     <div className="space-y-6">

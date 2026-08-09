@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FileText, Send, Plus, Calendar, UserCheck, LogOut } from 'lucide-react';
 import { CustomerSearch } from './CustomerSearch';
 import { ItemSearch } from './ItemSearch';
@@ -149,6 +149,9 @@ export default function SalesmanDashboard() {
     setInvoiceItems([]);
     setActiveTab('create');
   };
+
+  const pendingInvoicesForApproval = useMemo(() => invoices.filter(inv => inv.status === 'pending'), [invoices]);
+  const pendingLeaveRequestsForApproval = useMemo(() => leaveRequests.filter(req => req.status === 'pending'), [leaveRequests]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -304,7 +307,7 @@ export default function SalesmanDashboard() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="font-medium text-lg mb-4">Pending Invoice Approvals</h3>
               <PendingInvoices
-                invoices={invoices.filter(inv => inv.status === 'pending')}
+                invoices={pendingInvoicesForApproval}
                 onApprove={handleApproveInvoice}
                 onReject={handleRejectInvoice}
                 showActions={true}
@@ -314,7 +317,7 @@ export default function SalesmanDashboard() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="font-medium text-lg mb-4">Pending Leave Requests</h3>
               <LeaveRequests
-                requests={leaveRequests.filter(req => req.status === 'pending')}
+                requests={pendingLeaveRequestsForApproval}
                 onApprove={handleApproveLeave}
                 onReject={handleRejectLeave}
                 showActions={true}

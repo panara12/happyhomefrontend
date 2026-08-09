@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Plus, Eye, Send, Download, Search, Calendar, Edit2, CheckCircle, XCircle, Printer, Trash2, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import logoImg from '../../assets/logo.jpg';
@@ -139,9 +139,12 @@ export default function InvoiceManagement({ user }) {
     setEditingInvoice({ ...editingInvoice, items: newItems, total: newTotal });
   };
 
-  const calculateTotal = () => {
+  const calculateTotal = useCallback(() => {
     return formData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  };
+  }, [formData.items]);
+
+  // Recomputed once per render instead of once per each JSX read below
+  const formTotal = useMemo(() => calculateTotal(), [calculateTotal]);
 
   const handleCreateInvoice = () => {
     if (formData.customer && formData.phone && formData.items.length > 0 && formData.items.every(i => i.product)) {
@@ -219,17 +222,17 @@ export default function InvoiceManagement({ user }) {
     toast.success(`Invoice ${invoice.id} sent to ${invoice.phone} via WhatsApp!`);
   };
 
-  const filteredInvoices = invoices.filter(inv => {
+  const filteredInvoices = useMemo(() => invoices.filter(inv => {
     const matchesSearch = inv.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          inv.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          inv.phone.includes(searchTerm);
     const matchesStore = user.role === 'admin' || (user.storeId && inv.store === `Store ${user.storeId}`);
     return matchesSearch && matchesStore;
-  });
+  }), [invoices, searchTerm, user.role, user.storeId]);
 
-  const pendingInvoices = filteredInvoices.filter(inv => inv.status === 'Pending');
-  const approvedInvoices = filteredInvoices.filter(inv => inv.status === 'Approved' || inv.status === 'Paid');
-  const rejectedInvoices = filteredInvoices.filter(inv => inv.status === 'Rejected');
+  const pendingInvoices = useMemo(() => filteredInvoices.filter(inv => inv.status === 'Pending'), [filteredInvoices]);
+  const approvedInvoices = useMemo(() => filteredInvoices.filter(inv => inv.status === 'Approved' || inv.status === 'Paid'), [filteredInvoices]);
+  const rejectedInvoices = useMemo(() => filteredInvoices.filter(inv => inv.status === 'Rejected'), [filteredInvoices]);
 
   // Manager View - Card-based approval system
   if (user.role === 'manager') {
@@ -548,7 +551,7 @@ export default function InvoiceManagement({ user }) {
               <div className="border-t border-gray-200 pt-4 mb-6">
                 <div className="flex justify-between items-center">
                   <span className="text-xl font-bold text-gray-800">Total Amount:</span>
-                  <span className="text-2xl font-bold text-amber-600">₹{calculateTotal().toLocaleString()}</span>
+                  <span className="text-2xl font-bold text-amber-600">₹{formTotal.toLocaleString()}</span>
                 </div>
               </div>
 
@@ -1028,7 +1031,7 @@ export default function InvoiceManagement({ user }) {
             <div className="border-t border-gray-200 pt-4 mb-6">
               <div className="flex justify-between items-center">
                 <span className="text-xl font-bold text-gray-800">Total Amount:</span>
-                <span className="text-2xl font-bold text-amber-600">₹{calculateTotal().toLocaleString()}</span>
+                <span className="text-2xl font-bold text-amber-600">₹{formTotal.toLocaleString()}</span>
               </div>
             </div>
 

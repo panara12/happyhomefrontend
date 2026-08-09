@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Clock, CheckCircle, XCircle, Eye, Calendar } from 'lucide-react';
 
 export function LeaveRequests({ requests, onApprove, onReject, showActions = false, currentUser }) {
@@ -40,9 +40,12 @@ export function LeaveRequests({ requests, onApprove, onReject, showActions = fal
     return colors[type] || 'bg-gray-100 text-gray-800';
   };
 
-  const filteredRequests = currentUser && !showActions
-    ? requests.filter(r => r.employeeName === currentUser)
-    : requests;
+  const filteredRequests = useMemo(
+    () => (currentUser && !showActions
+      ? requests.filter(r => r.employeeName === currentUser)
+      : requests),
+    [requests, currentUser, showActions]
+  );
 
   if (filteredRequests.length === 0) {
     return (

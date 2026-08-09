@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, User, Phone, Mail, MapPin, Award, Building2, Users, ShoppingBag, Eye, Filter } from 'lucide-react';
 
 export default function ClientCards({ user }) {
@@ -114,7 +114,7 @@ export default function ClientCards({ user }) {
   const [selectedClient, setSelectedClient] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
-  const filteredClients = clients.filter(client => {
+  const filteredClients = useMemo(() => clients.filter(client => {
     const matchesSearch =
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.phone.includes(searchTerm) ||
@@ -126,7 +126,7 @@ export default function ClientCards({ user }) {
     const matchesStore = user.role === 'admin' || (user.storeId && client.store === `Store ${user.storeId}`);
 
     return matchesSearch && matchesType && matchesStore;
-  });
+  }), [clients, searchTerm, filterType, user.role, user.storeId]);
 
   const getClientTypeColor = (type) => {
     switch (type) {
@@ -162,7 +162,7 @@ export default function ClientCards({ user }) {
     }
   };
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: filteredClients.length,
     regular: clients.filter(c => c.clientType === 'Regular').length,
     corporate: clients.filter(c => c.clientType === 'Corporate').length,
@@ -171,7 +171,7 @@ export default function ClientCards({ user }) {
     wholesale: clients.filter(c => c.clientType === 'Wholesale').length,
     totalPoints: clients.reduce((sum, c) => sum + c.loyaltyPoints, 0),
     totalRevenue: clients.reduce((sum, c) => sum + c.totalPurchases, 0)
-  };
+  }), [filteredClients, clients]);
 
   return (
     <div className="space-y-6">

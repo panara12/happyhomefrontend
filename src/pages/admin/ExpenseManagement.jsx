@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, DollarSign, Search, Calendar, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -108,24 +108,44 @@ export default function ExpenseManagement({ user }) {
     }
   };
 
-  const filteredExpenses = expenses.filter(exp => {
+  const filteredExpenses = useMemo(() => expenses.filter(exp => {
     const matchesSearch = exp.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          exp.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'All' || exp.category === filterCategory;
     // Managers can only see their own store's expenses
     const matchesStore = user.role === 'admin' || (user.storeId && exp.store === `Store ${user.storeId}`);
     return matchesSearch && matchesCategory && matchesStore;
-  });
+  }), [expenses, searchTerm, filterCategory, user.role, user.storeId]);
 
   // Filter expenses for manager's store
-  const relevantExpenses = user.role === 'admin'
-    ? expenses
-    : (user.storeId ? expenses.filter(e => e.store === `Store ${user.storeId}`) : expenses);
+  const relevantExpenses = useMemo(
+    () => (user.role === 'admin'
+      ? expenses
+      : (user.storeId ? expenses.filter(e => e.store === `Store ${user.storeId}`) : expenses)),
+    [expenses, user.role, user.storeId]
+  );
 
-  const totalExpenses = relevantExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const getCategoryTotal = (category) => {
-    return relevantExpenses.filter(e => e.category === category).reduce((sum, e) => sum + e.amount, 0);
-  };
+  const totalExpenses = useMemo(
+    () => relevantExpenses.reduce((sum, exp) => sum + exp.amount, 0),
+    [relevantExpenses]
+  );
+
+  // One pass over relevantExpenses instead of one .filter()/.reduce() per
+  // category lookup — this data is read once per category in the breakdown
+  // grid plus again in the "largest category" calculation below.
+  const categoryStats = useMemo(() => {
+    const stats = {};
+    for (const exp of relevantExpenses) {
+      const entry = stats[exp.category] || { total: 0, count: 0 };
+      entry.total += exp.amount;
+      entry.count += 1;
+      stats[exp.category] = entry;
+    }
+    return stats;
+  }, [relevantExpenses]);
+
+  const getCategoryTotal = (category) => categoryStats[category]?.total || 0;
+  const getCategoryCount = (category) => categoryStats[category]?.count || 0;
 
   const getCategoryColor = (category) => {
     const colors = {
@@ -204,7 +224,7 @@ export default function ExpenseManagement({ user }) {
                   {category}
                 </span>
                 <p className="text-xl font-bold text-gray-800 mt-2">₹{total.toLocaleString()}</p>
-                <p className="text-xs text-gray-500 mt-1">{relevantExpenses.filter(e => e.category === category).length} expenses</p>
+                <p className="text-xs text-gray-500 mt-1">{getCategoryCount(category)} expenses</p>
               </div>
             );
           })}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, UserPlus, Edit2 } from 'lucide-react';
 
 export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
@@ -8,9 +8,18 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '', address: '', clientType: 'Regular' });
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
+  // Bumped whenever this component writes to the 'customers' key, so the
+  // memoized read below only re-parses localStorage when the data actually changed.
+  const [customersVersion, setCustomersVersion] = useState(0);
 
-  // Mock customer data - in production this would come from Supabase
-  const mockCustomers = JSON.parse(localStorage.getItem('customers') || '[]');
+  // Mock customer data - in production this would come from Supabase.
+  // customersVersion isn't read inside the factory — it's a deliberate
+  // cache-busting dep, bumped after this component writes to localStorage.
+  const mockCustomers = useMemo(
+    () => JSON.parse(localStorage.getItem('customers') || '[]'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [customersVersion]
+  );
 
   const generateCustomerId = () => {
     const prefix = 'HH';
@@ -51,6 +60,7 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
 
       const customers = [...mockCustomers, customer];
       localStorage.setItem('customers', JSON.stringify(customers));
+      setCustomersVersion(v => v + 1);
 
       onSelectCustomer(customer);
       setNewCustomer({ name: '', phone: '', email: '', address: '', clientType: 'Regular' });
@@ -64,6 +74,7 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
         c.id === editingCustomer.id ? editingCustomer : c
       );
       localStorage.setItem('customers', JSON.stringify(customers));
+      setCustomersVersion(v => v + 1);
 
       onSelectCustomer(editingCustomer);
       setEditingCustomer(null);
