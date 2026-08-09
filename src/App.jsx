@@ -7,7 +7,7 @@ import Unauthorized from "./pages/error/Unauthorized";
 import NotFound from "./pages/error/NotFound";
 
 import AdminRouter from "./pages/admin/AdminDashboard";
-// import ManagerDashboard from "./pages/manager/Dashboard";
+import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import StaffDashboard from "./pages/sales/SalesDashboard";
 import RoleProtectedRoute from "./routes/RoleProtectedRoute";
 import { LoggedUserContext, useLoggedUserContext } from "./context/loggedUserContext";
@@ -36,12 +36,12 @@ export default function App() {
               </Route>
 
               {/* Manager only */}
-              {/* <Route element={<RoleProtectedRoute allowedRoles={["manager"]} />}>
-                <Route path="/manager/dashboard" element={<ManagerDashboard />} />
-              </Route> */}
+              <Route element={<RoleProtectedRoute allowedRoles={["manager"]} />}>
+                <Route path="/manager/*" element={<ManagerDashboard />} />
+              </Route>
 
               {/* Staff, and also accessible to admin/manager */}
-              <Route element={<RoleProtectedRoute allowedRoles={["staff", "manager", "admin"]} />}>
+              <Route element={<RoleProtectedRoute allowedRoles={["sales",]} />}>
                 <Route path="/sales/dashboard" element={<StaffDashboard />} />
               </Route>
             
