@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Calendar, TrendingUp, TrendingDown, DollarSign, Download } from 'lucide-react';
+import { Calendar, TrendingUp, DollarSign, Download } from 'lucide-react';
 
-export default function ProfitLoss({ user }) {
+export default function ProfitLoss() {
   const [selectedMonth, setSelectedMonth] = useState('2026-04');
   const [viewType, setViewType] = useState('monthly');
 

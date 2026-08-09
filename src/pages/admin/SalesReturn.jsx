@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Plus, RotateCcw, Search, Calendar } from 'lucide-react';
+import { Plus, RotateCcw, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function SalesReturn({ user }) {
+export default function SalesReturn() {
   const [returns, setReturns] = useState([
     {
       id: 'SR-001',

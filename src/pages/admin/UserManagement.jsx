@@ -1,23 +1,17 @@
-import { useEffect, useState } from 'react';
-import { Plus, Edit2, Shield, Users, Search, Calendar, CheckCircle, XCircle, Clock, DollarSign, Eye, Computer, PersonStanding, PersonStandingIcon, Delete, Edit, DeleteIcon, Trash, Undo2 } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Shield, Users, Search, Calendar, CheckCircle, XCircle, DollarSign, Eye, Computer, Edit, Trash, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { activeUser, addUser, deleteUser, updateUser, useGetAllUsers } from '../../hooks/useUser';
+import { useActiveUser, useAddUser, useDeleteUser, useUpdateUser, useGetAllUsers } from '../../hooks/useUser';
 import { useStoreContext } from '../../context/storeContext';
 
 export default function UserManagement({ user }) {
   const [activeTab, setActiveTab] = useState('team');
-  const {stores, managers} = useStoreContext()
-  console.log("stores",stores)
-  const [users, setUsers] = useState([]);
-  const {data:userlist, isLoading, isError, error} = useGetAllUsers()
-  console.log(userlist);
-  useEffect(()=>{
-    if(!isLoading){
-      setUsers(userlist?.data.data)
-    }
-  })
-  console.log("userlsit",users)
-  
+  const {stores} = useStoreContext()
+  const {data:userlist} = useGetAllUsers()
+  // Derive directly from the query — no useEffect/local-state mirroring,
+  // and this defaults to [] so nothing downstream ever sees `undefined`.
+  const users = userlist?.data ?? [];
+
 
 
   const [leaveApplications, setLeaveApplications] = useState([
@@ -98,10 +92,10 @@ export default function UserManagement({ user }) {
       store: 'Store 1'
     },
   ]);
-  const addUserMutation = addUser();
-  const updateUserMutation = updateUser();
-  const deleteUserMutation = deleteUser(); 
-  const activeUserMutation = activeUser();
+  const addUserMutation = useAddUser();
+  const updateUserMutation = useUpdateUser();
+  const deleteUserMutation = useDeleteUser();
+  const activeUserMutation = useActiveUser();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showActiveUserModal, setShowActiveUserModal]  = useState(false);
@@ -124,11 +118,6 @@ export default function UserManagement({ user }) {
   const handleAddUser = (e) => {
     e.preventDefault();
     if (formData.fullName && formData.username && formData.email) {
-      setUsers([...users, {
-        id: users.length + 1,
-        ...formData,
-        status: 'Active'
-      }]);
       addUserMutation.mutate(formData);
       setFormData({ fullName: '', username: '', email: '', userType: '',mobile: "", storeId: "", password: '' });
       setShowAddModal(false);
@@ -259,7 +248,7 @@ export default function UserManagement({ user }) {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
           <p className="text-sm text-gray-600">Sales Team</p>
-          <p className="text-2xl font-bold text-gray-800 mt-1">{userlist?.data.totalUsers}</p>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{userlist?.totalUsers}</p>
         </div>
         <div className="bg-yellow-50 rounded-lg shadow p-4 border-l-4 border-yellow-500">
           <p className="text-sm text-yellow-700">Pending Leaves</p>

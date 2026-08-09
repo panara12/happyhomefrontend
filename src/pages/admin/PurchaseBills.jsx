@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Plus, FileText, Search, Download, Eye, Calendar } from 'lucide-react';
+import { Plus, Search, Download, Eye, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function PurchaseBills({ user }) {
+export default function PurchaseBills() {
   const [bills, setBills] = useState([
     {
       id: 'PB-001',

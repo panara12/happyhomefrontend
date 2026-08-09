@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Eye, Send, Download, Search, Calendar, Edit2, CheckCircle, XCircle, Printer, Trash2, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
+import logoImg from '../../assets/logo.jpg';
 
 export default function InvoiceManagement({ user }) {
   const [invoices, setInvoices] = useState([
@@ -689,7 +690,7 @@ export default function InvoiceManagement({ user }) {
             <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-8 max-h-[90vh] overflow-y-auto">
               <div className="text-center mb-6">
                 <img
-                  src="/src/imports/475883765_1412800516794054_7992306912571437520_n-1.jpg"
+                  src={logoImg}
                   alt="Happy Home"
                   className="w-24 h-24 mx-auto mb-4"
                 />
@@ -1054,7 +1055,7 @@ export default function InvoiceManagement({ user }) {
           <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-8 max-h-[90vh] overflow-y-auto">
             <div className="text-center mb-6">
               <img
-                src="/src/imports/475883765_1412800516794054_7992306912571437520_n-1.jpg"
+                src={logoImg}
                 alt="Happy Home"
                 className="w-24 h-24 mx-auto mb-4"
               />

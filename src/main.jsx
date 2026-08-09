@@ -8,9 +8,11 @@ import {store} from './store/index.js'
 const queryClient = new QueryClient();
 
 createRoot(document.getElementById('root')).render(
-  <Provider store={store}>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </Provider>,
+  <StrictMode>
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </Provider>
+  </StrictMode>,
 )

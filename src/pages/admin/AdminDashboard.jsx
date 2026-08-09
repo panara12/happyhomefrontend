@@ -1,5 +1,4 @@
 // src/routes/admin/admin_router.jsx
-import React from "react"
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, Store, Package, FileText, Users,
@@ -25,6 +24,7 @@ import { useSelector } from "react-redux"
 import { useLogout } from "../../hooks/useAuth"
 import { StoreContext, useStoreContext } from "../../context/storeContext"
 import { useLoggedUserContext } from "../../context/loggedUserContext"
+import logoImg from "../../assets/logo.jpg"
 
 const navigationItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
@@ -56,7 +56,7 @@ function LayoutWrapper({ children, user }) {
   return (
     <Layout
       title="Happy Home"
-      logoSrc="/src/imports/475883765_1412800516794054_7992306912571437520_n-1.jpg"
+      logoSrc={logoImg}
       items={navigationItems}
       activeId={activeItem.id}
       onSelect={handleSelect}

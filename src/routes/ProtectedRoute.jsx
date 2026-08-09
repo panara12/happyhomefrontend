@@ -6,16 +6,19 @@ import { useDispatch } from "react-redux"
 import { setUserInfo } from "../store/slice/appSlice"
 
 export default function ProtectedRoute() {
-  const { data, isLoading, isError } = useGetLoggedUser()
+  const { data, isPending, isError, isFetching } = useGetLoggedUser()
   const dispatch = useDispatch()
 
   useEffect(() => {
-    if (data?.data?.user) {
-      dispatch(setUserInfo(data.data.user))
+    if (data?.user) {
+      dispatch(setUserInfo(data.user))
     }
   }, [data, dispatch])
 
-  if (isLoading) return <div>Loading...</div>
+  // isPending covers first load; isFetching+isError covers reset after login
+  if (isPending || (isFetching && isError)) {
+    return <div>Loading...</div>
+  }
 
   if (isError) return <Navigate to="/login" replace />
 

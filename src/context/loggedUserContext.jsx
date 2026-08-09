@@ -10,7 +10,7 @@ export const useLoggedUserContext = () =>{
             isError: isLoggedUserError,
             error: loggedUserError,
         } = useGetLoggedUser();
-    const loggedUser = loggedUserResponse?.data?.user ?? [];
+    const loggedUser = loggedUserResponse?.user ?? [];
 
     return { loggedUser, loggedUserLoading, isLoggedUserError, loggedUserError }
 }

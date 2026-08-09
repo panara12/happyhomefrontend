@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FileText, Send, Plus, Calendar, UserCheck, LogOut } from 'lucide-react';
 import { CustomerSearch } from './CustomerSearch';
 import { ItemSearch } from './ItemSearch';
@@ -8,27 +8,23 @@ import { LeaveApplication } from './LeaveApplication';
 import { LeaveRequests } from './LeaveRequests';
 import logoImg from "../../assets/logo.jpg";
 import { useSelector } from 'react-redux';
+import { useLogout } from '../../hooks/useAuth';
 
 export default function SalesmanDashboard() {
   const user = useSelector((state) => state.app.userInfo);
+  const { mutate: logout } = useLogout();
 
   const [activeTab, setActiveTab] = useState('create');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [invoiceItems, setInvoiceItems] = useState([]);
-  const [invoices, setInvoices] = useState([]);
-  const [leaveRequests, setLeaveRequests] = useState([]);
-
-  useEffect(() => {
-    const storedInvoices = localStorage.getItem('invoices');
-    if (storedInvoices) {
-      setInvoices(JSON.parse(storedInvoices));
-    }
-
-    const storedLeaveRequests = localStorage.getItem('leaveRequests');
-    if (storedLeaveRequests) {
-      setLeaveRequests(JSON.parse(storedLeaveRequests));
-    }
-  }, []);
+  const [invoices, setInvoices] = useState(() => {
+    const stored = localStorage.getItem('invoices');
+    return stored ? JSON.parse(stored) : [];
+  });
+  const [leaveRequests, setLeaveRequests] = useState(() => {
+    const stored = localStorage.getItem('leaveRequests');
+    return stored ? JSON.parse(stored) : [];
+  });
 
   const generateInvoiceNumber = () => {
     const prefix = 'INV';
@@ -53,8 +49,7 @@ export default function SalesmanDashboard() {
   };
 
   const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('currentUser');
+    logout();
     setActiveTab('create');
   };
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Search, ArrowLeftRight, Eye, Package, CheckCircle, XCircle, Clock } from 'lucide-react';
 
-export default function ViewTransfers({ user }) {
+export default function ViewTransfers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedTransfer, setSelectedTransfer] = useState(null);

@@ -1,50 +1,52 @@
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import authApiService from "../apiServices/authApi";
+import { useQueryClient } from "@tanstack/react-query";
+import { useApiMutation } from "./useApiMutation";
+import { useApiQuery } from "./useApiQuery";
 import { setUserInfo } from "../store/slice/appSlice";
+import http from "../apiServices/http.service";
 
+const CURRENT_USER_QUERY_KEY = ["currentUser"];
 
+// Signs the user in, then redirects to their role's dashboard
 export function useLogin() {
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    return useMutation({
-        mutationFn: authApiService.login,
-        onSuccess: (res)=>{
-            dispatch(setUserInfo(res.data.user));
-            navigate(`/${res.data.user.userType}/dashboard`)
+    return useApiMutation({
+        url: "/auth/login",
+        method: "post",
+        onSuccess: async (data) => {
+            dispatch(setUserInfo(data.user));
+            // Clear any cached failed /auth/me so ProtectedRoute does not bounce back to login
+            await queryClient.resetQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+            navigate(`/${data.user.userType}/dashboard`, { replace: true });
         },
-        onError: (err)=>{
-            console.log(err)
-            navigate('/login');
-        }
-
-    })
-
+    });
 }
 
-export function useGetLoggedUser(){
-    return useQuery({
-        queryKey:['currentUser'],
-        queryFn:()=>authApiService.getMe(),
-    })
+export function useGetLoggedUser() {
+    return useApiQuery({
+        queryKey: CURRENT_USER_QUERY_KEY,
+        path: "/auth/me",
+        retry: false,
+    });
 }
 
-export function useLogout(){
+export function useLogout() {
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    return useMutation({
-        mutationFn: authApiService.logout,
-        onSuccess: (res)=>{
+    return useApiMutation({
+        // Backend logs out on a GET, not a real REST mutation verb — bypass url/method.
+        mutationFn: () => http.get("/auth/logout"),
+        showErrorToast: false,
+        onSettled: async () => {
             dispatch(setUserInfo(null));
-            navigate(`/login`)
+            await queryClient.resetQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+            navigate("/login", { replace: true });
         },
-        onError: (err)=>{
-            console.log(err)
-            navigate('/login');
-        }
-
-    })
+    });
 }

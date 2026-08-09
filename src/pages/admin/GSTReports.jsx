@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileText, Download, Calendar, TrendingUp, TrendingDown } from 'lucide-react';
 
-export default function GSTReports({ user }) {
+export default function GSTReports() {
   const [selectedMonth, setSelectedMonth] = useState('2026-04');
   const [activeReport, setActiveReport] = useState('gstr1');
 

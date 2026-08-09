@@ -44,7 +44,7 @@ export default function StoreManagement() {
         }
     };
 
-    const handleDeleteStore = (id) => {
+    const handleDeleteStore = () => {
         // Still local-only — wire up a useDeleteStore mutation the same way
         // as useAddStore once that backend route exists.
         if (confirm('Are you sure you want to delete this store?')) {

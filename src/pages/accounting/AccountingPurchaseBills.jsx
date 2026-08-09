@@ -1,21 +1,15 @@
-import { useEffect, useState } from 'react';
-import { Plus, FileText, Search, Download, Eye, Calendar, CheckCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Search, Download, Eye, Calendar, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 
-export default function AccountingPurchaseBills({ user }) {
-  const {stores, managers} = useStoreContext()
-  const [stockGroup, setStockGroup] = useState([]);
-  const {data:stockGroupData, isLoading} = useGetAllStockGroup()
-  console.log("stores",stores)
-  console.log("stock group",useGetAllStockGroup())
-  useEffect(()=>{
-    if(!isLoading){
-      setStockGroup(stockGroupData?.data?.data)
-    }
-  })
-  console.log("stock group",stockGroup)
+export default function AccountingPurchaseBills() {
+  const {stores} = useStoreContext()
+  const {data:stockGroupData} = useGetAllStockGroup()
+  // Derive directly from the query — no useEffect/local-state mirroring,
+  // and this defaults to [] so nothing downstream ever sees `undefined`.
+  const stockGroup = stockGroupData?.data ?? [];
   const [bills, setBills] = useState([
     {
       id: 'PB-001',

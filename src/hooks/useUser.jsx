@@ -1,47 +1,43 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import userApiService from "../apiServices/userApi";
+import { useApiMutation } from "./useApiMutation";
+import { useApiQuery } from "./useApiQuery";
 
-export function useGetAllUsers(){
-    return useQuery({
-        queryKey:['getAllUsers'],
-        queryFn: ()=> userApiService.getAllUsers(),
-    })
-}
+const USERS_QUERY_KEY = ["getAllUsers"];
 
-export function useGetAllUsersStoreWise(payload){
-    const {data, isLoading, isError, error} = useQuery('getAllUsersStoreWise', () => userApiService.getAllUsersStoreWise(payload));
-    console.log(data);
-    return {data, isLoading, isError, error};
-}
-
-export function addUser(){
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: userApiService.addUser,
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['getAllUsers'] }),
+export function useGetAllUsers() {
+    return useApiQuery({
+        queryKey: USERS_QUERY_KEY,
+        path: "/users/getallusers",
     });
 }
 
-export function updateUser(){
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: userApiService.updateUser,
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['getAllUsers'] }),
+export function useAddUser() {
+    return useApiMutation({
+        url: "/users/adduser",
+        method: "post",
+        invalidateKeys: [USERS_QUERY_KEY],
     });
 }
 
-export function deleteUser(){
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: userApiService.deleteUser,
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['getAllUsers'] }),
-    })
+export function useUpdateUser() {
+    return useApiMutation({
+        url: "/users/updateuser",
+        method: "post",
+        invalidateKeys: [USERS_QUERY_KEY],
+    });
 }
 
-export function activeUser(){
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: userApiService.activeUser,
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['getAllUsers'] }),
+export function useDeleteUser() {
+    return useApiMutation({
+        url: "/users/deleteuser",
+        method: "delete",
+        invalidateKeys: [USERS_QUERY_KEY],
+    });
+}
+
+export function useActiveUser() {
+    return useApiMutation({
+        url: "/users/activeuser",
+        method: "post",
+        invalidateKeys: [USERS_QUERY_KEY],
     });
 }

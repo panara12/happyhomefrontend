@@ -120,14 +120,14 @@ export default function InventoryManagement({ user }) {
   };
 
   const handlePrintBarcodes = () => {
-    const selectedProducts = Object.entries(barcodeQuantities).filter(([_, qty]) => qty > 0);
+    const selectedProducts = Object.entries(barcodeQuantities).filter(([, qty]) => qty > 0);
 
     if (selectedProducts.length === 0) {
       toast.error('Please select at least one product to print');
       return;
     }
 
-    const totalStickers = selectedProducts.reduce((sum, [_, qty]) => sum + qty, 0);
+    const totalStickers = selectedProducts.reduce((sum, [, qty]) => sum + qty, 0);
     toast.success(`Printing ${totalStickers} barcode sticker(s) for ${selectedProducts.length} product(s)...`);
 
     // Trigger browser print
