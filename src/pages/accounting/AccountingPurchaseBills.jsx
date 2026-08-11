@@ -1,21 +1,15 @@
-import { useEffect, useState } from 'react';
-import { Plus, FileText, Search, Download, Eye, Calendar, CheckCircle } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { Plus, Search, Download, Eye, Calendar, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 
-export default function AccountingPurchaseBills({ user }) {
-  const {stores, managers} = useStoreContext()
-  const [stockGroup, setStockGroup] = useState([]);
-  const {data:stockGroupData, isLoading} = useGetAllStockGroup()
-  console.log("stores",stores)
-  console.log("stock group",useGetAllStockGroup())
-  useEffect(()=>{
-    if(!isLoading){
-      setStockGroup(stockGroupData?.data?.data)
-    }
-  })
-  console.log("stock group",stockGroup)
+export default function AccountingPurchaseBills() {
+  const {stores} = useStoreContext()
+  const {data:stockGroupData} = useGetAllStockGroup()
+  // Derive directly from the query — no useEffect/local-state mirroring,
+  // and this defaults to [] so nothing downstream ever sees `undefined`.
+  const stockGroup = stockGroupData?.data ?? [];
   const [bills, setBills] = useState([
     {
       id: 'PB-001',
@@ -86,7 +80,7 @@ export default function AccountingPurchaseBills({ user }) {
     setFormData({ ...formData, items: newItems });
   };
 
-  const calculateBillTotal = () => {
+  const calculateBillTotal = useCallback(() => {
     let subtotal = 0;
     let totalCGST = 0;
     let totalSGST = 0;
@@ -105,7 +99,10 @@ export default function AccountingPurchaseBills({ user }) {
       sgst: totalSGST,
       total: subtotal + totalCGST + totalSGST
     };
-  };
+  }, [formData.items]);
+
+  // Recomputed once per render instead of once per each of the 3 JSX reads below
+  const billFormTotals = useMemo(() => calculateBillTotal(), [calculateBillTotal]);
 
   const handleCreateBill = () => {
     if (formData.supplier && formData.billNumber && formData.items.length > 0) {
@@ -164,11 +161,11 @@ export default function AccountingPurchaseBills({ user }) {
     }
   };
 
-  const filteredBills = bills.filter(bill =>
+  const filteredBills = useMemo(() => bills.filter(bill =>
     bill.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bill.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [bills, searchTerm]);
 
   return (
     <div className="space-y-6">
@@ -513,15 +510,15 @@ export default function AccountingPurchaseBills({ user }) {
             <div className="border-t border-gray-200 pt-4 mb-6">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-700">Taxable Value:</span>
-                <span className="font-bold text-gray-800">₹{calculateBillTotal().subtotal.toLocaleString()}</span>
+                <span className="font-bold text-gray-800">₹{billFormTotals.subtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-700">CGST + SGST:</span>
-                <span className="font-medium text-gray-800">₹{(calculateBillTotal().cgst + calculateBillTotal().sgst).toLocaleString()}</span>
+                <span className="font-medium text-gray-800">₹{(billFormTotals.cgst + billFormTotals.sgst).toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                 <span className="text-xl font-bold text-gray-800">Total Amount:</span>
-                <span className="text-2xl font-bold text-indigo-600">₹{calculateBillTotal().total.toLocaleString()}</span>
+                <span className="text-2xl font-bold text-indigo-600">₹{billFormTotals.total.toLocaleString()}</span>
               </div>
             </div>
 

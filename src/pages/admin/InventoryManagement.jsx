@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, Edit2, Trash2, Package, Search, Filter, TrendingDown, Printer, Barcode, CheckCircle, Minus } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -120,36 +120,35 @@ export default function InventoryManagement({ user }) {
   };
 
   const handlePrintBarcodes = () => {
-    const selectedProducts = Object.entries(barcodeQuantities).filter(([_, qty]) => qty > 0);
+    const selectedProducts = Object.entries(barcodeQuantities).filter(([, qty]) => qty > 0);
 
     if (selectedProducts.length === 0) {
       toast.error('Please select at least one product to print');
       return;
     }
 
-    const totalStickers = selectedProducts.reduce((sum, [_, qty]) => sum + qty, 0);
+    const totalStickers = selectedProducts.reduce((sum, [, qty]) => sum + qty, 0);
     toast.success(`Printing ${totalStickers} barcode sticker(s) for ${selectedProducts.length} product(s)...`);
 
     // Trigger browser print
     window.print();
   };
 
-  const getTotalSelectedStickers = () => {
-    return Object.values(barcodeQuantities).reduce((sum, qty) => sum + qty, 0);
-  };
+  const totalSelectedStickers = useMemo(
+    () => Object.values(barcodeQuantities).reduce((sum, qty) => sum + qty, 0),
+    [barcodeQuantities]
+  );
 
-  const filteredInventory = inventory.filter(item => {
+  // Managers can now see full master inventory
+  const displayInventory = useMemo(() => inventory.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.sku.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
     return matchesSearch && matchesCategory;
-  });
-
-  // Managers can now see full master inventory
-  const displayInventory = filteredInventory;
+  }), [inventory, searchTerm, filterCategory]);
 
   // Check low stock items
-  const lowStockItems = inventory.filter(item => item.totalStock < item.minStock);
+  const lowStockItems = useMemo(() => inventory.filter(item => item.totalStock < item.minStock), [inventory]);
 
   return (
     <div className="space-y-6">
@@ -481,14 +480,14 @@ export default function InventoryManagement({ user }) {
                     </div>
                     <div>
                       <p className="text-sm text-purple-700">Total Stickers Selected</p>
-                      <p className="text-3xl font-bold text-purple-900">{getTotalSelectedStickers()}</p>
+                      <p className="text-3xl font-bold text-purple-900">{totalSelectedStickers}</p>
                     </div>
                   </div>
                   <button
                     onClick={handlePrintBarcodes}
-                    disabled={getTotalSelectedStickers() === 0}
+                    disabled={totalSelectedStickers === 0}
                     className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                      getTotalSelectedStickers() > 0
+                      totalSelectedStickers > 0
                         ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
@@ -628,15 +627,15 @@ export default function InventoryManagement({ user }) {
                   </button>
                   <button
                     onClick={handlePrintBarcodes}
-                    disabled={getTotalSelectedStickers() === 0}
+                    disabled={totalSelectedStickers === 0}
                     className={`flex items-center gap-2 px-8 py-3 rounded-lg font-medium transition-all ${
-                      getTotalSelectedStickers() > 0
+                      totalSelectedStickers > 0
                         ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-lg'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                   >
                     <Printer size={20} />
-                    Print {getTotalSelectedStickers()} Sticker{getTotalSelectedStickers() !== 1 ? 's' : ''}
+                    Print {totalSelectedStickers} Sticker{totalSelectedStickers !== 1 ? 's' : ''}
                   </button>
                 </div>
               </div>

@@ -1,5 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, Barcode, Plus } from 'lucide-react';
+
+const DEFAULT_INVENTORY = [
+  { id: '1', code: 'HH001', name: 'Ceiling Fan 52"', barcode: '1234567890123', price: 2500, category: 'Fans', stock: 45 },
+  { id: '2', code: 'HH002', name: 'LED Bulb 9W', barcode: '1234567890124', price: 150, category: 'Lighting', stock: 200 },
+  { id: '3', code: 'HH003', name: 'Wall Socket 3-Pin', barcode: '1234567890125', price: 85, category: 'Electrical', stock: 150 },
+  { id: '4', code: 'HH004', name: 'Extension Cord 5m', barcode: '1234567890126', price: 450, category: 'Electrical', stock: 80 },
+  { id: '5', code: 'HH005', name: 'Table Lamp Modern', barcode: '1234567890127', price: 1200, category: 'Lighting', stock: 30 },
+  { id: '6', code: 'HH006', name: 'Door Lock Set', barcode: '1234567890128', price: 1800, category: 'Hardware', stock: 25 },
+  { id: '7', code: 'HH007', name: 'Paint Brush 2"', barcode: '1234567890129', price: 120, category: 'Tools', stock: 100 },
+  { id: '8', code: 'HH008', name: 'PVC Pipe 1" (6ft)', barcode: '1234567890130', price: 280, category: 'Plumbing', stock: 60 },
+  { id: '9', code: 'HH009', name: 'Cement Bag 50kg', barcode: '1234567890131', price: 420, category: 'Construction', stock: 120 },
+  { id: '10', code: 'HH010', name: 'Hammer Claw 16oz', barcode: '1234567890132', price: 350, category: 'Tools', stock: 40 }
+];
 
 export function ItemSearch({ onAddItem }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -10,19 +23,13 @@ export function ItemSearch({ onAddItem }) {
   const [customPrice, setCustomPrice] = useState('');
   const [showListPrice, setShowListPrice] = useState(false);
 
-  // Mock inventory - in production this would come from Supabase
-  const mockInventory = JSON.parse(localStorage.getItem('inventory') || JSON.stringify([
-    { id: '1', code: 'HH001', name: 'Ceiling Fan 52"', barcode: '1234567890123', price: 2500, category: 'Fans', stock: 45 },
-    { id: '2', code: 'HH002', name: 'LED Bulb 9W', barcode: '1234567890124', price: 150, category: 'Lighting', stock: 200 },
-    { id: '3', code: 'HH003', name: 'Wall Socket 3-Pin', barcode: '1234567890125', price: 85, category: 'Electrical', stock: 150 },
-    { id: '4', code: 'HH004', name: 'Extension Cord 5m', barcode: '1234567890126', price: 450, category: 'Electrical', stock: 80 },
-    { id: '5', code: 'HH005', name: 'Table Lamp Modern', barcode: '1234567890127', price: 1200, category: 'Lighting', stock: 30 },
-    { id: '6', code: 'HH006', name: 'Door Lock Set', barcode: '1234567890128', price: 1800, category: 'Hardware', stock: 25 },
-    { id: '7', code: 'HH007', name: 'Paint Brush 2"', barcode: '1234567890129', price: 120, category: 'Tools', stock: 100 },
-    { id: '8', code: 'HH008', name: 'PVC Pipe 1" (6ft)', barcode: '1234567890130', price: 280, category: 'Plumbing', stock: 60 },
-    { id: '9', code: 'HH009', name: 'Cement Bag 50kg', barcode: '1234567890131', price: 420, category: 'Construction', stock: 120 },
-    { id: '10', code: 'HH010', name: 'Hammer Claw 16oz', barcode: '1234567890132', price: 350, category: 'Tools', stock: 40 }
-  ]));
+  // Mock inventory - in production this would come from Supabase.
+  // Read once per mount: nothing in this component writes the 'inventory'
+  // key afterwards, so re-parsing it on every render would be pure waste.
+  const mockInventory = useMemo(
+    () => JSON.parse(localStorage.getItem('inventory') || JSON.stringify(DEFAULT_INVENTORY)),
+    []
+  );
 
   useState(() => {
     if (!localStorage.getItem('inventory')) {

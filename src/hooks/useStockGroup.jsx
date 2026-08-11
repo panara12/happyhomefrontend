@@ -1,9 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import stockGroupApiService from "../apiServices/useStockGroupApi";
+import { useApiQuery } from "./useApiQuery";
 
 export function useGetAllStockGroup() {
-    return useQuery({
-        queryKey: ['stockGroup'],
-        queryFn: ()=>stockGroupApiService.getAllStockGroup(),
+    return useApiQuery({
+        queryKey: ["stockGroup"],
+        path: "/stockgroup/getallstockgroup",
     });
 }

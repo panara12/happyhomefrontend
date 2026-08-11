@@ -1,26 +1,27 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import storeApiService from "../apiServices/storeApi";
+import { useApiMutation } from "./useApiMutation";
+import { useApiQuery } from "./useApiQuery";
+
+const STORES_QUERY_KEY = ["stores"];
 
 export function useGetAllStores() {
-    return useQuery({
-        queryKey: ['stores'],
-        queryFn: storeApiService.getAllStores,
+    return useApiQuery({
+        queryKey: STORES_QUERY_KEY,
+        path: "/stores/getAllStores",
     });
 }
 
- 
 export function useAddStore() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: storeApiService.addStore,
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stores'] }),
+    return useApiMutation({
+        url: "/stores/addstore",
+        method: "post",
+        invalidateKeys: [STORES_QUERY_KEY],
     });
 }
- 
+
 export function useUpdateStore() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: storeApiService.updateStore,
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stores'] }),
+    return useApiMutation({
+        url: "/stores/updatestore",
+        method: "post",
+        invalidateKeys: [STORES_QUERY_KEY],
     });
 }

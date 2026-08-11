@@ -1,5 +1,4 @@
 // src/routes/manager/manager_router.jsx
-import React from "react"
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, Package, FileText, Users,
@@ -19,6 +18,7 @@ import ExpenseManagement from "../admin/ExpenseManagement"
 
 import { useSelector } from "react-redux"
 import { useLogout } from "../../hooks/useAuth"
+import logoImg from "../../assets/logo.jpg"
 
 // Amber theme — same as admin, so no `theme` prop needed (Layout defaults to this)
 const navigationItems = [
@@ -48,7 +48,7 @@ function LayoutWrapper({ children, user }) {
     <Layout
       title="Happy Home"
       subtitle="Manager Panel"
-      logoSrc="/src/imports/475883765_1412800516794054_7992306912571437520_n-1.jpg"
+      logoSrc={logoImg}
       items={navigationItems}
       activeId={activeItem.id}
       onSelect={handleSelect}

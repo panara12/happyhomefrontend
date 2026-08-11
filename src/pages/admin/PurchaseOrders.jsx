@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Plus, CheckCircle, Clock, XCircle, Search, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -92,9 +92,12 @@ export default function PurchaseOrders({ user }) {
     setFormData({ ...formData, items: newItems });
   };
 
-  const calculateTotal = () => {
+  const calculateTotal = useCallback(() => {
     return formData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  };
+  }, [formData.items]);
+
+  // Recomputed once per render instead of once per each JSX read below
+  const formTotal = useMemo(() => calculateTotal(), [calculateTotal]);
 
   const handleCreatePO = () => {
     if (formData.supplier && formData.expectedDate && formData.items.length > 0) {
@@ -132,13 +135,19 @@ export default function PurchaseOrders({ user }) {
     }
   };
 
-  const filteredOrders = orders.filter(o => {
+  const filteredOrders = useMemo(() => orders.filter(o => {
     const matchesSearch = o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          o.supplier.toLowerCase().includes(searchTerm.toLowerCase());
     // Managers can only see their own store's POs
     const matchesStore = user.role === 'admin' || (user.storeId && o.store === `Store ${user.storeId}`);
     return matchesSearch && matchesStore;
-  });
+  }), [orders, searchTerm, user.role, user.storeId]);
+
+  const orderStats = useMemo(() => ({
+    pending: orders.filter(o => o.status === 'Pending').length,
+    approved: orders.filter(o => o.status === 'Approved').length,
+    received: orders.filter(o => o.status === 'Received').length,
+  }), [orders]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -179,15 +188,15 @@ export default function PurchaseOrders({ user }) {
         </div>
         <div className="bg-orange-50 rounded-lg shadow p-4 border border-orange-200">
           <p className="text-orange-600 text-sm">Pending</p>
-          <p className="text-2xl font-bold text-orange-600 mt-1">{orders.filter(o => o.status === 'Pending').length}</p>
+          <p className="text-2xl font-bold text-orange-600 mt-1">{orderStats.pending}</p>
         </div>
         <div className="bg-blue-50 rounded-lg shadow p-4 border border-blue-200">
           <p className="text-blue-600 text-sm">Approved</p>
-          <p className="text-2xl font-bold text-blue-600 mt-1">{orders.filter(o => o.status === 'Approved').length}</p>
+          <p className="text-2xl font-bold text-blue-600 mt-1">{orderStats.approved}</p>
         </div>
         <div className="bg-green-50 rounded-lg shadow p-4 border border-green-200">
           <p className="text-green-600 text-sm">Received</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{orders.filter(o => o.status === 'Received').length}</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">{orderStats.received}</p>
         </div>
       </div>
 
@@ -419,7 +428,7 @@ export default function PurchaseOrders({ user }) {
             <div className="border-t border-gray-200 pt-4 mb-6">
               <div className="flex justify-between items-center">
                 <span className="text-xl font-bold text-gray-800">Total Amount:</span>
-                <span className="text-2xl font-bold text-amber-600">₹{calculateTotal().toLocaleString()}</span>
+                <span className="text-2xl font-bold text-amber-600">₹{formTotal.toLocaleString()}</span>
               </div>
             </div>
 

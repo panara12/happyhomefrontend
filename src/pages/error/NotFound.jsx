@@ -1,4 +1,3 @@
-import React from 'react'
 import { ArrowLeft, LogIn } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 
@@ -12,7 +11,7 @@ const colors = {
   accentSoftLine: "#F7CFA0",
 };
 
-export default function NotFound({ onSignIn, onGoBack }) {
+export default function NotFound({ onGoBack }) {
   const navigate = useNavigate();
   const handleGoBack = onGoBack || (() => window.history.back());
   const handleSignIn = () => {

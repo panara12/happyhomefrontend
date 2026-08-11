@@ -1,5 +1,4 @@
 import { TrendingUp, TrendingDown, Package, FileText, Store, Users, DollarSign, ShoppingCart, Receipt, RotateCcw, BarChart3 } from 'lucide-react';
-import { useSelector } from 'react-redux';
 import { useLoggedUserContext } from '../../context/loggedUserContext';
 
 export default function DashboardHome() {

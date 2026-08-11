@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Plus, RotateCcw, Search, Calendar } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, RotateCcw, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function SalesReturn({ user }) {
+export default function SalesReturn() {
   const [returns, setReturns] = useState([
     {
       id: 'SR-001',
@@ -106,11 +106,17 @@ export default function SalesReturn({ user }) {
     toast.error('Return rejected!');
   };
 
-  const filteredReturns = returns.filter(ret =>
+  const filteredReturns = useMemo(() => returns.filter(ret =>
     ret.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ret.originalInvoice.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ret.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [returns, searchTerm]);
+
+  const returnStats = useMemo(() => ({
+    pending: returns.filter(r => r.status === 'Pending').length,
+    approved: returns.filter(r => r.status === 'Approved').length,
+    totalRefund: returns.filter(r => r.status === 'Approved').reduce((sum, r) => sum + r.total, 0),
+  }), [returns]);
 
   return (
     <div className="space-y-6">
@@ -136,15 +142,15 @@ export default function SalesReturn({ user }) {
         </div>
         <div className="bg-orange-50 rounded-lg shadow p-4 border border-orange-200">
           <p className="text-orange-600 text-sm">Pending</p>
-          <p className="text-2xl font-bold text-orange-600 mt-1">{returns.filter(r => r.status === 'Pending').length}</p>
+          <p className="text-2xl font-bold text-orange-600 mt-1">{returnStats.pending}</p>
         </div>
         <div className="bg-green-50 rounded-lg shadow p-4 border border-green-200">
           <p className="text-green-600 text-sm">Approved</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{returns.filter(r => r.status === 'Approved').length}</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">{returnStats.approved}</p>
         </div>
         <div className="bg-red-50 rounded-lg shadow p-4 border border-red-200">
           <p className="text-red-600 text-sm">Total Refund Amount</p>
-          <p className="text-2xl font-bold text-red-600 mt-1">₹{returns.filter(r => r.status === 'Approved').reduce((sum, r) => sum + r.total, 0).toLocaleString()}</p>
+          <p className="text-2xl font-bold text-red-600 mt-1">₹{returnStats.totalRefund.toLocaleString()}</p>
         </div>
       </div>
 

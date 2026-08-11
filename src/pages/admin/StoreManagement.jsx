@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Plus, Edit2, Trash2, MapPin, Phone, User, Search } from 'lucide-react';
 import { useGetAllStores, useAddStore } from '../../hooks/useStore';
 import {useSelector} from 'react-redux';
+
+// Stable reference so the `?? EMPTY_ARRAY` fallback below doesn't hand
+// useMemo/useCallback a new array (and therefore a new dep) every render.
+const EMPTY_ARRAY = [];
 
 export default function StoreManagement() {
     const user = useSelector((state) => state.app.userInfo); // Assuming you have a Redux store with auth slice
@@ -18,8 +22,8 @@ export default function StoreManagement() {
 
     // Derive directly from the query — no useEffect/local-state mirroring,
     // and this defaults to [] so nothing downstream ever sees `undefined`.
-    const stores = storeResponse?.stores ?? [];
-    const managers = storeResponse?.managers ?? [];
+    const stores = storeResponse?.stores ?? EMPTY_ARRAY;
+    const managers = storeResponse?.managers ?? EMPTY_ARRAY;
     console.log('Stores fetched:', stores);
 
     const [showAddModal, setShowAddModal] = useState(false);
@@ -44,13 +48,28 @@ export default function StoreManagement() {
         }
     };
 
-    const handleDeleteStore = (id) => {
+    const handleDeleteStore = () => {
         // Still local-only — wire up a useDeleteStore mutation the same way
         // as useAddStore once that backend route exists.
         if (confirm('Are you sure you want to delete this store?')) {
             console.warn('Delete is not yet wired to the backend');
         }
     };
+
+    // Hooks must run unconditionally on every render, so these are computed
+    // before the loading/error early returns below rather than after them.
+    const filteredStores = useMemo(() => stores.filter((store) => {
+        const matchesSearch =
+            store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            store.address.toLowerCase().includes(searchTerm.toLowerCase());
+        // Managers can only see their own store
+        const matchesStore = user.userType === 'admin' || (user.storeId && store.storeId === user.storeId);
+        return matchesSearch && matchesStore;
+    }), [stores, searchTerm, user.userType, user.storeId]);
+
+    const managerInfo = useCallback((storeId) => {
+      return managers.filter((manager) => manager.storeId === storeId).map((manager) => manager.fullName).join(", ")
+    }, [managers]);
 
     // Both `storeLoading` and `!user` used to be silently undefined on the
     // first render — that's what was crashing the page before any data arrived.
@@ -64,19 +83,6 @@ export default function StoreManagement() {
                 Couldn't load stores: {storeError?.response?.data?.message || 'Please try again.'}
             </div>
         );
-    }
-
-    const filteredStores = stores.filter((store) => {
-        const matchesSearch =
-            store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            store.address.toLowerCase().includes(searchTerm.toLowerCase());
-        // Managers can only see their own store
-        const matchesStore = user.userType === 'admin' || (user.storeId && store.storeId === user.storeId);
-        return matchesSearch && matchesStore;
-    });
-
-    const managerInfo = (storeId)=>{
-      return managers.filter((manager)=>manager.storeId===storeId).map((manager)=>manager.fullName).join(", ")
     }
 
     return (

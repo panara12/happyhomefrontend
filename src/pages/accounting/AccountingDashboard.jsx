@@ -1,5 +1,4 @@
 // src/routes/accounting/accounting_router.jsx
-import React from "react"
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, Receipt, RotateCcw, ArrowLeftRight, Package
@@ -13,6 +12,7 @@ import ViewTransfers from "../../pages/accounting/ViewTransfers"
 
 import { useSelector } from "react-redux"
 import { useLogout } from "../../hooks/useAuth"
+import logoImg from "../../assets/logo.jpg"
 
 const ACCOUNTING_THEME = {
   gradientFrom: "from-indigo-900",
@@ -51,7 +51,7 @@ function LayoutWrapper({ children, user }) {
     <Layout
       title="Happy Home"
       subtitle="Accounting Department"
-      logoSrc="/src/imports/475883765_1412800516794054_7992306912571437520_n-1.jpg"
+      logoSrc={logoImg}
       items={navigationItems}
       activeId={activeItem.id}
       onSelect={handleSelect}

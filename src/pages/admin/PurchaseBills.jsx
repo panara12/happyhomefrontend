@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Plus, FileText, Search, Download, Eye, Calendar } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { Plus, Search, Download, Eye, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function PurchaseBills({ user }) {
+export default function PurchaseBills() {
   const [bills, setBills] = useState([
     {
       id: 'PB-001',
@@ -71,15 +71,15 @@ export default function PurchaseBills({ user }) {
     setFormData({ ...formData, items: newItems });
   };
 
-  const calculateItemTotal = (item) => {
+  const calculateItemTotal = useCallback((item) => {
     const taxableValue = item.quantity * item.rate;
     const gstAmount = (taxableValue * item.gstRate) / 100;
     const cgst = gstAmount / 2;
     const sgst = gstAmount / 2;
     return { taxableValue, cgst, sgst, total: taxableValue + gstAmount };
-  };
+  }, []);
 
-  const calculateBillTotal = () => {
+  const calculateBillTotal = useCallback(() => {
     let subtotal = 0;
     let totalCGST = 0;
     let totalSGST = 0;
@@ -97,7 +97,10 @@ export default function PurchaseBills({ user }) {
       sgst: totalSGST,
       total: subtotal + totalCGST + totalSGST
     };
-  };
+  }, [formData.items, calculateItemTotal]);
+
+  // Recomputed once per render instead of once per each of the 4 JSX reads below
+  const billFormTotals = useMemo(() => calculateBillTotal(), [calculateBillTotal]);
 
   const handleCreateBill = () => {
     if (formData.supplier && formData.billNumber && formData.items.length > 0) {
@@ -134,11 +137,17 @@ export default function PurchaseBills({ user }) {
     }
   };
 
-  const filteredBills = bills.filter(bill =>
+  const filteredBills = useMemo(() => bills.filter(bill =>
     bill.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bill.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [bills, searchTerm]);
+
+  const billStats = useMemo(() => ({
+    totalValue: bills.reduce((sum, b) => sum + b.total, 0),
+    totalGST: bills.reduce((sum, b) => sum + b.cgst + b.sgst + b.igst, 0),
+    pendingCount: bills.filter(b => b.paymentStatus === 'Pending').length,
+  }), [bills]);
 
   return (
     <div className="space-y-6">
@@ -164,15 +173,15 @@ export default function PurchaseBills({ user }) {
         </div>
         <div className="bg-green-50 rounded-lg shadow p-4 border border-green-200">
           <p className="text-green-600 text-sm">Total Purchase Value</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">₹{bills.reduce((sum, b) => sum + b.total, 0).toLocaleString()}</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">₹{billStats.totalValue.toLocaleString()}</p>
         </div>
         <div className="bg-blue-50 rounded-lg shadow p-4 border border-blue-200">
           <p className="text-blue-600 text-sm">Total GST Input</p>
-          <p className="text-2xl font-bold text-blue-600 mt-1">₹{bills.reduce((sum, b) => sum + b.cgst + b.sgst + b.igst, 0).toLocaleString()}</p>
+          <p className="text-2xl font-bold text-blue-600 mt-1">₹{billStats.totalGST.toLocaleString()}</p>
         </div>
         <div className="bg-orange-50 rounded-lg shadow p-4 border border-orange-200">
           <p className="text-orange-600 text-sm">Pending Payments</p>
-          <p className="text-2xl font-bold text-orange-600 mt-1">{bills.filter(b => b.paymentStatus === 'Pending').length}</p>
+          <p className="text-2xl font-bold text-orange-600 mt-1">{billStats.pendingCount}</p>
         </div>
       </div>
 
@@ -402,19 +411,19 @@ export default function PurchaseBills({ user }) {
             <div className="border-t border-gray-200 pt-4 mb-6">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-700">Taxable Value:</span>
-                <span className="font-bold text-gray-800">₹{calculateBillTotal().subtotal.toLocaleString()}</span>
+                <span className="font-bold text-gray-800">₹{billFormTotals.subtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-700">CGST:</span>
-                <span className="font-medium text-gray-800">₹{calculateBillTotal().cgst.toLocaleString()}</span>
+                <span className="font-medium text-gray-800">₹{billFormTotals.cgst.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-700">SGST:</span>
-                <span className="font-medium text-gray-800">₹{calculateBillTotal().sgst.toLocaleString()}</span>
+                <span className="font-medium text-gray-800">₹{billFormTotals.sgst.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                 <span className="text-xl font-bold text-gray-800">Total Amount:</span>
-                <span className="text-2xl font-bold text-amber-600">₹{calculateBillTotal().total.toLocaleString()}</span>
+                <span className="text-2xl font-bold text-amber-600">₹{billFormTotals.total.toLocaleString()}</span>
               </div>
             </div>
 

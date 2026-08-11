@@ -1,23 +1,23 @@
-import { useEffect, useState } from 'react';
-import { Plus, Edit2, Shield, Users, Search, Calendar, CheckCircle, XCircle, Clock, DollarSign, Eye, Computer, PersonStanding, PersonStandingIcon, Delete, Edit, DeleteIcon, Trash, Undo2 } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { Plus, Shield, Users, Search, Calendar, CheckCircle, XCircle, DollarSign, Eye, Computer, Edit, Trash, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { activeUser, addUser, deleteUser, updateUser, useGetAllUsers } from '../../hooks/useUser';
+import { useActiveUser, useAddUser, useDeleteUser, useUpdateUser, useGetAllUsers } from '../../hooks/useUser';
 import { useStoreContext } from '../../context/storeContext';
+import { UserFormModal } from './UserFormModal';
+import { ConfirmModal } from './ConfirmModal';
+
+// Stable reference so the `?? EMPTY_ARRAY` fallback below doesn't hand
+// useMemo a new array (and therefore a new dep) every render.
+const EMPTY_ARRAY = [];
 
 export default function UserManagement({ user }) {
   const [activeTab, setActiveTab] = useState('team');
-  const {stores, managers} = useStoreContext()
-  console.log("stores",stores)
-  const [users, setUsers] = useState([]);
-  const {data:userlist, isLoading, isError, error} = useGetAllUsers()
-  console.log(userlist);
-  useEffect(()=>{
-    if(!isLoading){
-      setUsers(userlist?.data.data)
-    }
-  })
-  console.log("userlsit",users)
-  
+  const {stores} = useStoreContext()
+  const {data:userlist} = useGetAllUsers()
+  // Derive directly from the query — no useEffect/local-state mirroring,
+  // and this defaults to [] so nothing downstream ever sees `undefined`.
+  const users = userlist?.data ?? EMPTY_ARRAY;
+
 
 
   const [leaveApplications, setLeaveApplications] = useState([
@@ -98,10 +98,10 @@ export default function UserManagement({ user }) {
       store: 'Store 1'
     },
   ]);
-  const addUserMutation = addUser();
-  const updateUserMutation = updateUser();
-  const deleteUserMutation = deleteUser(); 
-  const activeUserMutation = activeUser();
+  const addUserMutation = useAddUser();
+  const updateUserMutation = useUpdateUser();
+  const deleteUserMutation = useDeleteUser();
+  const activeUserMutation = useActiveUser();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showActiveUserModal, setShowActiveUserModal]  = useState(false);
@@ -121,14 +121,9 @@ export default function UserManagement({ user }) {
     password: ''
   });
 
-  const handleAddUser = (e) => {
+  const handleAddUser = useCallback((e) => {
     e.preventDefault();
     if (formData.fullName && formData.username && formData.email) {
-      setUsers([...users, {
-        id: users.length + 1,
-        ...formData,
-        status: 'Active'
-      }]);
       addUserMutation.mutate(formData);
       setFormData({ fullName: '', username: '', email: '', userType: '',mobile: "", storeId: "", password: '' });
       setShowAddModal(false);
@@ -136,43 +131,42 @@ export default function UserManagement({ user }) {
     } else {
       toast.error('Please fill all required fields');
     }
-  };
+  }, [formData, addUserMutation]);
 
-  const handleUpdateUser = (e) => {
+  const handleUpdateUser = useCallback((e) => {
     e.preventDefault();
     if (formData.fullName && formData.username && formData.email) {
       updateUserMutation.mutate(formData, {
-    onSuccess: () => {
-        setShowUpdateModal(false);
-        toast.success("Updated successfully");
-    }
-});
+        onSuccess: () => {
+          setShowUpdateModal(false);
+          toast.success("Updated successfully");
+        }
+      });
       setFormData({ fullName: '', username: '', email: '', userType: '',mobile: "", storeId: "", password: '' });
-      // setShowUpdateModal(false);
-      // toast.success('Sales person updated successfully!');
     } else {
       toast.error('Please fill all required fields');
     }
-  };
+  }, [formData, updateUserMutation]);
 
-  const handleDeleteUser = (e)=>{
-      e.preventDefault();
-      deleteUserMutation.mutate({userId: selectedUser._id, storeId: selectedUser.storeId}, {
-        onSuccess: () => {
-            setShowDeleteModal(false);
-            toast.success("Deleted successfully");
-        }
+  const handleDeleteUser = useCallback((e) => {
+    e.preventDefault();
+    deleteUserMutation.mutate({userId: selectedUser._id, storeId: selectedUser.storeId}, {
+      onSuccess: () => {
+        setShowDeleteModal(false);
+        toast.success("Deleted successfully");
+      }
     });
-  }
-  const handleActiveUser = (e)=>{
-      e.preventDefault();
-      activeUserMutation.mutate({userId: selectedUser._id}, {
-        onSuccess: () => {
-            setShowActiveUserModal(false);
-            toast.success("User active successfully");
-        }
+  }, [deleteUserMutation, selectedUser]);
+
+  const handleActiveUser = useCallback((e) => {
+    e.preventDefault();
+    activeUserMutation.mutate({userId: selectedUser._id}, {
+      onSuccess: () => {
+        setShowActiveUserModal(false);
+        toast.success("User active successfully");
+      }
     });
-  }
+  }, [activeUserMutation, selectedUser]);
 
   const handleLeaveApproval = (id, status) => {
     setLeaveApplications(leaveApplications.map(app =>
@@ -189,24 +183,24 @@ export default function UserManagement({ user }) {
     toast.success(`Advance request ${status.toLowerCase()} successfully!`);
   };
 
-  const filteredUsers = users.filter(u => {
+  const filteredUsers = useMemo(() => users.filter(u => {
     const matchesSearch = u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          u.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStore = user.userType === 'admin' || (user.storeId && u.store === `Store ${user.storeId}`) || u.store === 'All Stores';
     return matchesSearch && matchesStore;
-  });
+  }), [users, searchTerm, user.userType, user.storeId]);
 
-  const filteredLeaves = leaveApplications.filter(leave =>
+  const filteredLeaves = useMemo(() => leaveApplications.filter(leave =>
     user.userType === 'admin' || (user.storeId && leave.store === `Store ${user.storeId}`)
-  );
+  ), [leaveApplications, user.userType, user.storeId]);
 
-  const filteredAdvances = advanceRequests.filter(adv =>
+  const filteredAdvances = useMemo(() => advanceRequests.filter(adv =>
     user.userType === 'admin' || (user.storeId && adv.store === `Store ${user.storeId}`)
-  );
+  ), [advanceRequests, user.userType, user.storeId]);
 
-  const pendingLeaves = filteredLeaves.filter(l => l.status === 'Pending');
-  const pendingAdvances = filteredAdvances.filter(a => a.status === 'Pending');
+  const pendingLeaves = useMemo(() => filteredLeaves.filter(l => l.status === 'Pending'), [filteredLeaves]);
+  const pendingAdvances = useMemo(() => filteredAdvances.filter(a => a.status === 'Pending'), [filteredAdvances]);
 
   const getLeaveTypeColor = (type) => {
     switch (type) {
@@ -259,7 +253,7 @@ export default function UserManagement({ user }) {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
           <p className="text-sm text-gray-600">Sales Team</p>
-          <p className="text-2xl font-bold text-gray-800 mt-1">{userlist?.data.totalUsers}</p>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{userlist?.totalUsers}</p>
         </div>
         <div className="bg-yellow-50 rounded-lg shadow p-4 border-l-4 border-yellow-500">
           <p className="text-sm text-yellow-700">Pending Leaves</p>
@@ -638,254 +632,48 @@ export default function UserManagement({ user }) {
         </div>
       )}
 
-      {/* Add User Modal */}
+      {/* Add / Update User Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Add New Sales Person</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
-                <input
-                  type="text"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="John Doe"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Username *</label>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => setFormData({...formData, username: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="johndoe"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number *</label>
-                <input
-                  type="text"
-                  value={formData.mobile}
-                  onChange={(e) => setFormData({...formData, mobile: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="1234567890"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="john@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="••••••••"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Assign Store</label>
-                <select
-                  value={formData.storeId}
-                  onChange={(e) => setFormData({...formData, storeId: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Select a store</option>
-                  {stores.map((store) => {
-                    return <option key={store.storeId} value={store.storeId}>{store.name}</option>
-                  })}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">User role</label>
-                <select
-                  value={formData.userType}
-                  onChange={(e) => setFormData({...formData, userType: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Select a role</option>
-                  <option value="sales">Sales Person</option>
-                  <option value="manager">Manager</option>
-                  <option value="accounting">Accounting</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddUser}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all"
-              >
-                Add Sales Person
-              </button>
-            </div>
-          </div>
-        </div>
+        <UserFormModal
+          mode="add"
+          formData={formData}
+          setFormData={setFormData}
+          stores={stores}
+          onSubmit={handleAddUser}
+          onClose={() => setShowAddModal(false)}
+        />
       )}
-
-      {/* update user model */}
       {showUpdateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Update Sales Person</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
-                <input
-                  type="text"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="John Doe"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Username *</label>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => setFormData({...formData, username: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="johndoe"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number *</label>
-                <input
-                  type="text"
-                  value={formData.mobile}
-                  onChange={(e) => setFormData({...formData, mobile: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="1234567890"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="john@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="••••••••"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Assign Store</label>
-                <select
-                  value={formData.storeId}
-                  onChange={(e) => setFormData({...formData, storeId: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Select a store</option>
-                  {stores.map((store) => {
-                    return <option key={store.storeId} value={store.storeId}>{store.name}</option>
-                  })}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">User role</label>
-                <select
-                  value={formData.userType}
-                  onChange={(e) => setFormData({...formData, userType: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Select a role</option>
-                  <option value="sales">Sales Person</option>
-                  <option value="manager">Manager</option>
-                  <option value="accounting">Accounting</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowUpdateModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpdateUser}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all"
-              >
-                update Sales Person
-              </button>
-            </div>
-          </div>
-        </div>
+        <UserFormModal
+          mode="edit"
+          formData={formData}
+          setFormData={setFormData}
+          stores={stores}
+          onSubmit={handleUpdateUser}
+          onClose={() => setShowUpdateModal(false)}
+        />
       )}
 
-      {/* delete user model */}
+      {/* Delete / Activate confirmation */}
       {showDeleteModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Delete Sales Person</h3>
-            <p className="text-gray-700 mb-6">Are you sure you want to delete <span className="font-medium">{selectedUser.fullName}</span>?</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteUser}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="Delete Sales Person"
+          message={<>Are you sure you want to delete <span className="font-medium">{selectedUser.fullName}</span>?</>}
+          confirmLabel="Delete"
+          confirmClassName="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
+          onConfirm={handleDeleteUser}
+          onClose={() => setShowDeleteModal(false)}
+        />
       )}
-
-      {/* active user model */}
       {showActiveUserModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Active User</h3>
-            <p className="text-gray-700 mb-6">Are you sure you want to active <span className="font-medium">{selectedUser.fullName}</span>?</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowActiveUserModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleActiveUser}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all"
-              >
-                Active
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="Active User"
+          message={<>Are you sure you want to active <span className="font-medium">{selectedUser.fullName}</span>?</>}
+          confirmLabel="Active"
+          confirmClassName="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+          onConfirm={handleActiveUser}
+          onClose={() => setShowActiveUserModal(false)}
+        />
       )}
 
       {/* Detail Modal */}

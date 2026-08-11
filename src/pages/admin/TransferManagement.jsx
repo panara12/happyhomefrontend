@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, ArrowRight, CheckCircle, Clock, XCircle, Search, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -103,14 +103,28 @@ export default function TransferManagement({ user }) {
     }
   };
 
-  const filteredTransfers = transfers.filter(t => {
+  const filteredTransfers = useMemo(() => transfers.filter(t => {
     const matchesSearch = t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          t.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          t.fromStore.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          t.toStore.toLowerCase().includes(searchTerm.toLowerCase());
     // Managers can see all transfers (to view and accept requests to their store)
     return matchesSearch;
-  });
+  }), [transfers, searchTerm]);
+
+  const transferStats = useMemo(() => {
+    if (user.role === 'manager') {
+      const incoming = user.storeId ? filteredTransfers.filter(t => t.toStore === `Store ${user.storeId}` && t.status === 'Pending').length : 0;
+      const outgoing = user.storeId ? filteredTransfers.filter(t => t.fromStore === `Store ${user.storeId}` && t.status === 'Pending').length : 0;
+      const completed = user.storeId ? filteredTransfers.filter(t => (t.fromStore === `Store ${user.storeId}` || t.toStore === `Store ${user.storeId}`) && t.status === 'Completed').length : 0;
+      return { incoming, outgoing, completed };
+    }
+    return {
+      pending: transfers.filter(t => t.status === 'Pending').length,
+      inTransit: transfers.filter(t => t.status === 'In Transit').length,
+      completed: transfers.filter(t => t.status === 'Completed').length,
+    };
+  }, [filteredTransfers, transfers, user.role, user.storeId]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -175,19 +189,19 @@ export default function TransferManagement({ user }) {
             <div className="bg-green-50 rounded-lg shadow p-4 border border-green-200">
               <p className="text-green-600 text-sm">📥 Incoming Requests</p>
               <p className="text-2xl font-bold text-green-600 mt-1">
-                {user.storeId ? filteredTransfers.filter(t => t.toStore === `Store ${user.storeId}` && t.status === 'Pending').length : 0}
+                {transferStats.incoming}
               </p>
             </div>
             <div className="bg-blue-50 rounded-lg shadow p-4 border border-blue-200">
               <p className="text-blue-600 text-sm">📤 Outgoing Requests</p>
               <p className="text-2xl font-bold text-blue-600 mt-1">
-                {user.storeId ? filteredTransfers.filter(t => t.fromStore === `Store ${user.storeId}` && t.status === 'Pending').length : 0}
+                {transferStats.outgoing}
               </p>
             </div>
             <div className="bg-purple-50 rounded-lg shadow p-4 border border-purple-200">
               <p className="text-purple-600 text-sm">Completed</p>
               <p className="text-2xl font-bold text-purple-600 mt-1">
-                {user.storeId ? filteredTransfers.filter(t => (t.fromStore === `Store ${user.storeId}` || t.toStore === `Store ${user.storeId}`) && t.status === 'Completed').length : 0}
+                {transferStats.completed}
               </p>
             </div>
           </>
@@ -195,15 +209,15 @@ export default function TransferManagement({ user }) {
           <>
             <div className="bg-orange-50 rounded-lg shadow p-4 border border-orange-200">
               <p className="text-orange-600 text-sm">Pending</p>
-              <p className="text-2xl font-bold text-orange-600 mt-1">{transfers.filter(t => t.status === 'Pending').length}</p>
+              <p className="text-2xl font-bold text-orange-600 mt-1">{transferStats.pending}</p>
             </div>
             <div className="bg-blue-50 rounded-lg shadow p-4 border border-blue-200">
               <p className="text-blue-600 text-sm">In Transit</p>
-              <p className="text-2xl font-bold text-blue-600 mt-1">{transfers.filter(t => t.status === 'In Transit').length}</p>
+              <p className="text-2xl font-bold text-blue-600 mt-1">{transferStats.inTransit}</p>
             </div>
             <div className="bg-green-50 rounded-lg shadow p-4 border border-green-200">
               <p className="text-green-600 text-sm">Completed</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">{transfers.filter(t => t.status === 'Completed').length}</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{transferStats.completed}</p>
             </div>
           </>
         )}
