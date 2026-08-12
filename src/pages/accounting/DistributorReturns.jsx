@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Plus, Search, Trash2, CheckCircle, XCircle, Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 export default function DistributorReturns({ user }) {
   const [returns, setReturns] = useState([
@@ -128,6 +130,8 @@ export default function DistributorReturns({ user }) {
     totalAmount: returns.reduce((sum, r) => sum + r.totalAmount, 0)
   }), [returns]);
 
+  const returnsPagination = usePagination(filteredReturns);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -214,7 +218,7 @@ export default function DistributorReturns({ user }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredReturns.map((ret) => (
+              {returnsPagination.paginatedItems.map((ret) => (
                 <tr key={ret.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{ret.returnNumber}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{ret.billNumber}</td>
@@ -263,6 +267,13 @@ export default function DistributorReturns({ user }) {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={returnsPagination.page}
+          totalPages={returnsPagination.totalPages}
+          totalItems={returnsPagination.totalItems}
+          pageSize={returnsPagination.pageSize}
+          onPageChange={returnsPagination.goToPage}
+        />
       </div>
 
       {/* Create Return Modal */}

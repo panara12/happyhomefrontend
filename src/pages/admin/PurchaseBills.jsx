@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Plus, Search, Download, Eye, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 export default function PurchaseBills() {
   const [bills, setBills] = useState([
@@ -149,6 +151,8 @@ export default function PurchaseBills() {
     pendingCount: bills.filter(b => b.paymentStatus === 'Pending').length,
   }), [bills]);
 
+  const billsPagination = usePagination(filteredBills);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -216,7 +220,7 @@ export default function PurchaseBills() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredBills.map(bill => (
+              {billsPagination.paginatedItems.map(bill => (
                 <tr key={bill.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-800">{bill.id}</td>
                   <td className="px-4 py-3 text-gray-600">
@@ -262,6 +266,13 @@ export default function PurchaseBills() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={billsPagination.page}
+          totalPages={billsPagination.totalPages}
+          totalItems={billsPagination.totalItems}
+          pageSize={billsPagination.pageSize}
+          onPageChange={billsPagination.goToPage}
+        />
       </div>
 
       {/* Add Bill Modal */}

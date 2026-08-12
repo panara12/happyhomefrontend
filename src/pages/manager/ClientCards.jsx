@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Search, User, Phone, Mail, MapPin, Award, Building2, Users, ShoppingBag, Eye, Filter } from 'lucide-react';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 export default function ClientCards({ user }) {
   const [clients] = useState([
@@ -173,6 +175,8 @@ export default function ClientCards({ user }) {
     totalRevenue: clients.reduce((sum, c) => sum + c.totalPurchases, 0)
   }), [filteredClients, clients]);
 
+  const clientsPagination = usePagination(filteredClients);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -277,7 +281,7 @@ export default function ClientCards({ user }) {
 
       {/* Client Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredClients.map((client) => (
+        {clientsPagination.paginatedItems.map((client) => (
           <div
             key={client.id}
             className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200"
@@ -366,6 +370,14 @@ export default function ClientCards({ user }) {
           </div>
         ))}
       </div>
+
+      <Pagination
+        page={clientsPagination.page}
+        totalPages={clientsPagination.totalPages}
+        totalItems={clientsPagination.totalItems}
+        pageSize={clientsPagination.pageSize}
+        onPageChange={clientsPagination.goToPage}
+      />
 
       {/* Empty State */}
       {filteredClients.length === 0 && (

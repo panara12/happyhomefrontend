@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Plus, ArrowRight, CheckCircle, Clock, XCircle, Search, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 export default function TransferManagement({ user }) {
   const [transfers, setTransfers] = useState([
@@ -126,6 +128,8 @@ export default function TransferManagement({ user }) {
     };
   }, [filteredTransfers, transfers, user.role, user.storeId]);
 
+  const transfersPagination = usePagination(filteredTransfers);
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'Completed':
@@ -237,7 +241,7 @@ export default function TransferManagement({ user }) {
 
       {/* Transfers Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredTransfers.map(transfer => {
+        {transfersPagination.paginatedItems.map(transfer => {
           const statusBadge = getStatusBadge(transfer.status);
           const isIncoming = user.role === 'manager' && user.storeId && transfer.toStore === `Store ${user.storeId}`;
           const isOutgoing = user.role === 'manager' && user.storeId && transfer.fromStore === `Store ${user.storeId}`;
@@ -362,6 +366,14 @@ export default function TransferManagement({ user }) {
           );
         })}
       </div>
+
+      <Pagination
+        page={transfersPagination.page}
+        totalPages={transfersPagination.totalPages}
+        totalItems={transfersPagination.totalItems}
+        pageSize={transfersPagination.pageSize}
+        onPageChange={transfersPagination.goToPage}
+      />
 
       {/* Create Transfer Modal */}
       {showCreateModal && (

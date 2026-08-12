@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Plus, RotateCcw, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 export default function SalesReturn() {
   const [returns, setReturns] = useState([
@@ -118,6 +120,8 @@ export default function SalesReturn() {
     totalRefund: returns.filter(r => r.status === 'Approved').reduce((sum, r) => sum + r.total, 0),
   }), [returns]);
 
+  const returnsPagination = usePagination(filteredReturns);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -168,7 +172,7 @@ export default function SalesReturn() {
 
       {/* Returns Grid */}
       <div className="grid grid-cols-1 gap-6">
-        {filteredReturns.map(ret => (
+        {returnsPagination.paginatedItems.map(ret => (
           <div key={ret.id} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
               <div className="flex items-center gap-4">
@@ -248,6 +252,14 @@ export default function SalesReturn() {
           </div>
         ))}
       </div>
+
+      <Pagination
+        page={returnsPagination.page}
+        totalPages={returnsPagination.totalPages}
+        totalItems={returnsPagination.totalItems}
+        pageSize={returnsPagination.pageSize}
+        onPageChange={returnsPagination.goToPage}
+      />
 
       {/* Add Return Modal */}
       {showAddModal && (

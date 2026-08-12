@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { Plus, Edit2, Trash2, MapPin, Phone, User, Search } from 'lucide-react';
 import { useGetAllStores, useAddStore } from '../../hooks/useStore';
 import {useSelector} from 'react-redux';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 // Stable reference so the `?? EMPTY_ARRAY` fallback below doesn't hand
 // useMemo/useCallback a new array (and therefore a new dep) every render.
@@ -71,6 +73,8 @@ export default function StoreManagement() {
       return managers.filter((manager) => manager.storeId === storeId).map((manager) => manager.fullName).join(", ")
     }, [managers]);
 
+    const storesPagination = usePagination(filteredStores);
+
     // Both `storeLoading` and `!user` used to be silently undefined on the
     // first render — that's what was crashing the page before any data arrived.
     if (storeLoading) {
@@ -119,7 +123,7 @@ export default function StoreManagement() {
 
             {/* Stores Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredStores.map((store) => (
+                {storesPagination.paginatedItems.map((store) => (
                     <div key={store.storeId} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow p-6">
                         <div className="flex items-start justify-between mb-4">
                             <div>
@@ -171,6 +175,14 @@ export default function StoreManagement() {
                     </div>
                 ))}
             </div>
+
+            <Pagination
+                page={storesPagination.page}
+                totalPages={storesPagination.totalPages}
+                totalItems={storesPagination.totalItems}
+                pageSize={storesPagination.pageSize}
+                onPageChange={storesPagination.goToPage}
+            />
 
             {/* Add Store Modal */}
             {showAddModal && (

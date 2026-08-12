@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Plus, CheckCircle, Clock, XCircle, Search, Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 export default function PurchaseOrders({ user }) {
   const [orders, setOrders] = useState([
@@ -149,6 +151,8 @@ export default function PurchaseOrders({ user }) {
     received: orders.filter(o => o.status === 'Received').length,
   }), [orders]);
 
+  const ordersPagination = usePagination(filteredOrders);
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'Received':
@@ -214,7 +218,7 @@ export default function PurchaseOrders({ user }) {
 
       {/* Orders Grid */}
       <div className="grid grid-cols-1 gap-6">
-        {filteredOrders.map(order => {
+        {ordersPagination.paginatedItems.map(order => {
           const statusBadge = getStatusBadge(order.status);
           return (
             <div key={order.id} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6">
@@ -310,6 +314,14 @@ export default function PurchaseOrders({ user }) {
           );
         })}
       </div>
+
+      <Pagination
+        page={ordersPagination.page}
+        totalPages={ordersPagination.totalPages}
+        totalItems={ordersPagination.totalItems}
+        pageSize={ordersPagination.pageSize}
+        onPageChange={ordersPagination.goToPage}
+      />
 
       {/* Create PO Modal */}
       {showCreateModal && (
