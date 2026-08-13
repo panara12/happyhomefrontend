@@ -5,10 +5,12 @@ import { useStoreContext } from '../../context/storeContext';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
+import { useStockCategoryContext } from '../../context/stockcategoryContext';
 
 export default function AccountingPurchaseBills() {
   const {stores} = useStoreContext()
   const {data:stockGroupData} = useGetAllStockGroup()
+  const {stockCategory, stockCategoryLoading} = useStockCategoryContext()
   // Derive directly from the query — no useEffect/local-state mirroring,
   // and this defaults to [] so nothing downstream ever sees `undefined`.
   const stockGroup = stockGroupData?.data ?? [];
@@ -413,6 +415,7 @@ export default function AccountingPurchaseBills() {
                         <select 
                         onChange={(e) => setFormData({...formData, stockgroup: e.target.value})}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                          <option value="">select group</option>
                           {
                             stockGroup.map((sg)=>{
                               return <option value={sg._id} key={sg._id}>{sg.name}</option>
@@ -422,13 +425,16 @@ export default function AccountingPurchaseBills() {
                       </div>
                       <div className="col-span-6 md:col-span-2">
                         <label className="block text-xs text-gray-600 mb-1">Stock Category</label>
-                        <input
-                          type="text"
-                          value={item.stock_category}
-                          onChange={(e) => handleItemChange(index, 'stockCategory', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                          placeholder="stock category"
-                        />
+                        <select 
+                        onChange={(e) => setFormData({...formData, stockgroup: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                          <option value="">select category</option>
+                          {
+                            stockCategory.map((sc)=>{
+                              return <option value={sc.categoryId} key={sc.categoryId}>{sc.name}</option>
+                            })
+                          }
+                        </select>
                       </div>
                       <div className="col-span-6 md:col-span-1">
                         <label className="block text-xs text-gray-600 mb-1">Qty *</label>
