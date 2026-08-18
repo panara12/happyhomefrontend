@@ -3,6 +3,8 @@ import { Plus, Search, Download, Eye, Calendar, CheckCircle } from 'lucide-react
 import { toast } from 'sonner';
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 export default function AccountingPurchaseBills() {
   const {stores} = useStoreContext()
@@ -167,6 +169,8 @@ export default function AccountingPurchaseBills() {
     bill.id.toLowerCase().includes(searchTerm.toLowerCase())
   ), [bills, searchTerm]);
 
+  const billsPagination = usePagination(filteredBills);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -249,7 +253,7 @@ export default function AccountingPurchaseBills() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredBills.map(bill => (
+              {billsPagination.paginatedItems.map(bill => (
                 <tr key={bill.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-800">{bill.id}</td>
                   <td className="px-4 py-3 text-gray-600">
@@ -296,6 +300,13 @@ export default function AccountingPurchaseBills() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={billsPagination.page}
+          totalPages={billsPagination.totalPages}
+          totalItems={billsPagination.totalItems}
+          pageSize={billsPagination.pageSize}
+          onPageChange={billsPagination.goToPage}
+        />
       </div>
 
       {/* Add Bill Modal */}

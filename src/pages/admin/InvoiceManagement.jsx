@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { Plus, Eye, Send, Download, Search, Calendar, Edit2, CheckCircle, XCircle, Printer, Trash2, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import logoImg from '../../assets/logo.jpg';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 export default function InvoiceManagement({ user }) {
   const [invoices, setInvoices] = useState([
@@ -234,6 +236,12 @@ export default function InvoiceManagement({ user }) {
   const approvedInvoices = useMemo(() => filteredInvoices.filter(inv => inv.status === 'Approved' || inv.status === 'Paid'), [filteredInvoices]);
   const rejectedInvoices = useMemo(() => filteredInvoices.filter(inv => inv.status === 'Rejected'), [filteredInvoices]);
 
+  // Hooks must run unconditionally, so every pagination instance is created
+  // here rather than inside the manager/admin branches below.
+  const pendingInvoicesPagination = usePagination(pendingInvoices);
+  const approvedInvoicesPagination = usePagination(approvedInvoices);
+  const allInvoicesPagination = usePagination(filteredInvoices);
+
   // Manager View - Card-based approval system
   if (user.role === 'manager') {
     return (
@@ -294,7 +302,7 @@ export default function InvoiceManagement({ user }) {
               Pending Approval
             </h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-              {pendingInvoices.map((invoice) => (
+              {pendingInvoicesPagination.paginatedItems.map((invoice) => (
                 <div key={invoice.id} className="bg-white rounded-xl shadow-lg border-2 border-yellow-200 overflow-hidden hover:shadow-xl transition-shadow">
                   <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-4">
                     <div className="flex items-center justify-between">
@@ -373,6 +381,13 @@ export default function InvoiceManagement({ user }) {
                 </div>
               ))}
             </div>
+            <Pagination
+              page={pendingInvoicesPagination.page}
+              totalPages={pendingInvoicesPagination.totalPages}
+              totalItems={pendingInvoicesPagination.totalItems}
+              pageSize={pendingInvoicesPagination.pageSize}
+              onPageChange={pendingInvoicesPagination.goToPage}
+            />
           </div>
         )}
 
@@ -399,7 +414,7 @@ export default function InvoiceManagement({ user }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {approvedInvoices.map((invoice) => (
+                    {approvedInvoicesPagination.paginatedItems.map((invoice) => (
                       <tr key={invoice.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 font-medium text-gray-800">{invoice.id}</td>
                         <td className="px-4 py-3 text-gray-800">{invoice.customer}</td>
@@ -443,6 +458,13 @@ export default function InvoiceManagement({ user }) {
                   </tbody>
                 </table>
               </div>
+              <Pagination
+                page={approvedInvoicesPagination.page}
+                totalPages={approvedInvoicesPagination.totalPages}
+                totalItems={approvedInvoicesPagination.totalItems}
+                pageSize={approvedInvoicesPagination.pageSize}
+                onPageChange={approvedInvoicesPagination.goToPage}
+              />
             </div>
           </div>
         )}
@@ -860,7 +882,7 @@ export default function InvoiceManagement({ user }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredInvoices.map(invoice => (
+              {allInvoicesPagination.paginatedItems.map(invoice => (
                 <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-800">{invoice.id}</td>
                   <td className="px-4 py-3 text-gray-600 flex items-center gap-2">
@@ -922,6 +944,13 @@ export default function InvoiceManagement({ user }) {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={allInvoicesPagination.page}
+          totalPages={allInvoicesPagination.totalPages}
+          totalItems={allInvoicesPagination.totalItems}
+          pageSize={allInvoicesPagination.pageSize}
+          onPageChange={allInvoicesPagination.goToPage}
+        />
       </div>
 
       {/* Modals same as manager view */}

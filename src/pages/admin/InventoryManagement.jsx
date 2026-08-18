@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Plus, Edit2, Trash2, Package, Search, Filter, TrendingDown, Printer, Barcode, CheckCircle, Minus } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 export default function InventoryManagement({ user }) {
   const [inventory, setInventory] = useState([
@@ -150,6 +152,8 @@ export default function InventoryManagement({ user }) {
   // Check low stock items
   const lowStockItems = useMemo(() => inventory.filter(item => item.totalStock < item.minStock), [inventory]);
 
+  const inventoryPagination = usePagination(displayInventory);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -266,7 +270,7 @@ export default function InventoryManagement({ user }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {displayInventory.map(item => (
+              {inventoryPagination.paginatedItems.map(item => (
                 <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -326,6 +330,13 @@ export default function InventoryManagement({ user }) {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={inventoryPagination.page}
+          totalPages={inventoryPagination.totalPages}
+          totalItems={inventoryPagination.totalItems}
+          pageSize={inventoryPagination.pageSize}
+          onPageChange={inventoryPagination.goToPage}
+        />
       </div>
 
       {/* Add Item Modal */}

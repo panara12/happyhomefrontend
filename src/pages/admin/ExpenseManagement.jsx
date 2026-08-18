@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Plus, DollarSign, Search, Calendar, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 export default function ExpenseManagement({ user }) {
   const [expenses, setExpenses] = useState([
@@ -147,6 +149,8 @@ export default function ExpenseManagement({ user }) {
   const getCategoryTotal = (category) => categoryStats[category]?.total || 0;
   const getCategoryCount = (category) => categoryStats[category]?.count || 0;
 
+  const expensesPagination = usePagination(filteredExpenses);
+
   const getCategoryColor = (category) => {
     const colors = {
       'Utilities': 'bg-blue-100 text-blue-700',
@@ -271,7 +275,7 @@ export default function ExpenseManagement({ user }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredExpenses.map(expense => (
+              {expensesPagination.paginatedItems.map(expense => (
                 <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-800">{expense.id}</td>
                   <td className="px-4 py-3 text-gray-600">
@@ -295,6 +299,13 @@ export default function ExpenseManagement({ user }) {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={expensesPagination.page}
+          totalPages={expensesPagination.totalPages}
+          totalItems={expensesPagination.totalItems}
+          pageSize={expensesPagination.pageSize}
+          onPageChange={expensesPagination.goToPage}
+        />
       </div>
 
       {/* Add Expense Modal */}
