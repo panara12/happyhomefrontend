@@ -11,6 +11,15 @@ const LEAVES_QUERY_KEY = ["leaves"];
 // `enabled` defaults to true but callers behind a tab/accordion should pass
 // `enabled: false` until that section is actually shown, so this doesn't
 // fire on every page load regardless of which tab is active.
+
+export function useAddLeave() {
+    return useApiMutation({
+        url: "/leave/addleave",
+        method: "post",
+        invalidateKeys: [LEAVES_QUERY_KEY],
+    });
+}
+
 export function useGetAllLeaves({ enabled = true } = {}) {
     return useApiQuery({
         queryKey: LEAVES_QUERY_KEY,

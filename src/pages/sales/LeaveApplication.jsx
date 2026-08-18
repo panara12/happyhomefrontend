@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { Calendar, FileText } from 'lucide-react';
 
-export function LeaveApplication({ employeeName, onSubmit }) {
-  const [leaveType, setLeaveType] = useState('Casual Leave');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+export function LeaveApplication({ userId, onSubmit }) {
+  const [leave_type, setLeaveType] = useState('Casual Leave');
+  const [start_date, setStartDate] = useState('');
+  const [end_date, setEndDate] = useState('');
   const [reason, setReason] = useState('');
 
   const calculateDays = () => {
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+    if (start_date && end_date) {
+      const start = new Date(start_date);
+      const end = new Date(end_date);
       const diff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       return diff > 0 ? diff : 0;
     }
@@ -19,23 +19,23 @@ export function LeaveApplication({ employeeName, onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!startDate || !endDate || !reason.trim()) {
+    if (!start_date || !end_date || !reason.trim()) {
       alert('Please fill all required fields');
       return;
     }
 
-    const days = calculateDays();
-    if (days <= 0) {
+    const number_of_days = calculateDays();
+    if (number_of_days<0) {
       alert('End date must be after start date');
       return;
     }
 
     onSubmit({
-      employeeName,
-      leaveType,
-      startDate,
-      endDate,
-      days,
+      userId,
+      leave_type,
+      start_date,
+      end_date,
+      number_of_days,
       reason
     });
 
@@ -56,7 +56,7 @@ export function LeaveApplication({ employeeName, onSubmit }) {
           <div>
             <label className="block text-sm font-medium mb-2">Leave Type *</label>
             <select
-              value={leaveType}
+              value={leave_type}
               onChange={(e) => setLeaveType(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
             >
@@ -78,9 +78,9 @@ export function LeaveApplication({ employeeName, onSubmit }) {
             <label className="block text-sm font-medium mb-2">Start Date *</label>
             <input
               type="date"
-              value={startDate}
+              value={start_date}
               onChange={(e) => setStartDate(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
+              min={new Date().toString().split('T')[0]}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               required
             />
@@ -90,9 +90,9 @@ export function LeaveApplication({ employeeName, onSubmit }) {
             <label className="block text-sm font-medium mb-2">End Date *</label>
             <input
               type="date"
-              value={endDate}
+              value={end_date}
               onChange={(e) => setEndDate(e.target.value)}
-              min={startDate || new Date().toISOString().split('T')[0]}
+              min={start_date || new Date().toString().split('T')[0]}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               required
             />

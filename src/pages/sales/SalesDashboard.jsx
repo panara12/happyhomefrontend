@@ -10,21 +10,25 @@ import logoImg from "../../assets/logo.jpg";
 import { useSelector } from 'react-redux';
 import { useLogout } from '../../hooks/useAuth';
 import { useSubmitSampleInvoice } from '../../hooks/useInvoice';
+import { useLeaveContext } from '../../context/leaveContext';
+import { useAddLeave } from '../../hooks/useLeave';
+import { toast } from 'sonner';
 
 export default function SalesmanDashboard() {
   const user = useSelector((state) => state.app.userInfo);
   const { mutate: logout } = useLogout();
   const { mutate: submitSampleInvoice, isPending: isSubmittingInvoice } = useSubmitSampleInvoice();
+  const {leaves:leaveRequests} = useLeaveContext();
+  console.log(leaveRequests)
+  const addLeaveMutation = useAddLeave();
+  //const updateLeaveMutation = useUpdateLeave();
+  // const deleteUserMutation = useDeleteUser();
 
   const [activeTab, setActiveTab] = useState('create');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [invoiceItems, setInvoiceItems] = useState([]);
   const [invoices, setInvoices] = useState(() => {
     const stored = localStorage.getItem('invoices');
-    return stored ? JSON.parse(stored) : [];
-  });
-  const [leaveRequests, setLeaveRequests] = useState(() => {
-    const stored = localStorage.getItem('leaveRequests');
     return stored ? JSON.parse(stored) : [];
   });
 
@@ -137,17 +141,8 @@ export default function SalesmanDashboard() {
   };
 
   const handleSubmitLeave = (leave) => {
-    const newLeave = {
-      ...leave,
-      id: Date.now().toString(),
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-
-    const updatedRequests = [...leaveRequests, newLeave];
-    setLeaveRequests(updatedRequests);
-    localStorage.setItem('leaveRequests', JSON.stringify(updatedRequests));
-    alert('Leave request submitted successfully!');
+    addLeaveMutation.mutate(leave)
+    toast.success('Sales person added successfully!');
   };
 
   const handleApproveLeave = (requestId) => {
@@ -156,7 +151,6 @@ export default function SalesmanDashboard() {
         ? { ...req, status: 'approved', approvedBy: user?.fullName || user?.name, approvedAt: new Date().toISOString() }
         : req
     );
-    setLeaveRequests(updatedRequests);
     localStorage.setItem('leaveRequests', JSON.stringify(updatedRequests));
   };
 
@@ -166,7 +160,6 @@ export default function SalesmanDashboard() {
         ? { ...req, status: 'rejected', approvedBy: user?.fullName || user?.name, approvedAt: new Date().toISOString() }
         : req
     );
-    setLeaveRequests(updatedRequests);
     localStorage.setItem('leaveRequests', JSON.stringify(updatedRequests));
   };
 
@@ -177,7 +170,7 @@ export default function SalesmanDashboard() {
   };
 
   const pendingInvoicesForApproval = useMemo(() => invoices.filter(inv => inv.status === 'pending'), [invoices]);
-  const pendingLeaveRequestsForApproval = useMemo(() => leaveRequests.filter(req => req.status === 'pending'), [leaveRequests]);
+  const pendingLeaveRequestsForApproval = useMemo(() => leaveRequests.filter(req => req.status === 'Pending'), [leaveRequests]);
 
   return (
     <div className="min-h-screen bg-gray-50">
