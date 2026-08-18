@@ -11,6 +11,7 @@ import { LeaveApplicationsTab } from './LeaveApplicationsTab';
 import { AdvanceRequestsTab } from './AdvanceRequestsTab';
 import { LeaveDetailModal } from './LeaveDetailModal';
 import { INITIAL_ADVANCE_REQUESTS } from './userManagementMockData';
+import { useLeaveContext } from '../../context/leaveContext';
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '');
 
@@ -22,6 +23,7 @@ export default function UserManagement({ user }) {
   const [activeTab, setActiveTab] = useState('team');
   const {stores} = useStoreContext()
   const {data:userlist} = useGetAllUsers()
+  const {leaves:leaveApplications} = useLeaveContext();
   // Derive directly from the query — no useEffect/local-state mirroring,
   // and this defaults to [] so nothing downstream ever sees `undefined`.
   const users = userlist?.data ?? EMPTY_ARRAY;
