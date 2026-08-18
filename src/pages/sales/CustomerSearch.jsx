@@ -1,83 +1,48 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Search, UserPlus, Edit2 } from 'lucide-react';
+import { useSearchCustomers, useAddCustomer, useUpdateCustomer } from '../../hooks/useCustomer';
 
 export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '', address: '', clientType: 'Regular' });
-  const [searchResults, setSearchResults] = useState([]);
-  const [showResults, setShowResults] = useState(false);
-  // Bumped whenever this component writes to the 'customers' key, so the
-  // memoized read below only re-parses localStorage when the data actually changed.
-  const [customersVersion, setCustomersVersion] = useState(0);
 
-  // Mock customer data - in production this would come from Supabase.
-  // customersVersion isn't read inside the factory — it's a deliberate
-  // cache-busting dep, bumped after this component writes to localStorage.
-  const mockCustomers = useMemo(
-    () => JSON.parse(localStorage.getItem('customers') || '[]'),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [customersVersion]
-  );
+  const { data: searchData } = useSearchCustomers(searchTerm);
+  const searchResults = searchData?.customers || [];
 
-  const generateCustomerId = () => {
-    const prefix = 'HH';
-    const timestamp = Date.now().toString().slice(-6);
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `${prefix}${timestamp}${random}`;
-  };
+  const addCustomerMutation = useAddCustomer();
+  const updateCustomerMutation = useUpdateCustomer();
 
   const handleSearch = (value) => {
     setSearchTerm(value);
-    if (value.length > 0) {
-      const results = mockCustomers.filter(customer =>
-        customer.id.toLowerCase().includes(value.toLowerCase()) ||
-        customer.name.toLowerCase().includes(value.toLowerCase()) ||
-        customer.phone.includes(value)
-      );
-      setSearchResults(results);
-      setShowResults(true);
-    } else {
-      setSearchResults([]);
-      setShowResults(false);
-    }
   };
 
   const handleSelectCustomer = (customer) => {
     onSelectCustomer(customer);
     setSearchTerm('');
-    setShowResults(false);
   };
 
   const handleCreateCustomer = () => {
     if (newCustomer.name && newCustomer.phone) {
-      const customer = {
-        id: generateCustomerId(),
-        ...newCustomer,
-        createdAt: new Date().toISOString()
-      };
-
-      const customers = [...mockCustomers, customer];
-      localStorage.setItem('customers', JSON.stringify(customers));
-      setCustomersVersion(v => v + 1);
-
-      onSelectCustomer(customer);
-      setNewCustomer({ name: '', phone: '', email: '', address: '', clientType: 'Regular' });
-      setShowNewCustomerForm(false);
+      addCustomerMutation.mutate(newCustomer, {
+        onSuccess: (data) => {
+          onSelectCustomer(data.customer);
+          setNewCustomer({ name: '', phone: '', email: '', address: '', clientType: 'Regular' });
+          setShowNewCustomerForm(false);
+        }
+      });
     }
   };
 
   const handleEditCustomer = () => {
     if (editingCustomer && editingCustomer.name && editingCustomer.phone) {
-      const customers = mockCustomers.map(c =>
-        c.id === editingCustomer.id ? editingCustomer : c
-      );
-      localStorage.setItem('customers', JSON.stringify(customers));
-      setCustomersVersion(v => v + 1);
-
-      onSelectCustomer(editingCustomer);
-      setEditingCustomer(null);
+      updateCustomerMutation.mutate(editingCustomer, {
+        onSuccess: (data) => {
+          onSelectCustomer(data.customer);
+          setEditingCustomer(null);
+        }
+      });
     }
   };
 
@@ -88,21 +53,21 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by customer ID, name, or phone..."
+            placeholder="Search by customer name or phone..."
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
           />
-          {showResults && searchResults.length > 0 && (
+          {searchTerm.length > 0 && searchResults.length > 0 && (
             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
               {searchResults.map((customer) => (
                 <div
-                  key={customer.id}
+                  key={customer._id}
                   onClick={() => handleSelectCustomer(customer)}
                   className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                 >
                   <div className="font-medium">{customer.name}</div>
-                  <div className="text-sm text-gray-600">ID: {customer.id} • {customer.phone} • {customer.clientType}</div>
+                  <div className="text-sm text-gray-600">{customer.phone} • {customer.clientType}</div>
                 </div>
               ))}
             </div>
@@ -127,7 +92,6 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
                   {selectedCustomer.clientType}
                 </span>
               </div>
-              <div className="text-sm text-gray-600 mt-1">Customer ID: {selectedCustomer.id}</div>
               <div className="text-sm text-gray-600">Phone: {selectedCustomer.phone}</div>
               {selectedCustomer.email && (
                 <div className="text-sm text-gray-600">Email: {selectedCustomer.email}</div>
@@ -203,9 +167,10 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
             <div className="flex gap-2">
               <button
                 onClick={handleCreateCustomer}
-                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+                disabled={addCustomerMutation.isPending}
+                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
               >
-                Create Customer
+                {addCustomerMutation.isPending ? 'Creating...' : 'Create Customer'}
               </button>
               <button
                 onClick={() => setShowNewCustomerForm(false)}
@@ -223,15 +188,6 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="font-medium text-lg mb-4">Edit Customer</h3>
             <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-1">Customer ID</label>
-                <input
-                  type="text"
-                  value={editingCustomer.id}
-                  disabled
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100"
-                />
-              </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Customer Name *</label>
                 <input
@@ -254,7 +210,7 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
                 <label className="block text-sm font-medium mb-1">Email</label>
                 <input
                   type="email"
-                  value={editingCustomer.email}
+                  value={editingCustomer.email || ''}
                   onChange={(e) => setEditingCustomer({ ...editingCustomer, email: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 />
@@ -262,7 +218,7 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
               <div>
                 <label className="block text-sm font-medium mb-1">Address</label>
                 <textarea
-                  value={editingCustomer.address}
+                  value={editingCustomer.address || ''}
                   onChange={(e) => setEditingCustomer({ ...editingCustomer, address: e.target.value })}
                   rows={2}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
@@ -284,9 +240,10 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={handleEditCustomer}
-                  className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+                  disabled={updateCustomerMutation.isPending}
+                  className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
                 >
-                  Save Changes
+                  {updateCustomerMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </button>
                 <button
                   onClick={() => setEditingCustomer(null)}
