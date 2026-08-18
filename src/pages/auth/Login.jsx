@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LogIn, Loader2 } from 'lucide-react';
 import { useLogin } from '../../hooks/useAuth';
 import logoImg from '../../assets/logo.jpg';
+import DevLoginHints from '../../components/DevLoginHints';
 
 export default function Login() {
     const [username, setUsername] = useState('');
@@ -80,6 +81,8 @@ export default function Login() {
                         {isPending ? 'Signing in...' : 'Sign In'}
                     </button>
                 </form>
+
+                <DevLoginHints onFill={(u, p) => { setUsername(u); setPassword(p); }} />
             </div>
         </div>
     );

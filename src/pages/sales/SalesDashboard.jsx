@@ -9,17 +9,19 @@ import { LeaveRequests } from './LeaveRequests';
 import logoImg from "../../assets/logo.jpg";
 import { useSelector } from 'react-redux';
 import { useLogout } from '../../hooks/useAuth';
+import { useSubmitSampleInvoice } from '../../hooks/useInvoice';
 import { useLeaveContext } from '../../context/leaveContext';
-import { useAddLeave, useUpdateLeave } from '../../hooks/useLeave';
+import { useAddLeave } from '../../hooks/useLeave';
 import { toast } from 'sonner';
 
 export default function SalesmanDashboard() {
   const user = useSelector((state) => state.app.userInfo);
   const { mutate: logout } = useLogout();
+  const { mutate: submitSampleInvoice, isPending: isSubmittingInvoice } = useSubmitSampleInvoice();
   const {leaves:leaveRequests} = useLeaveContext();
   console.log(leaveRequests)
   const addLeaveMutation = useAddLeave();
-  const updateLeaveMutation = useUpdateLeave();
+  //const updateLeaveMutation = useUpdateLeave();
   // const deleteUserMutation = useDeleteUser();
 
   const [activeTab, setActiveTab] = useState('create');
@@ -77,7 +79,7 @@ export default function SalesmanDashboard() {
     const newInvoice = {
       id: Date.now().toString(),
       invoiceNumber: generateInvoiceNumber(),
-      customerId: selectedCustomer.id,
+      customerId: selectedCustomer._id || selectedCustomer.id,
       customerName: selectedCustomer.name,
       items: invoiceItems,
       subtotal,
@@ -88,14 +90,38 @@ export default function SalesmanDashboard() {
       createdBy: user.fullName || user.name
     };
 
-    const updatedInvoices = [...invoices, newInvoice];
-    setInvoices(updatedInvoices);
-    localStorage.setItem('invoices', JSON.stringify(updatedInvoices));
+    const payload = {
+      customerId: newInvoice.customerId,
+      customerName: newInvoice.customerName,
+      invoiceNumber: newInvoice.invoiceNumber,
+      createdBy: newInvoice.createdBy,
+      summary: {
+        subtotal: newInvoice.subtotal,
+        tax: newInvoice.tax,
+        total: newInvoice.total,
+      },
+      items: invoiceItems.map(({ item, quantity, price, total: itemTotal }) => ({
+        productId: item._id || item.id,
+        productCode: item.code,
+        productName: item.name,
+        quantity,
+        price,
+        total: itemTotal,
+      })),
+    };
 
-    setSelectedCustomer(null);
-    setInvoiceItems([]);
+    submitSampleInvoice(payload, {
+      onSuccess: () => {
+        const updatedInvoices = [...invoices, newInvoice];
+        setInvoices(updatedInvoices);
+        localStorage.setItem('invoices', JSON.stringify(updatedInvoices));
 
-    alert(`Invoice #${newInvoice.invoiceNumber} sent for approval!`);
+        setSelectedCustomer(null);
+        setInvoiceItems([]);
+
+        alert(`Invoice #${newInvoice.invoiceNumber} sent for approval!`);
+      },
+    });
   };
 
   const handleApproveInvoice = (invoiceId) => {
@@ -262,10 +288,11 @@ export default function SalesmanDashboard() {
                   {invoiceItems.length > 0 && (
                     <button
                       onClick={handleSendForApproval}
-                      className="mt-6 w-full px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center justify-center gap-2 text-lg font-medium"
+                      disabled={isSubmittingInvoice}
+                      className="mt-6 w-full px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center justify-center gap-2 text-lg font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <Send className="w-5 h-5" />
-                      Send for Manager Approval
+                      {isSubmittingInvoice ? 'Submitting...' : 'Send for Manager Approval'}
                     </button>
                   )}
                 </div>
