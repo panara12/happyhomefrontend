@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSelector } from 'react-redux';
 import { Search, Barcode, Plus } from 'lucide-react';
 import { useGetAllProducts } from '../../hooks/useProduct';
 
@@ -8,9 +9,13 @@ export function ItemSearch({ onAddItem }) {
   const [quantity, setQuantity] = useState(1);
   const [customPrice, setCustomPrice] = useState('');
   const [showListPrice, setShowListPrice] = useState(false);
-
+  const user = useSelector((state) => state.app.userInfo);
+  
   const { data: searchData } = useGetAllProducts(searchTerm);
   const searchResults = searchData?.products || [];
+
+  const getStoreQty = (product, storeId) =>
+  product?.qty?.find((entry) => entry.storeId === storeId)?.qty ?? 0;
 
   const handleSelectItem = (product) => {
     const item = {
@@ -20,7 +25,7 @@ export function ItemSearch({ onAddItem }) {
       barcode: product.barcode_text,
       price: product.offer_price || product.mrp || 0,
       mrp: product.mrp || 0,
-      stock: product.qty || 0,
+      stock: getStoreQty(product, user?.storeId),
       gst: product.gst || 0,
       disc: product.disc || 0,
     };
@@ -65,7 +70,7 @@ export function ItemSearch({ onAddItem }) {
                     <div className="text-sm text-gray-600">
                       Code: {product.product_code || '-'} • Barcode: {product.barcode_text}
                     </div>
-                    <div className="text-sm text-gray-500">Stock: {product.qty ?? 0} units</div>
+                    <div className="text-sm text-gray-500">Stock: {getStoreQty(product, user?.storeId)} units</div>
                   </div>
                   <div className="text-right">
                     <div className="font-medium text-amber-600">₹{product.offer_price || product.mrp || 0}</div>
@@ -80,11 +85,12 @@ export function ItemSearch({ onAddItem }) {
         )}
       </div>
 
+      {console.log(selectedItem)}
       {selectedItem && (
         <div className="border border-amber-200 rounded-lg p-4 bg-amber-50">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <div className="font-medium text-lg">{selectedItem.name}</div>
+              <div className="font-medium text-lg">{selectedItem.barcode}</div>
               <div className="text-sm text-gray-600">Code: {selectedItem.code}</div>
               <div className="text-sm text-gray-600">Available Stock: {selectedItem.stock} units</div>
             </div>

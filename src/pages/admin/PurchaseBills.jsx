@@ -1,55 +1,29 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, Search, Download, Eye, Calendar } from 'lucide-react';
-import { toast } from 'sonner';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
+import { useStoreContext } from '../../context/storeContext';
+import { useGetAllPurchaseBill } from '../../hooks/usePurchaseBill';
 
 export default function PurchaseBills() {
-  const [bills, setBills] = useState([
-    {
-      id: 'PB-001',
-      date: '2026-04-15',
-      supplier: 'Samsung India',
-      supplierGSTIN: '29AABCS1234F1Z5',
-      billNumber: 'SI-2024-001',
-      store: 'Store 1',
-      items: [
-        { product: 'LED TV 43"', hsn: '8528', quantity: 10, rate: 20000, taxableValue: 200000, cgst: 14000, sgst: 14000, igst: 0 }
-      ],
-      subtotal: 200000,
-      cgst: 14000,
-      sgst: 14000,
-      igst: 0,
-      total: 228000,
-      paymentStatus: 'Paid'
-    },
-    {
-      id: 'PB-002',
-      date: '2026-04-18',
-      supplier: 'LG Electronics',
-      supplierGSTIN: '27AABCL1234G1Z6',
-      billNumber: 'LG-2024-045',
-      store: 'Store 2',
-      items: [
-        { product: 'Refrigerator 190L', hsn: '8418', quantity: 8, rate: 12000, taxableValue: 96000, cgst: 8640, sgst: 8640, igst: 0 }
-      ],
-      subtotal: 96000,
-      cgst: 8640,
-      sgst: 8640,
-      igst: 0,
-      total: 113280,
-      paymentStatus: 'Pending'
-    },
-  ]);
+  const { stores } = useStoreContext();
+  const { data: purchaseBillsData, isLoading: billsLoading } = useGetAllPurchaseBill();
+  const bills = purchaseBillsData?.bills ?? [];
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // NOTE: this "Add Purchase Bill" form is still local-only and does not
+  // call any create API. It also doesn't collect brand / category / unit /
+  // barcode_text, which your PurchaseBill schema marks as required on each
+  // item -- so it can't be wired to useAddPurchaseBill as-is. Real bill
+  // creation already exists on the Accounting > Purchase Bills page.
   const [formData, setFormData] = useState({
     supplier: '',
     supplierGSTIN: '',
     billNumber: '',
     date: new Date().toISOString().split('T')[0],
-    store: 'Store 1',
+    store: '',
     items: [{ product: '', hsn: '', quantity: 1, rate: 0, gstRate: 18 }]
   });
 
@@ -73,85 +47,34 @@ export default function PurchaseBills() {
     setFormData({ ...formData, items: newItems });
   };
 
-  const calculateItemTotal = useCallback((item) => {
-    const taxableValue = item.quantity * item.rate;
-    const gstAmount = (taxableValue * item.gstRate) / 100;
-    const cgst = gstAmount / 2;
-    const sgst = gstAmount / 2;
-    return { taxableValue, cgst, sgst, total: taxableValue + gstAmount };
-  }, []);
-
-  const calculateBillTotal = useCallback(() => {
-    let subtotal = 0;
-    let totalCGST = 0;
-    let totalSGST = 0;
-
+  const billFormTotals = useMemo(() => {
+    let subtotal = 0, totalCGST = 0, totalSGST = 0;
     formData.items.forEach(item => {
-      const { taxableValue, cgst, sgst } = calculateItemTotal(item);
+      const taxableValue = (item.quantity || 0) * (item.rate || 0);
+      const gstAmount = (taxableValue * (item.gstRate || 0)) / 100;
       subtotal += taxableValue;
-      totalCGST += cgst;
-      totalSGST += sgst;
+      totalCGST += gstAmount / 2;
+      totalSGST += gstAmount / 2;
     });
+    return { subtotal, cgst: totalCGST, sgst: totalSGST, total: subtotal + totalCGST + totalSGST };
+  }, [formData.items]);
 
-    return {
-      subtotal,
-      cgst: totalCGST,
-      sgst: totalSGST,
-      total: subtotal + totalCGST + totalSGST
-    };
-  }, [formData.items, calculateItemTotal]);
+  const getStoreName = (storeId) => stores.find(s => s.storeId === storeId)?.name || storeId;
 
-  // Recomputed once per render instead of once per each of the 4 JSX reads below
-  const billFormTotals = useMemo(() => calculateBillTotal(), [calculateBillTotal]);
-
-  const handleCreateBill = () => {
-    if (formData.supplier && formData.billNumber && formData.items.length > 0) {
-      const totals = calculateBillTotal();
-      const newBill = {
-        id: `PB-${String(bills.length + 1).padStart(3, '0')}`,
-        date: formData.date,
-        supplier: formData.supplier,
-        supplierGSTIN: formData.supplierGSTIN,
-        billNumber: formData.billNumber,
-        store: formData.store,
-        items: formData.items.map(item => ({
-          ...item,
-          taxableValue: item.quantity * item.rate,
-          cgst: ((item.quantity * item.rate * item.gstRate) / 100) / 2,
-          sgst: ((item.quantity * item.rate * item.gstRate) / 100) / 2,
-          igst: 0
-        })),
-        ...totals,
-        igst: 0,
-        paymentStatus: 'Pending'
-      };
-      setBills([newBill, ...bills]);
-      setFormData({
-        supplier: '',
-        supplierGSTIN: '',
-        billNumber: '',
-        date: new Date().toISOString().split('T')[0],
-        store: 'Store 1',
-        items: [{ product: '', hsn: '', quantity: 1, rate: 0, gstRate: 18 }]
-      });
-      setShowAddModal(false);
-      toast.success('Purchase bill created successfully!');
-    }
-  };
-
-  const filteredBills = useMemo(() => bills.filter(bill =>
-    bill.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    bill.id.toLowerCase().includes(searchTerm.toLowerCase())
-  ), [bills, searchTerm]);
+  const filteredBills = useMemo(() => bills.filter(bill => {
+    const supplierName = bill.supplierId?.name || '';
+    return supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bill.billNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bill.billId?.toLowerCase().includes(searchTerm.toLowerCase());
+  }), [bills, searchTerm]);
 
   const billStats = useMemo(() => ({
-    totalValue: bills.reduce((sum, b) => sum + b.total, 0),
-    totalGST: bills.reduce((sum, b) => sum + b.cgst + b.sgst + b.igst, 0),
-    pendingCount: bills.filter(b => b.paymentStatus === 'Pending').length,
+    totalValue: bills.reduce((sum, b) => sum + (b.totalAmount || 0), 0),
+    totalGST: bills.reduce((sum, b) => sum + (b.CGSTplusSGST || 0), 0),
+    itemsPurchased: bills.reduce((sum, b) => sum + (b.items || []).reduce((s, i) => s + (i.quantity || 0), 0), 0),
   }), [bills]);
 
-  const billsPagination = usePagination(filteredBills);
+  // const billsPagination = usePagination(filteredBills);
 
   return (
     <div className="space-y-6">
@@ -183,9 +106,9 @@ export default function PurchaseBills() {
           <p className="text-blue-600 text-sm">Total GST Input</p>
           <p className="text-2xl font-bold text-blue-600 mt-1">₹{billStats.totalGST.toLocaleString()}</p>
         </div>
-        <div className="bg-orange-50 rounded-lg shadow p-4 border border-orange-200">
-          <p className="text-orange-600 text-sm">Pending Payments</p>
-          <p className="text-2xl font-bold text-orange-600 mt-1">{billStats.pendingCount}</p>
+        <div className="bg-purple-50 rounded-lg shadow p-4 border border-purple-200">
+          <p className="text-purple-600 text-sm">Items Purchased</p>
+          <p className="text-2xl font-bold text-purple-600 mt-1">{billStats.itemsPurchased}</p>
         </div>
       </div>
 
@@ -215,42 +138,40 @@ export default function PurchaseBills() {
                 <th className="px-4 py-3 text-right">Taxable Value</th>
                 <th className="px-4 py-3 text-right">GST</th>
                 <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3 text-center">Status</th>
                 <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {billsPagination.paginatedItems.map(bill => (
-                <tr key={bill.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-800">{bill.id}</td>
+              {billsLoading && (
+                <tr><td colSpan={9} className="px-4 py-6 text-center text-gray-500">Loading purchase bills...</td></tr>
+              )}
+              {/* {!billsLoading && billsPagination.paginatedItems.length === 0 && (
+                <tr><td colSpan={9} className="px-4 py-6 text-center text-gray-500">No purchase bills found.</td></tr>
+              )} */}
+              {filteredBills.map(bill => (
+                <tr key={bill.billId} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 font-medium text-gray-800">{bill.billId}</td>
                   <td className="px-4 py-3 text-gray-600">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-gray-400" />
-                      {bill.date}
+                      {new Date(bill.billDate).toLocaleDateString()}
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     <div>
-                      <p className="font-medium text-gray-800">{bill.supplier}</p>
-                      <p className="text-xs text-gray-500">GSTIN: {bill.supplierGSTIN}</p>
+                      <p className="font-medium text-gray-800">{bill.supplierId?.name || '—'}</p>
+                      <p className="text-xs text-gray-500">GSTIN: {bill.supplierId?.gstNumber || '—'}</p>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{bill.billNumber}</td>
                   <td className="px-4 py-3">
                     <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                      {bill.store}
+                      {getStoreName(bill.storeId)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-800">₹{bill.subtotal.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right text-gray-600">₹{(bill.cgst + bill.sgst + bill.igst).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right font-bold text-green-600">₹{bill.total.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      bill.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                    }`}>
-                      {bill.paymentStatus}
-                    </span>
-                  </td>
+                  <td className="px-4 py-3 text-right font-medium text-gray-800">₹{(bill.taxableValue || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">₹{(bill.CGSTplusSGST || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right font-bold text-green-600">₹{(bill.totalAmount || 0).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">
                       <button className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-600" title="View">
@@ -266,16 +187,16 @@ export default function PurchaseBills() {
             </tbody>
           </table>
         </div>
-        <Pagination
+        {/* <Pagination
           page={billsPagination.page}
           totalPages={billsPagination.totalPages}
           totalItems={billsPagination.totalItems}
           pageSize={billsPagination.pageSize}
           onPageChange={billsPagination.goToPage}
-        />
+        /> */}
       </div>
 
-      {/* Add Bill Modal */}
+      {/* Add Bill Modal -- still local-only, see note near formData above */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 my-8">
@@ -328,9 +249,10 @@ export default function PurchaseBills() {
                   onChange={(e) => setFormData({...formData, store: e.target.value})}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
                 >
-                  <option value="Store 1">Store 1</option>
-                  <option value="Store 2">Store 2</option>
-                  <option value="Store 3">Store 3</option>
+                  <option value="">Select Store</option>
+                  {stores.map((store) => (
+                    <option value={store.storeId} key={store.storeId}>{store.name}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -446,7 +368,7 @@ export default function PurchaseBills() {
                 Cancel
               </button>
               <button
-                onClick={handleCreateBill}
+                onClick={() => setShowAddModal(false)}
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all"
               >
                 Create Purchase Bill

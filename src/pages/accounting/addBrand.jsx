@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Plus, Edit, Trash2 } from 'lucide-react'
-import { useAddStockCategory, useDeleteStockCategory, useUpdateStockCategory } from '../../hooks/useStockCategory'
-import { useStockCategoryContext } from '../../context/stockcategoryContext'
+import { useAddStockGroup, useDeleteStockGroup, useUpdateStockGroup } from '../../hooks/useStockGroup'
+import { useStockGroupContext } from '../../context/stockgroupContext'
 import { Pagination } from '../../components/ui/Pagination'
 import { usePagination } from '../../hooks/usePagination'
 
@@ -13,50 +13,60 @@ const THEME = {
   idleText: 'text-indigo-100',
 }
 
-export default function AddCategory() {
+export default function AddBrand() {
   const [name, setName] = useState('')
+  const [brandCode, setBrandCode] = useState('')
+  const [gstNumber, setGstNumber] = useState('')
   const [editing, setEditing] = useState(null)
 
-  const { stockCategory, stockCategoryLoading: isLoading } = useStockCategoryContext()
+  const { stockGroup, stockGroupLoading: isLoading } = useStockGroupContext()
 
-  // ✅ Always call hook at top level, every render — pass empty array as
-  // fallback while data is still loading. Never call this conditionally:
-  // React requires the same hooks in the same order on every render, and
-  // gating this behind `isLoading` desyncs the hook count between the
-  // "loading" render and the "loaded" render, which is what was causing
-  // `pagination` to come back empty/stale.
-  // useMemo (not `stockCategory || []`) matters here: usePagination resets
-  // its page state by comparing `items` by reference. A fresh `[]` literal
-  // on every render never becomes stable, which causes an infinite
-  // "setState during render" loop ("Too many re-renders").
-  const categories = useMemo(() => stockCategory || [], [stockCategory])
-  const pagination = usePagination(categories)
+  // ✅ Always call hook at top level — pass empty array as fallback
+  // See AddCategory.jsx for why this needs useMemo, not `stockGroup || []`
+  // directly: usePagination resets page state by reference-comparing items,
+  // and a fresh [] literal every render never stabilizes → infinite loop.
+  const brands = useMemo(() => stockGroup || [], [stockGroup])
 
-  const addMutation    = useAddStockCategory()
-  const updateMutation = useUpdateStockCategory()
-  const deleteMutation = useDeleteStockCategory()
+  const addMutation    = useAddStockGroup()
+  const updateMutation = useUpdateStockGroup()
+  const deleteMutation = useDeleteStockGroup()
+
+  // const pagination = usePagination(stockGroup)
+  // console.log(pagination)
 
   useEffect(() => {
-    if (!editing) setName('')
-    else setName(editing.name || '')
+    if (!editing) {
+      setName('')
+      setBrandCode('')
+    } else {
+      setName(editing.name || '')
+      setBrandCode(editing.brand_code || '')
+    }
   }, [editing])
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!name.trim()) return
     if (editing) {
-      updateMutation.mutate({id: editing._id ,name: name.trim(), categoryId: editing.categoryId })
+      updateMutation.mutate({
+        id: editing._id,
+        name: name.trim(),
+        brand_code: brandCode.trim(),
+        gstNumber: gstNumber.trim()
+      })
       setEditing(null)
     } else {
-      addMutation.mutate({ name: name.trim() })
+      addMutation.mutate({ name: name.trim(), brand_code: brandCode.trim(), gstNumber:gstNumber.trim() })
     }
     setName('')
+    setBrandCode('')
+    setGstNumber('')
   }
 
-  const handleEdit   = (cat) => setEditing(cat)
-  const handleDelete = (cat) => {
-    if (!confirm(`Delete category "${cat.name}"?`)) return
-    deleteMutation.mutate(cat.categoryId)
+  const handleEdit   = (brand) => setEditing(brand)
+  const handleDelete = (brand) => {
+    if (!confirm(`Delete brand "${brand.name}"?`)) return
+    deleteMutation.mutate(brand._id)
   }
 
   // ✅ Loading state AFTER all hooks are called
@@ -64,7 +74,7 @@ export default function AddCategory() {
     return (
       <div className={`p-6 rounded-md shadow-sm ${THEME.panel} text-white`}>
         <div className="flex items-center justify-center h-40">
-          <p className="text-indigo-200 text-sm animate-pulse">Loading categories...</p>
+          <p className="text-indigo-200 text-sm animate-pulse">Loading brands...</p>
         </div>
       </div>
     )
@@ -73,20 +83,37 @@ export default function AddCategory() {
   return (
     <div className={`p-6 rounded-md shadow-sm ${THEME.panel} text-white`}>
       <div className={`bg-gradient-to-r ${THEME.gradientFrom} ${THEME.gradientTo} p-4 rounded-md mb-4`}>
-        <h2 className="text-2xl font-semibold">Categories</h2>
-        <p className="text-sm text-indigo-200">Manage stock categories for Accounting</p>
+        <h2 className="text-2xl font-semibold">Brands</h2>
+        <p className="text-sm text-indigo-200">Manage stock brands (stock groups) for Accounting</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* ── Form ── */}
         <form onSubmit={handleSubmit} className="space-y-3 md:col-span-1">
-          <label className="block text-sm text-indigo-100">Category name</label>
+          <label className="block text-sm text-indigo-100">Brand name</label>
           <input
             className="w-full p-2 rounded border border-indigo-700 bg-indigo-900 text-white"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Enter category name"
+            placeholder="Enter brand name"
           />
+
+          <label className="block text-sm text-indigo-100">Brand code</label>
+          <input
+            className="w-full p-2 rounded border border-indigo-700 bg-indigo-900 text-white"
+            value={brandCode}
+            onChange={(e) => setBrandCode(e.target.value)}
+            placeholder="Enter brand code"
+          />
+
+          <label className="block text-sm text-indigo-100">GST Number</label>
+          <input
+            className="w-full p-2 rounded border border-indigo-700 bg-indigo-900 text-white"
+            value={gstNumber}
+            onChange={(e) => setGstNumber(e.target.value)}
+            placeholder="Enter brand code"
+          />
+
           <div className="flex gap-2">
             <button
               type="submit"
@@ -113,34 +140,38 @@ export default function AddCategory() {
               <thead className="bg-indigo-50 text-left">
                 <tr>
                   <th className="p-3">#</th>
-                  <th className="p-3">Category ID</th>
+                  <th className="p-3">Stock Group ID</th>
                   <th className="p-3">Name</th>
+                  <th className="p-3">Brand Code</th>
+                  <th className="p-3">GST Number</th>
                   <th className="p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {categories.length === 0 && (
+                {brands.length === 0 && (
                   <tr>
-                    <td className="p-4 text-gray-400" colSpan={4}>
-                      No categories found.
+                    <td className="p-4 text-gray-400" colSpan={5}>
+                      No brands found.
                     </td>
                   </tr>
                 )}
-                {pagination.paginatedItems.map((cat, idx) => (
-                  <tr key={cat._id} className="border-t">
+                {brands.map((brand, idx) => (
+                  <tr key={brand._id} className="border-t">
                     <td className="p-3">{idx + 1}</td>
-                    <td className="p-3">{cat.categoryId}</td>
-                    <td className="p-3">{cat.name}</td>
+                    <td className="p-3">{brand.stockGroupId}</td>
+                    <td className="p-3">{brand.name}</td>
+                    <td className="p-3">{brand.brand_code}</td>
+                    <td className="p-3">{brand.gstNumber}</td>
                     <td className="p-3">
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleEdit(cat)}
+                          onClick={() => handleEdit(brand)}
                           className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded"
                         >
                           <Edit size={14} /> Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(cat)}
+                          onClick={() => handleDelete(brand)}
                           className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 rounded"
                         >
                           <Trash2 size={14} /> Delete
@@ -152,14 +183,14 @@ export default function AddCategory() {
               </tbody>
             </table>
           </div>
-
+{/* 
           <Pagination
             page={pagination?.page || 1}
             totalPages={pagination?.totalPages || 1}
             totalItems={pagination?.totalItems || 0}
             pageSize={pagination?.pageSize || 10}
             onPageChange={pagination?.goToPage}
-          />
+          /> */}
         </div>
       </div>
     </div>

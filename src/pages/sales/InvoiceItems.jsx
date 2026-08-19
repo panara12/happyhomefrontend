@@ -31,7 +31,7 @@ export function InvoiceItems({ items, onRemoveItem, onUpdateQuantity, onUpdatePr
             {items.map((invoiceItem, index) => (
               <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-3 px-2">
-                  <div className="font-medium">{invoiceItem.item.name}</div>
+                  <div className="font-medium">{invoiceItem.item.barcode_text}</div>
                   <div className="text-sm text-gray-500 sm:hidden">{invoiceItem.item.code}</div>
                 </td>
                 <td className="text-center py-3 px-2 text-sm text-gray-600 hidden sm:table-cell">
