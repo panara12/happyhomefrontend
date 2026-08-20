@@ -1,8 +1,8 @@
 import { useApiMutation } from "./useApiMutation";
 
-export function useSubmitSampleInvoice() {
+export function useSubmitInvoice() {
   return useApiMutation({
-    url: "/invoices/submit-sample",
+    url: "/invoices/invoice-submit",
     method: "post",
     successMessage: "Invoice submitted successfully",
   });
