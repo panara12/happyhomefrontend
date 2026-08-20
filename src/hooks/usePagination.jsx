@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export const DEFAULT_PAGE_SIZE = 10;
 
@@ -10,14 +10,12 @@ export const DEFAULT_PAGE_SIZE = 10;
 export function usePagination(items, { pageSize: initialPageSize = DEFAULT_PAGE_SIZE } = {}) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
-  const [itemsRef, setItemsRef] = useState(items);
 
-  // Reset to page 1 when the filtered list itself changes — adjusting state
-  // during render (not in an effect) avoids an extra render pass.
-  if (items !== itemsRef) {
-    setItemsRef(items);
+  // Reset in an effect — never setState during render, or an unstable
+  // `items` reference (e.g. `data ?? []`) will infinite-loop.
+  useEffect(() => {
     setPage(1);
-  }
+  }, [items]);
 
   const totalItems = items.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
