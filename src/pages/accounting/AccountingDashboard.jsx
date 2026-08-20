@@ -14,6 +14,7 @@ import { useSelector } from "react-redux"
 import { useLogout } from "../../hooks/useAuth"
 import logoImg from "../../assets/logo.jpg"
 import AddCategory from "./AddCategory"
+import AddBrand from "./addBrand"
 
 const ACCOUNTING_THEME = {
   gradientFrom: "from-indigo-900",
@@ -34,7 +35,8 @@ const navigationItems = [
   { id: "distributor-returns", label: "Distributor Returns", icon: RotateCcw, path: "/accounting/distributor-returns" },
   { id: "transfers", label: "View Transfers", icon: ArrowLeftRight, path: "/accounting/transfers" },
   { id: "inventory", label: "Inventory Status", icon: Package, path: "/accounting/inventory" },
-  { id: "category", label: "category", icon: Package, path: "/accounting/category" },
+  { id: "category", label: "Category", icon: Package, path: "/accounting/category" },
+  { id: "brand", label: "Brand", icon: Package, path: "/accounting/brand" },
 ]
 
 function LayoutWrapper({ children, user }) {
@@ -78,6 +80,7 @@ export default function AccountingRouter() {
         <Route path="/distributor-returns" element={<DistributorReturns user={user} />} />
         <Route path="/transfers" element={<ViewTransfers user={user} />} />
         <Route path="/category" element={<AddCategory user={user} />} />
+        <Route path="/brand" element={<AddBrand user={user} />} />
         <Route path="/inventory" element={<div>Inventory Status (page not provided yet)</div>} />
         <Route path="*" element={<Navigate to="/accounting/dashboard" replace />} />
       </Routes>
