@@ -26,13 +26,11 @@ export default function AddBrand() {
   // directly: usePagination resets page state by reference-comparing items,
   // and a fresh [] literal every render never stabilizes → infinite loop.
   const brands = useMemo(() => stockGroup || [], [stockGroup])
+  const pagination = usePagination(brands)
 
   const addMutation    = useAddStockGroup()
   const updateMutation = useUpdateStockGroup()
   const deleteMutation = useDeleteStockGroup()
-
-  // const pagination = usePagination(stockGroup)
-  // console.log(pagination)
 
   useEffect(() => {
     if (!editing) {
@@ -150,14 +148,14 @@ export default function AddBrand() {
               <tbody>
                 {brands.length === 0 && (
                   <tr>
-                    <td className="p-4 text-gray-400" colSpan={5}>
+                    <td className="p-4 text-gray-400" colSpan={6}>
                       No brands found.
                     </td>
                   </tr>
                 )}
-                {brands.map((brand, idx) => (
+                {pagination.paginatedItems.map((brand, idx) => (
                   <tr key={brand._id} className="border-t">
-                    <td className="p-3">{idx + 1}</td>
+                    <td className="p-3">{(pagination.page - 1) * pagination.pageSize + idx + 1}</td>
                     <td className="p-3">{brand.stockGroupId}</td>
                     <td className="p-3">{brand.name}</td>
                     <td className="p-3">{brand.brand_code}</td>
@@ -183,14 +181,14 @@ export default function AddBrand() {
               </tbody>
             </table>
           </div>
-{/* 
+
           <Pagination
             page={pagination?.page || 1}
             totalPages={pagination?.totalPages || 1}
             totalItems={pagination?.totalItems || 0}
             pageSize={pagination?.pageSize || 10}
             onPageChange={pagination?.goToPage}
-          /> */}
+          />
         </div>
       </div>
     </div>
