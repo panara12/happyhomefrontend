@@ -70,7 +70,11 @@ export function useApiMutation({
     },
     onError: (error) => {
       if (showErrorToast) {
-        toast.error(error?.message || DEFAULT_ERROR_MESSAGE);
+        toast.error(
+          error?.response?.data?.message ||
+            error?.message ||
+            DEFAULT_ERROR_MESSAGE,
+        );
       }
     },
   });

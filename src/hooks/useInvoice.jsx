@@ -3,13 +3,14 @@ import { useApiQuery } from "./useApiQuery";
 
 const MY_INVOICES_KEY = ["my-invoices"];
 const STORE_INVOICES_KEY = ["store-invoices"];
+const PRODUCTS_QUERY_KEY = ["products"];
 
 export function useSubmitInvoice() {
   return useApiMutation({
     url: "/invoices/invoice-submit",
     method: "post",
     successMessage: "Invoice submitted successfully",
-    invalidateKeys: [MY_INVOICES_KEY, STORE_INVOICES_KEY],
+    invalidateKeys: [MY_INVOICES_KEY, STORE_INVOICES_KEY, PRODUCTS_QUERY_KEY],
   });
 }
 
@@ -45,7 +46,7 @@ export function useUpdateInvoiceStatus() {
   return useApiMutation({
     url: (variables) => `/invoices/update-status/${variables.id}`,
     method: "put",
-    invalidateKeys: [MY_INVOICES_KEY, STORE_INVOICES_KEY],
+    invalidateKeys: [MY_INVOICES_KEY, STORE_INVOICES_KEY, PRODUCTS_QUERY_KEY],
   });
 }
 
@@ -53,7 +54,7 @@ export function useUpdateInvoice() {
   return useApiMutation({
     url: (variables) => `/invoices/update/${variables.id}`,
     method: "put",
-    invalidateKeys: [MY_INVOICES_KEY, STORE_INVOICES_KEY],
+    invalidateKeys: [MY_INVOICES_KEY, STORE_INVOICES_KEY, PRODUCTS_QUERY_KEY],
     successMessage: "Invoice updated successfully",
   });
 }
