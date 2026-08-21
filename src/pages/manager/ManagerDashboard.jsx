@@ -8,7 +8,7 @@ import {
 import Layout from "../../layouts/adminLayout"
 import DashboardHome from "../admin/DashboardHome"
 import InventoryManagement from "../admin/InventoryManagement"
-import InvoiceManagement from "../admin/InvoiceManagement"
+import ManagerInvoices from "./ManagerInvoices"
 import ClientCards from "./ClientCards"
 import TransferManagement from "../admin/TransferManagement"
 import UserManagement from "../admin/UserManagement"
@@ -70,7 +70,7 @@ export default function ManagerDashboard() {
         <Route path="/" element={<Navigate to="/manager/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardHome user={user} />} />
         <Route path="/inventory" element={<InventoryManagement user={user} />} />
-        <Route path="/invoices" element={<InvoiceManagement user={user} />} />
+        <Route path="/invoices" element={<ManagerInvoices />} />
         <Route path="/client-cards" element={<ClientCards user={user} />} />
         <Route path="/transfers" element={<TransferManagement user={user} />} />
         <Route path="/sales-team" element={<UserManagement user={user} />} />

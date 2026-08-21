@@ -9,7 +9,7 @@ import { LeaveRequests } from './LeaveRequests';
 import logoImg from "../../assets/logo.jpg";
 import { useSelector } from 'react-redux';
 import { useLogout } from '../../hooks/useAuth';
-import { useSubmitInvoice } from '../../hooks/useInvoice';
+import { useSubmitInvoice, useGetMyInvoices } from '../../hooks/useInvoice';
 import { useLeaveContext } from '../../context/leaveContext';
 import { useAddLeave } from '../../hooks/useLeave';
 import { toast } from 'sonner';
@@ -18,25 +18,16 @@ export default function SalesmanDashboard() {
   const user = useSelector((state) => state.app.userInfo);
   const { mutate: logout } = useLogout();
   const { mutate: submitInvoice, isPending: isSubmittingInvoice } = useSubmitInvoice();
-  const {leaves:leaveRequests} = useLeaveContext();
-  console.log(leaveRequests)
+  const { leaves: leaveRequests } = useLeaveContext();
   const addLeaveMutation = useAddLeave();
-  //const updateLeaveMutation = useUpdateLeave();
-  // const deleteUserMutation = useDeleteUser();
+
+  const { data: myInvoicesData, isLoading: invoicesLoading } = useGetMyInvoices({ limit: 100 });
+  const myInvoices = myInvoicesData?.invoices || [];
 
   const [activeTab, setActiveTab] = useState('create');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [invoiceItems, setInvoiceItems] = useState([]);
-  const [invoices, setInvoices] = useState(() => {
-    const stored = localStorage.getItem('invoices');
-    return stored ? JSON.parse(stored) : [];
-  });
 
-  const generateInvoiceNumber = () => {
-    const prefix = 'INV';
-    const timestamp = Date.now().toString().slice(-8);
-    return `${prefix}${timestamp}`;
-  };
 
   const handleAddItem = (item, quantity, price) => {
     const total = quantity * price;
@@ -77,8 +68,6 @@ export default function SalesmanDashboard() {
     const total = subtotal + tax;
 
     const newInvoice = {
-      id: Date.now().toString(),
-      invoiceNumber: generateInvoiceNumber(),
       customerId: selectedCustomer._id || selectedCustomer.id,
       customerName: selectedCustomer.name,
       items: invoiceItems,
@@ -86,7 +75,6 @@ export default function SalesmanDashboard() {
       tax,
       total,
       status: 'pending',
-      createdAt: new Date().toISOString(),
       createdBy: user.fullName || user.name
     };
 
@@ -107,33 +95,12 @@ export default function SalesmanDashboard() {
 
     submitInvoice(payload, {
       onSuccess: (data) => {
-        const savedInvoiceNumber = data?.invoice?.invoiceNumber || newInvoice.invoiceNumber;
-        const updatedInvoices = [...invoices, { ...newInvoice, invoiceNumber: savedInvoiceNumber, id: data?.invoice?._id || newInvoice.id }];
-        setInvoices(updatedInvoices);
-        localStorage.setItem('invoices', JSON.stringify(updatedInvoices));
-
+        const savedInvoiceNumber = data?.invoice?.invoiceNumber || 'new';
         setSelectedCustomer(null);
         setInvoiceItems([]);
-
         alert(`Invoice #${savedInvoiceNumber} sent for approval!`);
       },
     });
-  };
-
-  const handleApproveInvoice = (invoiceId) => {
-    const updatedInvoices = invoices.map(inv =>
-      inv.id === invoiceId ? { ...inv, status: 'approved' } : inv
-    );
-    setInvoices(updatedInvoices);
-    localStorage.setItem('invoices', JSON.stringify(updatedInvoices));
-  };
-
-  const handleRejectInvoice = (invoiceId) => {
-    const updatedInvoices = invoices.map(inv =>
-      inv.id === invoiceId ? { ...inv, status: 'rejected' } : inv
-    );
-    setInvoices(updatedInvoices);
-    localStorage.setItem('invoices', JSON.stringify(updatedInvoices));
   };
 
   const handleSubmitLeave = (leave) => {
@@ -165,8 +132,14 @@ export default function SalesmanDashboard() {
     setActiveTab('create');
   };
 
-  const pendingInvoicesForApproval = useMemo(() => invoices.filter(inv => inv.status === 'pending'), [invoices]);
-  const pendingLeaveRequestsForApproval = useMemo(() => leaveRequests.filter(req => req.status === 'Pending'), [leaveRequests]);
+  const pendingInvoices = useMemo(
+    () => myInvoices.filter((inv) => inv.status === 'pending'),
+    [myInvoices]
+  );
+  const pendingLeaveRequestsForApproval = useMemo(
+    () => leaveRequests.filter((req) => req.status === 'Pending'),
+    [leaveRequests]
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -323,10 +296,8 @@ export default function SalesmanDashboard() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="font-medium text-lg mb-4">Pending Invoice Approvals</h3>
               <PendingInvoices
-                invoices={pendingInvoicesForApproval}
-                onApprove={handleApproveInvoice}
-                onReject={handleRejectInvoice}
-                showActions={true}
+                invoices={pendingInvoices}
+                isLoading={invoicesLoading}
               />
             </div>
 
@@ -342,7 +313,10 @@ export default function SalesmanDashboard() {
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="font-medium text-lg mb-4">All Invoices</h3>
-              <PendingInvoices invoices={invoices} />
+              <PendingInvoices
+                invoices={myInvoices}
+                isLoading={invoicesLoading}
+              />
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
