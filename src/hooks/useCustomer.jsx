@@ -12,11 +12,17 @@ export function useSearchCustomers(query) {
     });
 }
 
-export function useGetAllCustomers() {
+export function useGetAllCustomers({ q = "", clientType = "All", page = 1, limit = 100 } = {}) {
     return useApiQuery({
-        queryKey: CUSTOMERS_QUERY_KEY,
+        queryKey: [...CUSTOMERS_QUERY_KEY, "list", q, clientType, page, limit],
         path: "/customers/getAll",
-        params: { limit: 100 },
+        params: {
+            page,
+            limit,
+            ...(q ? { q } : {}),
+            ...(clientType && clientType !== "All" ? { clientType } : {}),
+        },
+        keepPrevious: true,
     });
 }
 
