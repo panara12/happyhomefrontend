@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Search, Eye, CheckCircle, XCircle, Printer, Send, Edit2
+  Search, Eye, CheckCircle, XCircle, Printer, Send, Edit2, Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pagination } from '../../components/ui/Pagination';
@@ -8,6 +8,7 @@ import { usePagination } from '../../hooks/usePagination';
 import { useGetStoreInvoices, useUpdateInvoiceStatus, useUpdateInvoice } from '../../hooks/useInvoice';
 import EditInvoiceModal from './EditInvoiceModal';
 import ViewInvoiceModal from './ViewInvoiceModal';
+import CreateInvoiceModal from './CreateInvoiceModal';
 
 const PAGE_SIZE = 10;
 
@@ -27,6 +28,7 @@ export default function ManagerInvoices() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [editingInvoice, setEditingInvoice] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
@@ -97,9 +99,19 @@ export default function ManagerInvoices() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-gray-800">Invoice Approval</h2>
-        <p className="text-gray-600 mt-1">Review and approve invoices from your team</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-800">Invoice Approval</h2>
+          <p className="text-gray-600 mt-1">Review and approve invoices from your team</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 font-medium shadow"
+        >
+          <Plus size={18} />
+          Create Invoice
+        </button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -409,6 +421,10 @@ export default function ManagerInvoices() {
           onSave={handleSaveEdit}
           isSaving={updateInvoiceMutation.isPending}
         />
+      )}
+
+      {showCreateModal && (
+        <CreateInvoiceModal onClose={() => setShowCreateModal(false)} />
       )}
     </div>
   );
