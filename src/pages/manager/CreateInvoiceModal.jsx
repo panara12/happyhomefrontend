@@ -156,7 +156,7 @@ export default function CreateInvoiceModal({ onClose }) {
     submitInvoiceMutation.mutate(
       {
         customerId: selectedCustomer._id,
-        storeId: selectedStore?.storeId || user?.storeId || undefined,
+        storeId: user?.storeId,
         summary: { subtotal, tax, total },
         items: lineItems,
       },
