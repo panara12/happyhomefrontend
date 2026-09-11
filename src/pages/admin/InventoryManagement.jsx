@@ -9,16 +9,20 @@ import { useStockCategoryContext } from '../../context/stockcategoryContext';
 import { useGetAllProducts } from '../../hooks/useProduct';
 import { useGetAllAccountingConst } from '../../hooks/useGetAllAccountStates';
 
-export default function InventoryManagement({ user }) {
+
+export default function InventoryManagement({user}) {
   const { stores } = useStoreContext();
+  // const { user} = useLoggedUserContext();
+  // console.log(user)
   const { data: stockGroupData } = useGetAllStockGroup();
   const stockGroup = stockGroupData?.data ?? [];
   const { stockCategory } = useStockCategoryContext();
 
   const { data: productsData, isLoading: productsLoading } = useGetAllProducts();
   const { data: accounting} = useGetAllAccountingConst();
-  console.log("data",accounting)
-  const products = productsData?.products ?? [];
+  // console.log("data",accounting)
+  const products = useMemo(() => productsData?.products || [],[productsData?.products]);
+  const pagination = usePagination(products)
 
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,15 +72,15 @@ export default function InventoryManagement({ user }) {
 
   // const inventoryPagination = usePagination(displayInventory);
 
-  // const totalStockAcrossAll = useMemo(
-  //   () => products.reduce((sum, item) => sum + getTotalStock(item), 0),
-  //   [products]
-  // );
+  const totalStockAcrossAll = useMemo(
+    () => products.reduce((sum, item) => sum + getTotalStock(item), 0),
+    [products]
+  );
 
-  // const totalValueAcrossAll = useMemo(
-  //   () => products.reduce((sum, item) => sum + (getTotalStock(item) * (item.mrp || 0)), 0),
-  //   [products]
-  // );
+  const totalValueAcrossAll = useMemo(
+    () => products.reduce((sum, item) => sum + (getTotalStock(item) * (item.mrp || 0)), 0),
+    [products]
+  );
 
   return (
     <div className="space-y-6">
@@ -84,7 +88,7 @@ export default function InventoryManagement({ user }) {
         <div>
           <h2 className="text-3xl font-bold text-gray-800">Master Inventory</h2>
           <p className="text-gray-600 mt-1">
-            {user.role === 'admin'
+            {user?.userType === 'admin'
               ? 'Manage inventory across all stores'
               : 'View inventory across all stores'}
           </p>
@@ -100,7 +104,7 @@ export default function InventoryManagement({ user }) {
         </div>
       </div>
 
-      {user.role === 'manager' && (
+      {user?.userType === 'manager' && (
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <div className="bg-purple-500 text-white p-2 rounded-lg">
@@ -182,8 +186,8 @@ export default function InventoryManagement({ user }) {
                   </td>
                 </tr>
               )}
-              {/* {!productsLoading && inventoryPagination.paginatedItems.map(item => ( */}
-              {displayInventory.map(item => (
+              {/* {!productsLoading && pagination.paginatedItems.map(item => ( */}
+              {!productsLoading && pagination.paginatedItems.map(item => (
                 <tr key={item._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -207,7 +211,7 @@ export default function InventoryManagement({ user }) {
                     <td
                       key={store.storeId}
                       className={`px-4 py-3 text-center ${
-                        user.role === 'manager' && user.storeId === store.storeId ? 'font-bold text-amber-600' : 'text-gray-600'
+                        user.userType === 'manager' && user.storeId === store.storeId ? 'font-bold text-amber-600' : 'text-gray-600'
                       }`}
                     >
                       {getStoreQty(item, store.storeId)}
@@ -224,12 +228,12 @@ export default function InventoryManagement({ user }) {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {user.role !== 'sales' && (
+                    {user.userType !== 'sales' && (
                       <div className="flex items-center justify-center gap-2">
                         <button className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-600">
                           <Edit2 size={16} />
                         </button>
-                        {user.role === 'admin' && (
+                        {user.userType === 'admin' && (
                           <button className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600">
                             <Trash2 size={16} />
                           </button>
@@ -242,13 +246,13 @@ export default function InventoryManagement({ user }) {
             </tbody>
           </table>
         </div>
-        {/* <Pagination
-          page={inventoryPagination.page}
-          totalPages={inventoryPagination.totalPages}
-          totalItems={inventoryPagination.totalItems}
-          pageSize={inventoryPagination.pageSize}
-          onPageChange={inventoryPagination.goToPage}
-        /> */}
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          pageSize={pagination.pageSize}
+          onPageChange={pagination.goToPage}
+        />
       </div>
 
       {showBarcodeModal && (
