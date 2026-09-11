@@ -3,7 +3,8 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-
 import {
   LayoutDashboard, Store, Package, FileText, Users,
   ArrowLeftRight, ShoppingCart, DollarSign,
-  TrendingUp, RotateCcw, Receipt, BarChart3
+  TrendingUp, RotateCcw, Receipt, BarChart3,
+  Wrench
 } from "lucide-react"
 
 import Layout from "../../layouts/adminLayout"

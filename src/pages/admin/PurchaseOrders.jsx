@@ -1,6 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Plus, CheckCircle, Clock, XCircle, Search, Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { useStoreContext } from '../../context/storeContext';
+import { useGetAllStockGroup } from '../../hooks/useStockGroup';
+import { useGetAllProducts } from '../../hooks/useProduct';
+import { useAddPurchaseOrder, useUpdatePurchaseOrder, useGetAllPurchaseOrder } from '../../hooks/usePurchaseOrder';
+import { useSelector } from 'react-redux';
+import { useLoggedUserContext } from '../../context/loggedUserContext';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
 import Modal, {
@@ -10,146 +16,142 @@ import Modal, {
   modalSecondaryBtnClass,
 } from '../../components/ui/Modal';
 
-export default function PurchaseOrders({ user }) {
-  const [orders, setOrders] = useState([
-    {
-      id: 'PO-001',
-      date: '2026-04-18',
-      supplier: 'Samsung India',
-      store: 'Store 1',
-      items: [
-        { product: 'LED TV 43"', quantity: 10, price: 25999 }
-      ],
-      total: 259990,
-      status: 'Received',
-      expectedDate: '2026-04-25'
-    },
-    {
-      id: 'PO-002',
-      date: '2026-04-20',
-      supplier: 'LG Electronics',
-      store: 'Store 2',
-      items: [
-        { product: 'Refrigerator 190L', quantity: 8, price: 15999 }
-      ],
-      total: 127992,
-      status: 'Pending',
-      expectedDate: '2026-04-28'
-    },
-    {
-      id: 'PO-003',
-      date: '2026-04-21',
-      supplier: 'IFB Industries',
-      store: 'Store 1',
-      items: [
-        { product: 'Washing Machine 7kg', quantity: 12, price: 18999 }
-      ],
-      total: 227988,
-      status: 'Approved',
-      expectedDate: '2026-04-30'
-    },
-  ]);
+const emptyItem = { barcode_text: '', quantity: 1, matchedProduct: null };
 
+export default function PurchaseOrders() {
+  const { loggedUser:user} = useLoggedUserContext();
+
+  const userRole = user.userType; 
+
+  const { stores } = useStoreContext();
+  const { data: stockGroupData } = useGetAllStockGroup();
+  const stockGroup = stockGroupData?.data ?? [];
+  const { data: productsData } = useGetAllProducts();
+  const products = productsData?.products ?? [];
+
+  const { data: ordersData, isLoading: ordersLoading } = useGetAllPurchaseOrder();
+  // const orders = ordersData?.purchaseOrders ?? [];
+  const orders = useMemo(() => ordersData?.purchaseOrders || [], [ordersData?.purchaseOrders])
+  const pagination = usePagination(orders)
+
+  // mutateAsync + try/catch style, matching StoreManagement's handleAddStore
+  const addPurchaseOrderMutation = useAddPurchaseOrder();
+  const updatePurchaseOrderMutation = useUpdatePurchaseOrder();
+  // const pagination = usePagination(orders)
+  // console.log(pagination)
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [formData, setFormData] = useState({
-    supplier: '',
-    store: user.role === 'manager' && user.storeId ? `Store ${user.storeId}` : 'Store 1',
-    expectedDate: '',
-    items: [{ product: '', quantity: 1, price: 0 }]
-  });
 
-  const mockSuppliers = [
-    'Samsung India',
-    'LG Electronics',
-    'IFB Industries',
-    'Bajaj Electricals',
-    'Symphony Ltd'
-  ];
+  const initialFormData = {
+    supplierId: '',
+    storeId: userRole === 'manager' && user.storeId ? user.storeId : '',
+    expectedDeliveryDate: '',
+    items: [{ ...emptyItem }]
+  };
+  const [formData, setFormData] = useState(initialFormData);
 
-  const mockProducts = [
-    { name: 'LED TV 43"', price: 25999 },
-    { name: 'Refrigerator 190L', price: 15999 },
-    { name: 'Washing Machine 7kg', price: 18999 },
-    { name: 'Microwave Oven', price: 7999 },
-    { name: 'Air Cooler', price: 8999 },
-  ];
+  // Search existing product for a given item row — mirrors the Purchase Bill page's pattern.
+  const [activeSearchIndex, setActiveSearchIndex] = useState(null);
+  const [itemSearchTerm, setItemSearchTerm] = useState('');
+  const { data: itemProductSearchData } = useGetAllProducts(itemSearchTerm);
+  const itemSearchResults = itemSearchTerm ? (itemProductSearchData?.products || []) : [];
+
+  const getSupplierName = (supplierId) => stockGroup.find(sg => sg._id === supplierId)?.name || supplierId || '-';
+  const getStoreName = (storeId) => stores.find(s => s.storeId === storeId)?.name || storeId;
+  const getProductByBarcode = (barcode) => products.find(p => p.barcode_text === barcode);
 
   const handleAddItem = () => {
-    setFormData({
-      ...formData,
-      items: [...formData.items, { product: '', quantity: 1, price: 0 }]
-    });
+    setFormData({ ...formData, items: [...formData.items, { ...emptyItem }] });
   };
 
   const handleRemoveItem = (index) => {
-    setFormData({
-      ...formData,
-      items: formData.items.filter((_, i) => i !== index)
-    });
+    setFormData({ ...formData, items: formData.items.filter((_, i) => i !== index) });
+    if (activeSearchIndex === index) {
+      setActiveSearchIndex(null);
+      setItemSearchTerm('');
+    }
   };
 
-  const handleItemChange = (index, field, value) => {
+  const handleItemSearchChange = (index, value) => {
+    setActiveSearchIndex(index);
+    setItemSearchTerm(value);
+  };
+
+  const handleSelectProduct = (index, product) => {
     const newItems = [...formData.items];
-    if (field === 'product') {
-      const product = mockProducts.find(p => p.name === value);
-      newItems[index] = { product: value, quantity: newItems[index].quantity, price: product?.price || 0 };
-    } else {
-      newItems[index] = { ...newItems[index], [field]: value };
-    }
+    newItems[index] = {
+      ...newItems[index],
+      barcode_text: product.barcode_text,
+      matchedProduct: product // client-only, used for display + total estimate, never sent to backend
+    };
+    setFormData({ ...formData, items: newItems });
+    setActiveSearchIndex(null);
+    setItemSearchTerm('');
+  };
+
+  const handleQuantityChange = (index, value) => {
+    const newItems = [...formData.items];
+    newItems[index] = { ...newItems[index], quantity: parseInt(value) || 0 };
     setFormData({ ...formData, items: newItems });
   };
 
-  const calculateTotal = useCallback(() => {
-    return formData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const calculateFormTotal = useCallback(() => {
+    return formData.items.reduce((sum, item) => sum + (item.quantity * (item.matchedProduct?.mrp || 0)), 0);
   }, [formData.items]);
 
-  // Recomputed once per render instead of once per each JSX read below
-  const formTotal = useMemo(() => calculateTotal(), [calculateTotal]);
+  const formTotal = useMemo(() => calculateFormTotal(), [calculateFormTotal]);
 
-  const handleCreatePO = () => {
-    if (formData.supplier && formData.expectedDate && formData.items.length > 0) {
-      const newPO = {
-        id: `PO-${String(orders.length + 1).padStart(3, '0')}`,
-        date: new Date().toISOString().split('T')[0],
-        supplier: formData.supplier,
-        store: formData.store,
-        items: formData.items,
-        total: calculateTotal(),
-        status: 'Pending',
-        expectedDate: formData.expectedDate
-      };
-      setOrders([newPO, ...orders]);
-      setFormData({ supplier: '', store: 'Store 1', expectedDate: '', items: [{ product: '', quantity: 1, price: 0 }] });
-      setShowCreateModal(false);
+  // Was: addPurchaseOrder(payload, { onSuccess, onError })
+  // Now: mutateAsync inside a try/catch, same shape as handleAddStore.
+  const handleCreatePO = async () => {
+    const invalidItems = formData.items.filter(item => !item.matchedProduct || !item.quantity || item.quantity <= 0);
+    if (!formData.supplierId || !formData.storeId || invalidItems.length > 0) {
+      toast.error('Please select a supplier, store, and a valid existing product for every item');
+      return;
+    }
+
+    const payload = {
+      storeId: formData.storeId,
+      supplierId: formData.supplierId,
+      expectedDeliveryDate: formData.expectedDeliveryDate || undefined,
+      items: formData.items.map(item => ({
+        barcode_text: item.barcode_text,
+        quantity: item.quantity
+      }))
+    };
+
+    try {
+      await addPurchaseOrderMutation.mutateAsync(payload);
       toast.success('Purchase order created successfully!');
+      setFormData(initialFormData);
+      setShowCreateModal(false);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to create purchase order');
     }
   };
 
-  const handleApprove = (id) => {
-    setOrders(orders.map(o => o.id === id ? { ...o, status: 'Approved' } : o));
-    toast.success('Purchase order approved!');
-  };
-
-  const handleReceive = (id) => {
-    setOrders(orders.map(o => o.id === id ? { ...o, status: 'Received' } : o));
-    toast.success('Purchase order marked as received!');
-  };
-
-  const handleCancel = (id) => {
-    if (user.role === 'admin' && confirm('Are you sure you want to cancel this purchase order?')) {
-      setOrders(orders.filter(o => o.id !== id));
-      toast.success('Purchase order cancelled!');
+  // Was: updatePurchaseOrder({ id, status }, { onSuccess, onError })
+  const handleStatusChange = async (order, status, successMessage) => {
+    try {
+      await updatePurchaseOrderMutation.mutateAsync({ id: order._id, status });
+      toast.success(successMessage);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to update purchase order');
     }
   };
 
-  const filteredOrders = useMemo(() => orders.filter(o => {
-    const matchesSearch = o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         o.supplier.toLowerCase().includes(searchTerm.toLowerCase());
-    // Managers can only see their own store's POs
-    const matchesStore = user.role === 'admin' || (user.storeId && o.store === `Store ${user.storeId}`);
-    return matchesSearch && matchesStore;
-  }), [orders, searchTerm, user.role, user.storeId]);
+  const handleApprove = (order) => handleStatusChange(order, 'Approved', 'Purchase order approved!');
+  const handleReceive = (order) => handleStatusChange(order, 'Received', 'Purchase order marked as received!');
+  const handleCancel = (order) => {
+    if (userRole === 'admin' && confirm('Are you sure you want to reject this purchase order?')) {
+      handleStatusChange(order, 'Rejected', 'Purchase order rejected!');
+    }
+  };
+
+  const filteredOrders = useMemo(() => orders.filter(o =>
+    o.purchaseOrderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getSupplierName(o.supplierId).toLowerCase().includes(searchTerm.toLowerCase())
+  ), [orders, searchTerm, stockGroup]);
 
   const orderStats = useMemo(() => ({
     pending: orders.filter(o => o.status === 'Pending').length,
@@ -157,7 +159,10 @@ export default function PurchaseOrders({ user }) {
     received: orders.filter(o => o.status === 'Received').length,
   }), [orders]);
 
-  const ordersPagination = usePagination(filteredOrders);
+  const getOrderEstimatedValue = (order) => order.items.reduce((sum, item) => {
+    const matched = getProductByBarcode(item.barcode_text);
+    return sum + (item.quantity * (matched?.mrp || 0));
+  }, 0);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -167,6 +172,8 @@ export default function PurchaseOrders({ user }) {
         return { bg: 'bg-blue-100 text-blue-700', icon: <Clock size={16} /> };
       case 'Pending':
         return { bg: 'bg-orange-100 text-orange-700', icon: <Clock size={16} /> };
+      case 'Rejected':
+        return { bg: 'bg-red-100 text-red-700', icon: <XCircle size={16} /> };
       default:
         return { bg: 'bg-gray-100 text-gray-700', icon: <XCircle size={16} /> };
     }
@@ -178,7 +185,7 @@ export default function PurchaseOrders({ user }) {
         <div>
           <h2 className="text-3xl font-bold text-gray-800">Purchase Orders</h2>
           <p className="text-gray-600 mt-1">
-            {user.role === 'admin' ? 'Manage supplier purchase orders' : `Manage purchase orders for your store`}
+            {userRole === 'admin' ? 'Manage supplier purchase orders' : `Manage purchase orders for your store`}
           </p>
         </div>
         <button
@@ -190,7 +197,6 @@ export default function PurchaseOrders({ user }) {
         </button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg shadow p-4">
           <p className="text-gray-600 text-sm">Total Orders</p>
@@ -210,7 +216,6 @@ export default function PurchaseOrders({ user }) {
         </div>
       </div>
 
-      {/* Search */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
         <input
@@ -222,20 +227,23 @@ export default function PurchaseOrders({ user }) {
         />
       </div>
 
-      {/* Orders Grid */}
       <div className="grid grid-cols-1 gap-6">
-        {ordersPagination.paginatedItems.map(order => {
+        {ordersLoading && (
+          <div className="text-center py-8 text-gray-500">Loading purchase orders...</div>
+        )}
+        {!ordersLoading && pagination.paginatedItems.map(order => {
           const statusBadge = getStatusBadge(order.status);
+          const estimatedValue = getOrderEstimatedValue(order);
           return (
-            <div key={order.id} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6">
+            <div key={order._id} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
                     <Package className="text-amber-600" size={24} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-800">{order.id}</h3>
-                    <p className="text-sm text-gray-600">Order Date: {order.date}</p>
+                    <h3 className="text-xl font-bold text-gray-800">{order.purchaseOrderId}</h3>
+                    <p className="text-sm text-gray-600">Order Date: {new Date(order.createdAt).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <span className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 ${statusBadge.bg} w-fit`}>
@@ -247,58 +255,58 @@ export default function PurchaseOrders({ user }) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Supplier</p>
-                  <p className="font-medium text-gray-800">{order.supplier}</p>
+                  <p className="font-medium text-gray-800">{getSupplierName(order.supplierId)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Destination</p>
-                  <p className="font-medium text-gray-800">{order.store}</p>
+                  <p className="font-medium text-gray-800">{getStoreName(order.storeId)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Expected Delivery</p>
-                  <p className="font-medium text-gray-800">{order.expectedDate}</p>
+                  <p className="font-medium text-gray-800">
+                    {order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toLocaleDateString() : '-'}
+                  </p>
                 </div>
               </div>
 
               <div className="space-y-2 mb-4">
                 <p className="text-sm font-medium text-gray-700">Items:</p>
-                {order.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
-                    <span className="text-gray-800">{item.product}</span>
-                    <div className="flex items-center gap-4">
-                      <span className="text-gray-600">Qty: {item.quantity}</span>
-                      <span className="font-medium text-gray-800">₹{item.price.toLocaleString()}</span>
-                      <span className="font-bold text-amber-600">₹{(item.quantity * item.price).toLocaleString()}</span>
+                {order.items.map((item, idx) => {
+                  const matched = getProductByBarcode(item.barcode_text);
+                  return (
+                    <div key={idx} className="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
+                      <span className="text-gray-800">{item.barcode_text}</span>
+                      <div className="flex items-center gap-4">
+                        <span className="text-gray-600">Qty: {item.quantity}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                <span className="text-lg font-bold text-gray-800">Total Amount:</span>
-                <span className="text-2xl font-bold text-amber-600">₹{order.total.toLocaleString()}</span>
+                  );
+                })}
               </div>
 
               {order.status === 'Pending' && (
                 <div className="pt-4 border-t border-gray-200 mt-4">
-                  {user.role === 'admin' ? (
+                  {userRole === 'admin' ? (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleApprove(order.id)}
-                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                        onClick={() => handleApprove(order)}
+                        disabled={updatePurchaseOrderMutation.isPending}
+                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                       >
                         <CheckCircle size={16} />
                         Approve
                       </button>
                       <button
-                        onClick={() => handleCancel(order.id)}
-                        className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                        onClick={() => handleCancel(order)}
+                        disabled={updatePurchaseOrderMutation.isPending}
+                        className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                       >
                         <XCircle size={16} />
-                        Cancel
+                        Reject
                       </button>
                     </div>
                   ) : (
-                    <div className="text-center py-2 text-sm text-gray-600">
+                    <div className="text-center py-2 bg-gray-400 text-sm text-gray-600">
                       Waiting for admin approval
                     </div>
                   )}
@@ -308,8 +316,9 @@ export default function PurchaseOrders({ user }) {
               {order.status === 'Approved' && (
                 <div className="pt-4 border-t border-gray-200 mt-4">
                   <button
-                    onClick={() => handleReceive(order.id)}
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                    onClick={() => handleReceive(order)}
+                    disabled={updatePurchaseOrderMutation.isPending}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                   >
                     <CheckCircle size={16} />
                     Mark as Received
@@ -320,16 +329,14 @@ export default function PurchaseOrders({ user }) {
           );
         })}
       </div>
-
       <Pagination
-        page={ordersPagination.page}
-        totalPages={ordersPagination.totalPages}
-        totalItems={ordersPagination.totalItems}
-        pageSize={ordersPagination.pageSize}
-        onPageChange={ordersPagination.goToPage}
-      />
+                  page={pagination?.page || 1}
+                  totalPages={pagination?.totalPages || 1}
+                  totalItems={pagination?.totalItems || 0}
+                  pageSize={pagination?.pageSize || 10}
+                  onPageChange={pagination?.goToPage}
+                />
 
-      {/* Create PO Modal */}
       {showCreateModal && (
         <Modal
           title="Create Purchase Order"
@@ -340,8 +347,13 @@ export default function PurchaseOrders({ user }) {
               <button type="button" onClick={() => setShowCreateModal(false)} className={modalSecondaryBtnClass}>
                 Cancel
               </button>
-              <button type="button" onClick={handleCreatePO} className={modalPrimaryBtnClass}>
-                Create Purchase Order
+              <button
+                type="button"
+                onClick={handleCreatePO}
+                disabled={addPurchaseOrderMutation.isPending}
+                className={modalPrimaryBtnClass}
+              >
+                {addPurchaseOrderMutation.isPending ? 'Creating...' : 'Create Purchase Order'}
               </button>
             </>
           }
@@ -350,43 +362,36 @@ export default function PurchaseOrders({ user }) {
             <div>
               <label className={modalLabelClass}>Supplier</label>
               <select
-                value={formData.supplier}
-                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                value={formData.supplierId}
+                onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
                 className={modalInputClass}
               >
                 <option value="">Select Supplier</option>
-                {mockSuppliers.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                {stockGroup.map(sg => (
+                  <option key={sg._id} value={sg._id}>{sg.name}</option>
                 ))}
               </select>
             </div>
             <div>
               <label className={modalLabelClass}>Destination Store</label>
               <select
-                value={formData.store}
-                onChange={(e) => setFormData({ ...formData, store: e.target.value })}
+                value={formData.storeId}
+                onChange={(e) => setFormData({ ...formData, storeId: e.target.value })}
                 className={modalInputClass}
-                disabled={user.role === 'manager'}
+                disabled={userRole === 'manager'}
               >
-                {user.role === 'admin' ? (
-                  <>
-                    <option value="Store 1">Store 1</option>
-                    <option value="Store 2">Store 2</option>
-                    <option value="Store 3">Store 3</option>
-                  </>
-                ) : user.storeId ? (
-                  <option value={`Store ${user.storeId}`}>Store {user.storeId}</option>
-                ) : (
-                  <option value="Store 1">Store 1</option>
-                )}
+                <option value="">Select Store</option>
+                {stores.map(store => (
+                  <option key={store.storeId} value={store.storeId}>{store.name}</option>
+                ))}
               </select>
             </div>
             <div className="sm:col-span-2">
               <label className={modalLabelClass}>Expected Delivery Date</label>
               <input
                 type="date"
-                value={formData.expectedDate}
-                onChange={(e) => setFormData({ ...formData, expectedDate: e.target.value })}
+                value={formData.expectedDeliveryDate}
+                onChange={(e) => setFormData({ ...formData, expectedDeliveryDate: e.target.value })}
                 className={modalInputClass}
               />
             </div>
@@ -407,49 +412,70 @@ export default function PurchaseOrders({ user }) {
 
             <div className="space-y-3">
               {formData.items.map((item, index) => (
-                <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 bg-gray-50 rounded-lg">
-                  <div className="col-span-12 sm:col-span-5">
-                    <label className="block text-xs text-gray-600 mb-1">Product</label>
-                    <select
-                      value={item.product}
-                      onChange={(e) => handleItemChange(index, 'product', e.target.value)}
-                      className={modalInputClass}
-                    >
-                      <option value="">Select Product</option>
-                      {mockProducts.map((p) => (
-                        <option key={p.name} value={p.name}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-4 sm:col-span-2">
-                    <label className="block text-xs text-gray-600 mb-1">Qty</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
-                      className={modalInputClass}
-                    />
-                  </div>
-                  <div className="col-span-5 sm:col-span-3">
-                    <label className="block text-xs text-gray-600 mb-1">Unit Price</label>
-                    <input
-                      type="number"
-                      value={item.price}
-                      readOnly
-                      className={`${modalInputClass} bg-gray-100`}
-                    />
-                  </div>
-                  <div className="col-span-3 sm:col-span-2">
-                    {formData.items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(index)}
-                        className="w-full px-3 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm"
-                      >
-                        Remove
-                      </button>
+                <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="relative mb-2">
+                    <label className="block text-xs text-gray-600 mb-1">Product (must already exist)</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={activeSearchIndex === index ? itemSearchTerm : (item.matchedProduct ? item.barcode_text : '')}
+                        onChange={(e) => handleItemSearchChange(index, e.target.value)}
+                        onFocus={() => setActiveSearchIndex(index)}
+                        placeholder="Search by barcode, SKU, or product code..."
+                        className={`${modalInputClass} pl-9`}
+                      />
+                    </div>
+
+                    {activeSearchIndex === index && itemSearchTerm.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
+                        {itemSearchResults.length > 0 ? (
+                          itemSearchResults.map((product) => (
+                            <div
+                              key={product._id}
+                              onClick={() => handleSelectProduct(index, product)}
+                              className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div className="font-medium">{product.sku_code}</div>
+                                  <div className="text-sm text-gray-600">Barcode: {product.barcode_text}</div>
+                                </div>
+                                <div className="font-medium text-amber-600">₹{product.mrp || 0}</div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-3 text-sm text-gray-500">
+                            No matching product found. Purchase orders can only include existing products.
+                          </div>
+                        )}
+                      </div>
                     )}
+                  </div>
+
+                  <div className="grid grid-cols-12 gap-3 items-end">
+                    <div className="col-span-4">
+                      <label className="block text-xs text-gray-600 mb-1">Qty</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => handleQuantityChange(index, e.target.value)}
+                        className={modalInputClass}
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      {formData.items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          className="w-full px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
