@@ -1,68 +1,29 @@
 import { useMemo, useState } from 'react';
-import { Plus, DollarSign, Search, Calendar, TrendingUp } from 'lucide-react';
+import { Plus, DollarSign, Search, Calendar, TrendingUp, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
+import { useStoreContext } from '../../context/storeContext';
+import { useAddExpense, useGetAllExpense, useUpdateExpense } from '../../hooks/useExpense';
+import { useSelector } from 'react-redux';
 
-export default function ExpenseManagement({ user }) {
-  const [expenses, setExpenses] = useState([
-    {
-      id: 'EXP-001',
-      date: '2026-04-18',
-      store: 'Store 1',
-      category: 'Utilities',
-      description: 'Electricity Bill - March 2026',
-      amount: 12500,
-      paymentMethod: 'Bank Transfer',
-      approvedBy: 'Admin User'
-    },
-    {
-      id: 'EXP-002',
-      date: '2026-04-19',
-      store: 'Store 2',
-      category: 'Maintenance',
-      description: 'AC Repair and Servicing',
-      amount: 8500,
-      paymentMethod: 'Cash',
-      approvedBy: 'Admin User'
-    },
-    {
-      id: 'EXP-003',
-      date: '2026-04-20',
-      store: 'Store 1',
-      category: 'Salaries',
-      description: 'Staff Salaries - April 2026',
-      amount: 125000,
-      paymentMethod: 'Bank Transfer',
-      approvedBy: 'Admin User'
-    },
-    {
-      id: 'EXP-004',
-      date: '2026-04-21',
-      store: 'Store 3',
-      category: 'Rent',
-      description: 'Store Rent - April 2026',
-      amount: 45000,
-      paymentMethod: 'Cheque',
-      approvedBy: 'Admin User'
-    },
-    {
-      id: 'EXP-005',
-      date: '2026-04-22',
-      store: 'Store 2',
-      category: 'Marketing',
-      description: 'Facebook Ads Campaign',
-      amount: 15000,
-      paymentMethod: 'Credit Card',
-      approvedBy: 'Admin User'
-    },
-  ]);
+export default function ExpenseManagement({user}) {
+  const { stores } = useStoreContext();
+  // const user = useSelector((state) => state.app.userInfo);
+  // console.log(user)
+
+  const { data: expensesData, isLoading: expensesLoading } = useGetAllExpense();
+  // const expenses = expensesData?.expenses ?? [];
+  const expenses = useMemo(() => expensesData?.expenses || [], [expensesData?.expenses])
+
+  const { mutate: addExpense, isPending: isAdding } = useAddExpense();
+  const { mutate: updateExpense, isPending: isApproving } = useUpdateExpense();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
   const [formData, setFormData] = useState({
-    store: user.role === 'manager' && user.storeId ? `Store ${user.storeId}` : 'Store 1',
+    storeId: user.userType === 'manager' && user.storeId ? user.storeId : '',
     category: 'Utilities',
     description: '',
     amount: '',
@@ -84,51 +45,78 @@ export default function ExpenseManagement({ user }) {
 
   const paymentMethods = ['Cash', 'Bank Transfer', 'Cheque', 'Credit Card', 'UPI'];
 
+  const getStoreName = (storeId) => stores.find(s => s.storeId === storeId)?.name || storeId;
+
+  const resetForm = () => setFormData({
+    storeId: user.userType === 'manager' && user.storeId ? user.storeId : '',
+    category: 'Utilities',
+    description: '',
+    amount: '',
+    paymentMethod: 'Cash',
+    date: new Date().toISOString().split('T')[0]
+  });
+
   const handleAddExpense = () => {
-    if (formData.description && formData.amount) {
-      const newExpense = {
-        id: `EXP-${String(expenses.length + 1).padStart(3, '0')}`,
+    if (!formData.description || !formData.amount || !formData.storeId) {
+      toast.error('Please fill in store, description, and amount.');
+      return;
+    }
+
+    addExpense(
+      {
         date: formData.date,
-        store: formData.store,
+        storeId: formData.storeId,
         category: formData.category,
         description: formData.description,
         amount: parseFloat(formData.amount),
         paymentMethod: formData.paymentMethod,
-        approvedBy: user.name
-      };
-      setExpenses([newExpense, ...expenses]);
-      setFormData({
-        store: 'Store 1',
-        category: 'Utilities',
-        description: '',
-        amount: '',
-        paymentMethod: 'Cash',
-        date: new Date().toISOString().split('T')[0]
-      });
-      setShowAddModal(false);
-      toast.success('Expense recorded successfully!');
-    }
+      },
+      {
+        onSuccess: () => {
+          toast.success('Expense recorded successfully!');
+          resetForm();
+          setShowAddModal(false);
+        },
+        onError: (err) => {
+          toast.error(err?.response?.data?.message || 'Failed to record expense');
+        }
+      }
+    );
+  };
+
+  const handleApprove = (expense) => {
+    updateExpense(
+      { id: expense._id, approve: true },
+      {
+        onSuccess: () => {
+          toast.success('Expense approved!');
+        },
+        onError: (err) => {
+          toast.error(err?.response?.data?.message || 'Failed to approve expense');
+        }
+      }
+    );
   };
 
   const filteredExpenses = useMemo(() => expenses.filter(exp => {
-    const matchesSearch = exp.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         exp.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = exp.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         exp.expenseId?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'All' || exp.category === filterCategory;
     // Managers can only see their own store's expenses
-    const matchesStore = user.role === 'admin' || (user.storeId && exp.store === `Store ${user.storeId}`);
+    const matchesStore = user.userType === 'admin' || (user.storeId && exp.storeId === user.storeId);
     return matchesSearch && matchesCategory && matchesStore;
-  }), [expenses, searchTerm, filterCategory, user.role, user.storeId]);
+  }), [expenses, searchTerm, filterCategory, user.userType, user.storeId]);
 
   // Filter expenses for manager's store
   const relevantExpenses = useMemo(
-    () => (user.role === 'admin'
+    () => (user.userType === 'admin'
       ? expenses
-      : (user.storeId ? expenses.filter(e => e.store === `Store ${user.storeId}`) : expenses)),
-    [expenses, user.role, user.storeId]
+      : (user.storeId ? expenses.filter(e => e.storeId === user.storeId) : expenses)),
+    [expenses, user.userType, user.storeId]
   );
 
   const totalExpenses = useMemo(
-    () => relevantExpenses.reduce((sum, exp) => sum + exp.amount, 0),
+    () => relevantExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0),
     [relevantExpenses]
   );
 
@@ -139,7 +127,7 @@ export default function ExpenseManagement({ user }) {
     const stats = {};
     for (const exp of relevantExpenses) {
       const entry = stats[exp.category] || { total: 0, count: 0 };
-      entry.total += exp.amount;
+      entry.total += (exp.amount || 0);
       entry.count += 1;
       stats[exp.category] = entry;
     }
@@ -191,27 +179,23 @@ export default function ExpenseManagement({ user }) {
           <p className="text-3xl font-bold">₹{totalExpenses.toLocaleString()}</p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-gray-600 text-sm">This Month</p>
+          <p className="text-gray-600 text-sm">Total Records</p>
           <p className="text-2xl font-bold text-gray-800 mt-1">{relevantExpenses.length}</p>
-          <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-            <TrendingUp size={12} />
-            +8% from last month
-          </p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-gray-600 text-sm">{user.role === 'admin' ? 'Avg per Store' : 'Categories'}</p>
+          <p className="text-gray-600 text-sm">{user.userType === 'admin' ? 'Avg per Store' : 'Categories'}</p>
           <p className="text-2xl font-bold text-gray-800 mt-1">
-            {user.role === 'admin' ? `₹${Math.round(totalExpenses / 3).toLocaleString()}` : categories.filter(c => c !== 'All' && getCategoryTotal(c) > 0).length}
+            {user.userType === 'admin' ? `₹${Math.round(totalExpenses / (stores.length || 1)).toLocaleString()}` : categories.filter(c => c !== 'All' && getCategoryTotal(c) > 0).length}
           </p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <p className="text-gray-600 text-sm">Largest Category</p>
           <p className="text-lg font-bold text-gray-800 mt-1">
             {categories.filter(c => c !== 'All').reduce((max, cat) =>
-              getCategoryTotal(cat) > getCategoryTotal(max) ? cat : max, 'Salaries')}
+              getCategoryTotal(cat) > getCategoryTotal(max) ? cat : max, categories[1])}
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            ₹{Math.max(...categories.filter(c => c !== 'All').map(c => getCategoryTotal(c))).toLocaleString()}
+            ₹{Math.max(0, ...categories.filter(c => c !== 'All').map(c => getCategoryTotal(c))).toLocaleString()}
           </p>
         </div>
       </div>
@@ -271,29 +255,54 @@ export default function ExpenseManagement({ user }) {
                 <th className="px-4 py-3 text-left">Description</th>
                 <th className="px-4 py-3 text-right">Amount</th>
                 <th className="px-4 py-3 text-left">Payment</th>
-                <th className="px-4 py-3 text-left">Approved By</th>
+                <th className="px-4 py-3 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
+              {expensesLoading && (
+                <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-500">Loading expenses...</td></tr>
+              )}
+              {!expensesLoading && expensesPagination.paginatedItems.length === 0 && (
+                <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-500">No expenses found.</td></tr>
+              )}
               {expensesPagination.paginatedItems.map(expense => (
-                <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-800">{expense.id}</td>
+                <tr key={expense._id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 font-medium text-gray-800">{expense.expenseId}</td>
                   <td className="px-4 py-3 text-gray-600">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-gray-400" />
-                      {expense.date}
+                      {new Date(expense.date).toLocaleDateString()}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-700">{expense.store}</td>
+                  <td className="px-4 py-3 text-gray-700">{getStoreName(expense.storeId)}</td>
                   <td className="px-4 py-3">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getCategoryColor(expense.category)}`}>
                       {expense.category}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-700">{expense.description}</td>
-                  <td className="px-4 py-3 text-right font-bold text-red-600">-₹{expense.amount.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right font-bold text-red-600">-₹{(expense.amount || 0).toLocaleString()}</td>
                   <td className="px-4 py-3 text-gray-600">{expense.paymentMethod}</td>
-                  <td className="px-4 py-3 text-gray-600">{expense.approvedBy}</td>
+                  <td className="px-4 py-3 text-center">
+                    {expense.approuvedById ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 flex items-center justify-center gap-1">
+                        <CheckCircle size={12} />
+                        Approved
+                      </span>
+                    ) : user.userType === 'admin' ? (
+                      <button
+                        onClick={() => handleApprove(expense)}
+                        disabled={isApproving}
+                        className="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                        Pending
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -326,22 +335,15 @@ export default function ExpenseManagement({ user }) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Store</label>
                 <select
-                  value={formData.store}
-                  onChange={(e) => setFormData({...formData, store: e.target.value})}
+                  value={formData.storeId}
+                  onChange={(e) => setFormData({...formData, storeId: e.target.value})}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  disabled={user.role === 'manager'}
+                  disabled={user.userType === 'manager'}
                 >
-                  {user.role === 'admin' ? (
-                    <>
-                      <option value="Store 1">Store 1</option>
-                      <option value="Store 2">Store 2</option>
-                      <option value="Store 3">Store 3</option>
-                    </>
-                  ) : user.storeId ? (
-                    <option value={`Store ${user.storeId}`}>Store {user.storeId}</option>
-                  ) : (
-                    <option value="Store 1">Store 1</option>
-                  )}
+                  <option value="">Select Store</option>
+                  {stores.map((store) => (
+                    <option value={store.storeId} key={store.storeId}>{store.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -398,9 +400,10 @@ export default function ExpenseManagement({ user }) {
               </button>
               <button
                 onClick={handleAddExpense}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all"
+                disabled={isAdding}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all disabled:opacity-50"
               >
-                Add Expense
+                {isAdding ? 'Adding...' : 'Add Expense'}
               </button>
             </div>
           </div>

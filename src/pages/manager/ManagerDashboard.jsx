@@ -2,7 +2,8 @@
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, Package, FileText, Users,
-  ShoppingCart, DollarSign, ArrowLeftRight, CreditCard
+  ShoppingCart, DollarSign, ArrowLeftRight, CreditCard,
+  Wrench
 } from "lucide-react"
 
 import Layout from "../../layouts/adminLayout"
@@ -19,6 +20,8 @@ import ExpenseManagement from "../admin/ExpenseManagement"
 import { useSelector } from "react-redux"
 import { useLogout } from "../../hooks/useAuth"
 import logoImg from "../../assets/logo.jpg"
+import { useLoggedUserContext } from "../../context/loggedUserContext"
+import ServicePanel from "../manager/ServicePanel"
 
 // Amber theme — same as admin, so no `theme` prop needed (Layout defaults to this)
 const navigationItems = [
@@ -30,6 +33,7 @@ const navigationItems = [
   { id: "sales-team", label: "Sales Team", icon: Users, path: "/manager/sales-team" },
   { id: "purchase", label: "Purchase Orders", icon: ShoppingCart, path: "/manager/purchase" },
   { id: "expenses", label: "Expenses", icon: DollarSign, path: "/manager/expenses" },
+  { id: "service", label: "Service", icon: Wrench, path: "/manager/service" },
 ]
 
 function LayoutWrapper({ children, user }) {
@@ -62,8 +66,10 @@ function LayoutWrapper({ children, user }) {
 }
 
 export default function ManagerDashboard() {
-  const user = useSelector((state) => state.app.userInfo)
-
+  const {loggedUser} = useLoggedUserContext()
+  const user = loggedUser || useSelector((state) => state.app.userInfo)
+  // console.log(user)
+  
   return (
     <LayoutWrapper user={user}>
       <Routes>
@@ -76,6 +82,7 @@ export default function ManagerDashboard() {
         <Route path="/sales-team" element={<UserManagement user={user} />} />
         <Route path="/purchase" element={<PurchaseOrders user={user} />} />
         <Route path="/expenses" element={<ExpenseManagement user={user} />} />
+        <Route path="/service" element={<ServicePanel user={user} />} />
         <Route path="*" element={<Navigate to="/manager/dashboard" replace />} />
       </Routes>
     </LayoutWrapper>

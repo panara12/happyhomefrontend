@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FileText, Send, Plus, Calendar, UserCheck, LogOut } from 'lucide-react';
+import { FileText, Send, Plus, Calendar, UserCheck, LogOut, Wrench } from 'lucide-react';
 import { CustomerSearch } from './CustomerSearch';
 import { ItemSearch } from './ItemSearch';
 import { InvoiceItems } from './InvoiceItems';
@@ -13,6 +13,7 @@ import { useSubmitInvoice, useGetMyInvoices } from '../../hooks/useInvoice';
 import { useLeaveContext } from '../../context/leaveContext';
 import { useAddLeave } from '../../hooks/useLeave';
 import { toast } from 'sonner';
+import Service from './Service';
 
 export default function SalesmanDashboard() {
   const user = useSelector((state) => state.app.userInfo);
@@ -209,6 +210,17 @@ export default function SalesmanDashboard() {
               <UserCheck className="w-5 h-5" />
               Approvals
             </button>
+            <button
+              onClick={() => setActiveTab('service')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'service'
+                  ? 'border-amber-600 text-amber-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Wrench className="w-5 h-5" />
+              Service
+            </button>
           </nav>
         </div>
       </div>
@@ -325,6 +337,8 @@ export default function SalesmanDashboard() {
             </div>
           </div>
         )}
+
+        {activeTab === 'service' && <Service />}
       </main>
     </div>
   );

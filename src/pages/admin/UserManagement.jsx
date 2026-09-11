@@ -8,9 +8,7 @@ import { UserFormModal } from './UserFormModal';
 import { ConfirmModal } from './ConfirmModal';
 import { TeamMembersTab } from './TeamMembersTab';
 import { LeaveApplicationsTab } from './LeaveApplicationsTab';
-import { AdvanceRequestsTab } from './AdvanceRequestsTab';
 import { LeaveDetailModal } from './LeaveDetailModal';
-import { INITIAL_ADVANCE_REQUESTS } from './userManagementMockData';
 import { useLeaveContext } from '../../context/leaveContext';
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '');
@@ -38,8 +36,6 @@ export default function UserManagement({ user }) {
   const { data: leaveData } = useGetAllLeaves({ enabled: activeTab === 'leave' });
   const leaves = leaveData?.leaves ?? EMPTY_ARRAY;
   const updateLeaveMutation = useUpdateLeave();
-
-  const [advanceRequests, setAdvanceRequests] = useState(INITIAL_ADVANCE_REQUESTS);
 
   const addUserMutation = useAddUser();
   const updateUserMutation = useUpdateUser();
@@ -139,23 +135,6 @@ export default function UserManagement({ user }) {
     });
   }, [updateLeaveMutation]);
 
-  const handleAdvanceApproval = (id, status) => {
-    setAdvanceRequests(advanceRequests.map(adv =>
-      adv.id === id ? { ...adv, status } : adv
-    ));
-    toast.success(`Advance request ${status.toLowerCase()} successfully!`);
-  };
-
-  // Access-control filtering (who this user is allowed to see) stays here;
-  // each tab owns its own search/pagination over the list it's handed.
-  const accessScopedUsers = useMemo(() => users.filter(u =>
-    user.userType === 'admin' || (user.storeId && u.store === `Store ${user.storeId}`) || u.store === 'All Stores'
-  ), [users, user.userType, user.storeId]);
-
-  const filteredAdvances = useMemo(() => advanceRequests.filter(adv =>
-    user.userType === 'admin' || (user.storeId && adv.store === `Store ${user.storeId}`)
-  ), [advanceRequests, user.userType, user.storeId]);
-
   // /leave/getallleave doesn't populate the employee — join against the
   // already-fetched user list instead of adding a backend round trip.
   const usersById = useMemo(() => new Map(users.map(u => [u._id, u])), [users]);
@@ -174,9 +153,7 @@ export default function UserManagement({ user }) {
   })), [leaves, usersById]);
 
   const pendingLeaves = useMemo(() => normalizedLeaves.filter(l => l.status === 'Pending'), [normalizedLeaves]);
-  const pendingAdvances = useMemo(() => filteredAdvances.filter(a => a.status === 'Pending'), [filteredAdvances]);
   const processedLeaves = useMemo(() => normalizedLeaves.filter(l => l.status !== 'Pending'), [normalizedLeaves]);
-  const processedAdvances = useMemo(() => filteredAdvances.filter(a => a.status !== 'Pending'), [filteredAdvances]);
 
   return (
     <div className="space-y-6">
@@ -205,10 +182,6 @@ export default function UserManagement({ user }) {
         <div className="bg-yellow-50 rounded-lg shadow p-4 border-l-4 border-yellow-500">
           <p className="text-sm text-yellow-700">Pending Leaves</p>
           <p className="text-2xl font-bold text-yellow-700 mt-1">{pendingLeaves.length}</p>
-        </div>
-        <div className="bg-purple-50 rounded-lg shadow p-4 border-l-4 border-purple-500">
-          <p className="text-sm text-purple-700">Pending Advances</p>
-          <p className="text-2xl font-bold text-purple-700 mt-1">{pendingAdvances.length}</p>
         </div>
       </div>
 
@@ -241,27 +214,11 @@ export default function UserManagement({ user }) {
             </span>
           )}
         </button>
-        <button
-          onClick={() => setActiveTab('advance')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all relative ${
-            activeTab === 'advance'
-              ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg'
-              : 'hover:bg-gray-100 text-gray-700'
-          }`}
-        >
-          <DollarSign size={18} />
-          Advance Requests
-          {pendingAdvances.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-              {pendingAdvances.length}
-            </span>
-          )}
-        </button>
       </div>
 
       {activeTab === 'team' && (
         <TeamMembersTab
-          users={accessScopedUsers}
+          users={users}
           onEditUser={handleEditUser}
           onDeleteUser={handleDeleteUserClick}
           onActivateUser={handleActivateUserClick}
@@ -277,13 +234,6 @@ export default function UserManagement({ user }) {
         />
       )}
 
-      {activeTab === 'advance' && (
-        <AdvanceRequestsTab
-          pendingAdvances={pendingAdvances}
-          processedAdvances={processedAdvances}
-          onApprove={handleAdvanceApproval}
-        />
-      )}
 
       {/* Add / Update User Modal */}
       {showAddModal && (
