@@ -28,7 +28,7 @@ export function useGetMyInvoices({ status, page = 1, limit = 100 } = {}) {
 }
 
 // Store invoices for manager approval board
-export function useGetStoreInvoices({ status, q = "", page = 1, limit = 100 } = {}) {
+export function useGetStoreInvoices({ status, q = "", page = 1, limit = 100, enabled = true } = {}) {
   return useApiQuery({
     queryKey: [...STORE_INVOICES_KEY, status || "all", q, page, limit],
     path: "/invoices/store-invoices",
@@ -38,6 +38,7 @@ export function useGetStoreInvoices({ status, q = "", page = 1, limit = 100 } = 
       ...(status ? { status } : {}),
       ...(q ? { q } : {}),
     },
+    enabled,
     keepPrevious: true,
   });
 }

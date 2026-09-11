@@ -1,9 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search, Download, Eye, Calendar } from 'lucide-react';
+import { Plus, Search, Download, Eye, Calendar, CheckCircle } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllPurchaseBill } from '../../hooks/usePurchaseBill';
+import Modal, {
+  modalInputClass,
+  modalLabelClass,
+  modalPrimaryBtnClass,
+  modalSecondaryBtnClass,
+} from '../../components/ui/Modal';
 
 export default function PurchaseBills() {
   const { stores } = useStoreContext();
@@ -11,6 +17,7 @@ export default function PurchaseBills() {
   const bills = purchaseBillsData?.bills ?? [];
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [viewingBill, setViewingBill] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   // NOTE: this "Add Purchase Bill" form is still local-only and does not
@@ -174,10 +181,19 @@ export default function PurchaseBills() {
                   <td className="px-4 py-3 text-right font-bold text-green-600">₹{(bill.totalAmount || 0).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">
-                      <button className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-600" title="View">
+                      <button
+                        type="button"
+                        onClick={() => setViewingBill(bill)}
+                        className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-600"
+                        title="View"
+                      >
                         <Eye size={16} />
                       </button>
-                      <button className="p-2 hover:bg-purple-50 rounded-lg transition-colors text-purple-600" title="Download">
+                      <button
+                        type="button"
+                        className="p-2 hover:bg-purple-50 rounded-lg transition-colors text-purple-600"
+                        title="Download"
+                      >
                         <Download size={16} />
                       </button>
                     </div>
@@ -196,186 +212,306 @@ export default function PurchaseBills() {
         /> */}
       </div>
 
-      {/* Add Bill Modal -- still local-only, see note near formData above */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 my-8">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Add Purchase Bill</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Supplier Name</label>
-                <input
-                  type="text"
-                  value={formData.supplier}
-                  onChange={(e) => setFormData({...formData, supplier: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="Enter supplier name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Supplier GSTIN</label>
-                <input
-                  type="text"
-                  value={formData.supplierGSTIN}
-                  onChange={(e) => setFormData({...formData, supplierGSTIN: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="29AABCS1234F1Z5"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Bill Number</label>
-                <input
-                  type="text"
-                  value={formData.billNumber}
-                  onChange={(e) => setFormData({...formData, billNumber: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="Supplier's bill number"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Bill Date</label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({...formData, date: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Store</label>
-                <select
-                  value={formData.store}
-                  onChange={(e) => setFormData({...formData, store: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Select Store</option>
-                  {stores.map((store) => (
-                    <option value={store.storeId} key={store.storeId}>{store.name}</option>
-                  ))}
-                </select>
-              </div>
+      {viewingBill && (
+        <Modal
+          title={`Purchase Bill — ${viewingBill.billId}`}
+          size="xl"
+          onClose={() => setViewingBill(null)}
+          footer={
+            <button
+              type="button"
+              onClick={() => setViewingBill(null)}
+              className={modalSecondaryBtnClass}
+            >
+              Close
+            </button>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 mb-4">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Bill Number</p>
+              <p className="font-medium text-gray-800 text-sm">{viewingBill.billNumber}</p>
             </div>
-
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="block text-sm font-medium text-gray-700">Items</label>
-                <button
-                  onClick={handleAddItem}
-                  className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-medium"
-                >
-                  <Plus size={16} />
-                  Add Item
-                </button>
-              </div>
-
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {formData.items.map((item, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-3 items-end p-3 bg-gray-50 rounded-lg">
-                    <div className="col-span-3">
-                      <label className="block text-xs text-gray-600 mb-1">Product</label>
-                      <input
-                        type="text"
-                        value={item.product}
-                        onChange={(e) => handleItemChange(index, 'product', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                        placeholder="Product name"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-xs text-gray-600 mb-1">HSN Code</label>
-                      <input
-                        type="text"
-                        value={item.hsn}
-                        onChange={(e) => handleItemChange(index, 'hsn', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                        placeholder="HSN"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-xs text-gray-600 mb-1">Qty</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-xs text-gray-600 mb-1">Rate</label>
-                      <input
-                        type="number"
-                        value={item.rate}
-                        onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-xs text-gray-600 mb-1">GST %</label>
-                      <select
-                        value={item.gstRate}
-                        onChange={(e) => handleItemChange(index, 'gstRate', parseFloat(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                      >
-                        <option value="0">0%</option>
-                        <option value="5">5%</option>
-                        <option value="12">12%</option>
-                        <option value="18">18%</option>
-                        <option value="28">28%</option>
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      {formData.items.length > 1 && (
-                        <button
-                          onClick={() => handleRemoveItem(index)}
-                          className="w-full px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Bill Date</p>
+              <p className="font-medium text-gray-800 text-sm">
+                {new Date(viewingBill.billDate).toLocaleDateString()}
+              </p>
             </div>
-
-            <div className="border-t border-gray-200 pt-4 mb-6">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-700">Taxable Value:</span>
-                <span className="font-bold text-gray-800">₹{billFormTotals.subtotal.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-700">CGST:</span>
-                <span className="font-medium text-gray-800">₹{billFormTotals.cgst.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-700">SGST:</span>
-                <span className="font-medium text-gray-800">₹{billFormTotals.sgst.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                <span className="text-xl font-bold text-gray-800">Total Amount:</span>
-                <span className="text-2xl font-bold text-amber-600">₹{billFormTotals.total.toLocaleString()}</span>
-              </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Store</p>
+              <p className="font-medium text-gray-800 text-sm">{getStoreName(viewingBill.storeId)}</p>
             </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all"
-              >
-                Create Purchase Bill
-              </button>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Supplier</p>
+              <p className="font-medium text-gray-800 text-sm">
+                {viewingBill.supplierId?.name || '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Supplier GSTIN</p>
+              <p className="font-medium text-gray-800 text-sm">
+                {viewingBill.supplierId?.gstNumber || '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Status</p>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                <CheckCircle size={12} />
+                Inventory Updated
+              </span>
             </div>
           </div>
-        </div>
+
+          <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
+            <div className="thin-scroll overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-600">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Product</th>
+                    <th className="px-3 py-2 text-left">HSN</th>
+                    <th className="px-3 py-2 text-center">Qty</th>
+                    <th className="px-3 py-2 text-right">Rate</th>
+                    <th className="px-3 py-2 text-right">MRP</th>
+                    <th className="px-3 py-2 text-center">GST%</th>
+                    <th className="px-3 py-2 text-right">Disc%</th>
+                    <th className="px-3 py-2 text-right">Offer</th>
+                    <th className="px-3 py-2 text-right">Line Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {(viewingBill.items || []).map((item, idx) => {
+                    const lineTotal = (item.quantity || 0) * (item.purchaseRate || 0);
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-3 py-2">
+                          <p className="font-medium text-gray-800">{item.barcode_text || '—'}</p>
+                          <p className="text-xs text-gray-500">{item.unit || ''}</p>
+                        </td>
+                        <td className="px-3 py-2 text-gray-600">{item.hsncode || '—'}</td>
+                        <td className="px-3 py-2 text-center text-gray-800">{item.quantity}</td>
+                        <td className="px-3 py-2 text-right text-gray-800">
+                          ₹{Number(item.purchaseRate || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-800">
+                          ₹{Number(item.mrp || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-center text-gray-600">{item.gst ?? 0}%</td>
+                        <td className="px-3 py-2 text-right text-gray-600">{item.disc ?? 0}%</td>
+                        <td className="px-3 py-2 text-right text-gray-800">
+                          ₹{Number(item.offer_price || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-gray-900">
+                          ₹{lineTotal.toLocaleString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-3 space-y-1.5">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-700">Taxable Value:</span>
+              <span className="font-bold text-gray-800">
+                ₹{Number(viewingBill.taxableValue || 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-700">CGST + SGST:</span>
+              <span className="font-medium text-gray-800">
+                ₹{Number(viewingBill.CGSTplusSGST || 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+              <span className="text-base font-bold text-gray-800">Total Amount:</span>
+              <span className="text-xl font-bold text-amber-600">
+                ₹{Number(viewingBill.totalAmount || 0).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Add Bill Modal -- still local-only, see note near formData above */}
+      {showAddModal && (
+        <Modal
+          title="Add Purchase Bill"
+          onClose={() => setShowAddModal(false)}
+          size="lg"
+          footer={
+            <>
+              <button type="button" onClick={() => setShowAddModal(false)} className={modalSecondaryBtnClass}>
+                Cancel
+              </button>
+              <button type="button" onClick={() => setShowAddModal(false)} className={modalPrimaryBtnClass}>
+                Create Purchase Bill
+              </button>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
+            <div>
+              <label className={modalLabelClass}>Supplier Name</label>
+              <input
+                type="text"
+                value={formData.supplier}
+                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                className={modalInputClass}
+                placeholder="Enter supplier name"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Supplier GSTIN</label>
+              <input
+                type="text"
+                value={formData.supplierGSTIN}
+                onChange={(e) => setFormData({ ...formData, supplierGSTIN: e.target.value })}
+                className={modalInputClass}
+                placeholder="29AABCS1234F1Z5"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Bill Number</label>
+              <input
+                type="text"
+                value={formData.billNumber}
+                onChange={(e) => setFormData({ ...formData, billNumber: e.target.value })}
+                className={modalInputClass}
+                placeholder="Supplier's bill number"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Bill Date</label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                className={modalInputClass}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={modalLabelClass}>Store</label>
+              <select
+                value={formData.store}
+                onChange={(e) => setFormData({ ...formData, store: e.target.value })}
+                className={modalInputClass}
+              >
+                <option value="">Select Store</option>
+                {stores.map((store) => (
+                  <option value={store.storeId} key={store.storeId}>{store.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-medium text-gray-700">Items</label>
+              <button
+                type="button"
+                onClick={handleAddItem}
+                className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-medium"
+              >
+                <Plus size={16} />
+                Add Item
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {formData.items.map((item, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 bg-gray-50 rounded-lg">
+                  <div className="col-span-12 sm:col-span-3">
+                    <label className="block text-xs text-gray-600 mb-1">Product</label>
+                    <input
+                      type="text"
+                      value={item.product}
+                      onChange={(e) => handleItemChange(index, 'product', e.target.value)}
+                      className={modalInputClass}
+                      placeholder="Product name"
+                    />
+                  </div>
+                  <div className="col-span-6 sm:col-span-2">
+                    <label className="block text-xs text-gray-600 mb-1">HSN Code</label>
+                    <input
+                      type="text"
+                      value={item.hsn}
+                      onChange={(e) => handleItemChange(index, 'hsn', e.target.value)}
+                      className={modalInputClass}
+                      placeholder="HSN"
+                    />
+                  </div>
+                  <div className="col-span-3 sm:col-span-1">
+                    <label className="block text-xs text-gray-600 mb-1">Qty</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
+                      className={modalInputClass}
+                    />
+                  </div>
+                  <div className="col-span-3 sm:col-span-2">
+                    <label className="block text-xs text-gray-600 mb-1">Rate</label>
+                    <input
+                      type="number"
+                      value={item.rate}
+                      onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value))}
+                      className={modalInputClass}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="col-span-6 sm:col-span-2">
+                    <label className="block text-xs text-gray-600 mb-1">GST %</label>
+                    <select
+                      value={item.gstRate}
+                      onChange={(e) => handleItemChange(index, 'gstRate', parseFloat(e.target.value))}
+                      className={modalInputClass}
+                    >
+                      <option value="0">0%</option>
+                      <option value="5">5%</option>
+                      <option value="12">12%</option>
+                      <option value="18">18%</option>
+                      <option value="28">28%</option>
+                    </select>
+                  </div>
+                  <div className="col-span-6 sm:col-span-2">
+                    {formData.items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(index)}
+                        className="w-full px-3 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-3 space-y-1.5">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-700">Taxable Value:</span>
+              <span className="font-bold text-gray-800">₹{billFormTotals.subtotal.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-700">CGST:</span>
+              <span className="font-medium text-gray-800">₹{billFormTotals.cgst.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-700">SGST:</span>
+              <span className="font-medium text-gray-800">₹{billFormTotals.sgst.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+              <span className="text-base font-bold text-gray-800">Total Amount:</span>
+              <span className="text-xl font-bold text-amber-600">₹{billFormTotals.total.toLocaleString()}</span>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

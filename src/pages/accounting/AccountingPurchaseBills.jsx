@@ -5,6 +5,12 @@ import { useStoreContext } from '../../context/storeContext';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
+import Modal, {
+  modalInputClass,
+  modalLabelClass,
+  modalPrimaryBtnClass,
+  modalSecondaryBtnClass,
+} from '../../components/ui/Modal';
 import { useStockCategoryContext } from '../../context/stockcategoryContext';
 import { useGetAllUnits } from '../../hooks/useUnit';
 import { useAddPurchaseBill, useGetAllPurchaseBill } from '../../hooks/usePurchaseBill';
@@ -32,12 +38,12 @@ export default function AccountingPurchaseBills() {
     const stockGroup = stockGroupData?.data ?? [];
 
     const { data: purchaseBillsData, isLoading: billsLoading } = useGetAllPurchaseBill();
-    console.log(purchaseBillsData)
     const bills = purchaseBillsData?.bills ?? [];
 
     const { mutate: addPurchaseBill, isPending: isSubmitting } = useAddPurchaseBill(); // swap isPending -> isLoading if on an older react-query
 
     const [showAddModal, setShowAddModal] = useState(false);
+    const [viewingBill, setViewingBill] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [formData, setFormData] = useState(initialFormData);
 
@@ -170,17 +176,30 @@ export default function AccountingPurchaseBills() {
         });
     };
 
-    const filteredBills = useMemo(() => bills.filter(bill =>
-        bill.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        bill.billNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        bill.billId?.toLowerCase().includes(searchTerm.toLowerCase())
-    ), [bills, searchTerm]);
+    const filteredBills = useMemo(() => bills.filter(bill => {
+        const q = searchTerm.toLowerCase();
+        return (
+            bill.supplierId?.name?.toLowerCase().includes(q) ||
+            bill.supplierName?.toLowerCase().includes(q) ||
+            bill.billNumber?.toLowerCase().includes(q) ||
+            bill.billId?.toLowerCase().includes(q)
+        );
+    }), [bills, searchTerm]);
 
     // NOTE: this paginates client-side over whatever the server already returned for one page.
     // If getPagination limits server-side by default, this will hide bills beyond page 1.
     // const billsPagination = usePagination(filteredBills);
 
     const getStoreName = (storeId) => stores.find(s => s.storeId === storeId)?.name || storeId;
+    const getBrandName = (brandId) => {
+        if (!brandId) return '—';
+        if (typeof brandId === 'object') return brandId.name || '—';
+        return stockGroup.find((sg) => String(sg._id) === String(brandId))?.name || '—';
+    };
+    const getCategoryName = (categoryId) =>
+        stockCategory.find((sc) => sc.categoryId === categoryId)?.name || categoryId || '—';
+    const getUnitName = (unitId) =>
+        units.find((u) => String(u.unitId || u._id) === String(unitId))?.name || unitId || '—';
 
     return (
         <div className="space-y-6">
@@ -296,7 +315,12 @@ export default function AccountingPurchaseBills() {
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center justify-center gap-2">
-                                            <button className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-600" title="View">
+                                            <button
+                                                type="button"
+                                                onClick={() => setViewingBill(bill)}
+                                                className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-600"
+                                                title="View"
+                                            >
                                                 <Eye size={16} />
                                             </button>
                                             <button className="p-2 hover:bg-purple-50 rounded-lg transition-colors text-purple-600" title="Download">
@@ -318,18 +342,159 @@ export default function AccountingPurchaseBills() {
                 /> */}
             </div>
 
-            {showAddModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full p-6 my-8 max-h-[90vh] overflow-y-auto">
-                        <h3 className="text-2xl font-bold text-gray-800 mb-6">Add Purchase Bill with Pricing</h3>
+            {viewingBill && (
+                <Modal
+                    title={`Purchase Bill — ${viewingBill.billId}`}
+                    size="xl"
+                    onClose={() => setViewingBill(null)}
+                    footer={
+                        <button
+                            type="button"
+                            onClick={() => setViewingBill(null)}
+                            className={modalSecondaryBtnClass}
+                        >
+                            Close
+                        </button>
+                    }
+                >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 mb-4">
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Bill Number</p>
+                            <p className="font-medium text-gray-800 text-sm">{viewingBill.billNumber}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Bill Date</p>
+                            <p className="font-medium text-gray-800 text-sm">
+                                {new Date(viewingBill.billDate).toLocaleDateString()}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Store</p>
+                            <p className="font-medium text-gray-800 text-sm">{getStoreName(viewingBill.storeId)}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Supplier</p>
+                            <p className="font-medium text-gray-800 text-sm">
+                                {viewingBill.supplierId?.name || viewingBill.supplierName || '—'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Supplier GSTIN</p>
+                            <p className="font-medium text-gray-800 text-sm">
+                                {viewingBill.supplierId?.gstNumber || viewingBill.supplierGSTIN || '—'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Status</p>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                <CheckCircle size={12} />
+                                Inventory Updated
+                            </span>
+                        </div>
+                    </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
+                        <div className="thin-scroll overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 text-gray-600">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left">Product</th>
+                                        <th className="px-3 py-2 text-left">Brand</th>
+                                        <th className="px-3 py-2 text-left">HSN</th>
+                                        <th className="px-3 py-2 text-center">Qty</th>
+                                        <th className="px-3 py-2 text-right">Rate</th>
+                                        <th className="px-3 py-2 text-right">MRP</th>
+                                        <th className="px-3 py-2 text-center">GST%</th>
+                                        <th className="px-3 py-2 text-right">Line Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {(viewingBill.items || []).map((item, idx) => {
+                                        const lineTotal = (item.quantity || 0) * (item.purchaseRate || 0);
+                                        return (
+                                            <tr key={idx} className="hover:bg-gray-50">
+                                                <td className="px-3 py-2">
+                                                    <p className="font-medium text-gray-800">{item.barcode_text}</p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {getCategoryName(item.category)} · {getUnitName(item.unit)}
+                                                    </p>
+                                                </td>
+                                                <td className="px-3 py-2 text-gray-700">{getBrandName(item.brand)}</td>
+                                                <td className="px-3 py-2 text-gray-600">{item.hsncode || '—'}</td>
+                                                <td className="px-3 py-2 text-center text-gray-800">{item.quantity}</td>
+                                                <td className="px-3 py-2 text-right text-gray-800">
+                                                    ₹{Number(item.purchaseRate || 0).toLocaleString()}
+                                                </td>
+                                                <td className="px-3 py-2 text-right text-gray-800">
+                                                    ₹{Number(item.mrp || 0).toLocaleString()}
+                                                </td>
+                                                <td className="px-3 py-2 text-center text-gray-600">{item.gst ?? 0}%</td>
+                                                <td className="px-3 py-2 text-right font-medium text-gray-900">
+                                                    ₹{lineTotal.toLocaleString()}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-3 space-y-1.5">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-700">Taxable Value:</span>
+                            <span className="font-bold text-gray-800">
+                                ₹{Number(viewingBill.taxableValue || 0).toLocaleString()}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-700">CGST + SGST:</span>
+                            <span className="font-medium text-gray-800">
+                                ₹{Number(viewingBill.CGSTplusSGST || 0).toLocaleString()}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                            <span className="text-base font-bold text-gray-800">Total Amount:</span>
+                            <span className="text-xl font-bold text-indigo-600">
+                                ₹{Number(viewingBill.totalAmount || 0).toLocaleString()}
+                            </span>
+                        </div>
+                    </div>
+                </Modal>
+            )}
+
+            {showAddModal && (
+                <Modal
+                    title="Add Purchase Bill with Pricing"
+                    size="xl"
+                    onClose={() => setShowAddModal(false)}
+                    footer={
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setShowAddModal(false)}
+                                className={modalSecondaryBtnClass}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleCreateBill}
+                                disabled={isSubmitting}
+                                className={`${modalPrimaryBtnClass} !bg-gradient-to-r !from-indigo-600 !to-purple-600 hover:!from-indigo-700 hover:!to-purple-700`}
+                            >
+                                {isSubmitting ? 'Creating...' : 'Create Bill'}
+                            </button>
+                        </>
+                    }
+                >
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
       <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">Supplier / Brand</label>
+    <label className={modalLabelClass}>Supplier / Brand</label>
     <select
         value={formData.supplierId}
         onChange={(e) => handleSupplierChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+        className={modalInputClass}
     >
         <option value="">select supplier / brand</option>
         {stockGroup.map((sg) => (
@@ -338,40 +503,40 @@ export default function AccountingPurchaseBills() {
     </select>
 </div>
 <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">Supplier GSTIN</label>
+    <label className={modalLabelClass}>Supplier GSTIN</label>
     <input
         type="text"
         value={formData.supplierGSTIN}
         readOnly
-        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 outline-none"
+        className={`${modalInputClass} bg-gray-100`}
         placeholder="Auto-filled from selected supplier"
     />
 </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Bill Number</label>
+                                <label className={modalLabelClass}>Bill Number</label>
                                 <input
                                     type="text"
                                     value={formData.billNumber}
                                     onChange={(e) => setFormData({ ...formData, billNumber: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                                    className={modalInputClass}
                                     placeholder="Supplier's bill number"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Bill Date</label>
+                                <label className={modalLabelClass}>Bill Date</label>
                                 <input
                                     type="date"
                                     value={formData.billDate}
                                     onChange={(e) => setFormData({ ...formData, billDate: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                                    className={modalInputClass}
                                 />
                             </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Store (Inventory will be updated here)</label>
+                            <div className="sm:col-span-2">
+                                <label className={modalLabelClass}>Store (Inventory will be updated here)</label>
                                 <select
                                     value={formData.storeId}
                                     onChange={(e) => setFormData({ ...formData, storeId: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                                    className={modalInputClass}
                                 >
                                     <option value="">select store</option>
                                     {stores.map((store) => (
@@ -381,7 +546,7 @@ export default function AccountingPurchaseBills() {
                             </div>
                         </div>
 
-                        <div className="mb-6">
+                        <div className="mb-4">
                             <div className="flex items-center justify-between mb-4">
                                 <label className="block text-sm font-medium text-gray-700">Items with Pricing</label>
                                 <button
@@ -393,7 +558,7 @@ export default function AccountingPurchaseBills() {
                                 </button>
                             </div>
 
-                            <div className="space-y-4 max-h-96 overflow-y-auto">
+                            <div className="thin-scroll space-y-4 max-h-96 overflow-y-auto">
                                 {formData.items.map((item, index) => (
                                     <div key={index} className="p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
 
@@ -414,7 +579,7 @@ export default function AccountingPurchaseBills() {
                                             </div>
 
                                             {activeSearchIndex === index && itemSearchTerm.length > 0 && (
-                                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
+                                                <div className="thin-scroll absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
                                                     {itemSearchResults.length > 0 ? (
                                                         itemSearchResults.map((product) => (
                                                             <div
@@ -455,7 +620,7 @@ export default function AccountingPurchaseBills() {
                                                     placeholder="Barcode text"
                                                 />
                                             </div>
-                                            <div className="col-span-6 md:col-span-2">
+                                            <div className="col-span-6 sm:col-span-2">
                                                 <label className="block text-xs text-gray-600 mb-1">HSN Code</label>
                                                 <input
                                                     type="text"
@@ -465,7 +630,7 @@ export default function AccountingPurchaseBills() {
                                                     placeholder="HSN"
                                                 />
                                             </div>
-                                            <div className="col-span-6 md:col-span-2">
+                                            <div className="col-span-6 sm:col-span-2">
                                                 <label className="block text-xs text-gray-600 mb-1">Stock Group *</label>
                                                 <select
                                                     value={item.brand}
@@ -478,7 +643,7 @@ export default function AccountingPurchaseBills() {
                                                     ))}
                                                 </select>
                                             </div>
-                                            <div className="col-span-6 md:col-span-2">
+                                            <div className="col-span-6 sm:col-span-2">
                                                 <label className="block text-xs text-gray-600 mb-1">Stock Category *</label>
                                                 <select
                                                     value={item.category}
@@ -491,7 +656,7 @@ export default function AccountingPurchaseBills() {
                                                     ))}
                                                 </select>
                                             </div>
-                                            <div className="col-span-6 md:col-span-2">
+                                            <div className="col-span-6 sm:col-span-2">
                                                 <label className="block text-xs text-gray-600 mb-1">Unit *</label>
                                                 <select
                                                     value={item.unit}
@@ -514,7 +679,7 @@ export default function AccountingPurchaseBills() {
                                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                                                 />
                                             </div>
-                                            <div className="col-span-6 md:col-span-2">
+                                            <div className="col-span-6 sm:col-span-2">
                                                 <label className="block text-xs text-gray-600 mb-1">Purchase Rate *</label>
                                                 <input
                                                     type="number"
@@ -524,7 +689,7 @@ export default function AccountingPurchaseBills() {
                                                     placeholder="0"
                                                 />
                                             </div>
-                                            <div className="col-span-6 md:col-span-2">
+                                            <div className="col-span-6 sm:col-span-2">
                                                 <label className="block text-xs text-gray-600 mb-1">GST %</label>
                                                 <select
                                                     value={item.gst}
@@ -538,7 +703,7 @@ export default function AccountingPurchaseBills() {
                                                     <option value="28">28%</option>
                                                 </select>
                                             </div>
-                                            <div className="col-span-12 md:col-span-2">
+                                            <div className="col-span-12 sm:col-span-2">
                                                 {formData.items.length > 1 && (
                                                     <>
                                                         <label className="block text-xs text-gray-600 mb-1">&nbsp;</label>
@@ -592,7 +757,7 @@ export default function AccountingPurchaseBills() {
                             </div>
                         </div>
 
-                        <div className="border-t border-gray-200 pt-4 mb-6">
+                        <div className="border-t border-gray-200 pt-4 mb-4">
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-gray-700">Taxable Value:</span>
                                 <span className="font-bold text-gray-800">₹{billFormTotals.subtotal.toLocaleString()}</span>
@@ -606,24 +771,7 @@ export default function AccountingPurchaseBills() {
                                 <span className="text-2xl font-bold text-indigo-600">₹{billFormTotals.total.toLocaleString()}</span>
                             </div>
                         </div>
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowAddModal(false)}
-                                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleCreateBill}
-                                disabled={isSubmitting}
-                                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50"
-                            >
-                                {isSubmitting ? 'Creating...' : 'Create Bill & Update Inventory'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                </Modal>
             )}
         </div>
     );

@@ -4,6 +4,12 @@ import { Plus, ArrowRight, CheckCircle, Clock, XCircle, Search, ArrowLeftRight }
 import { toast } from 'sonner';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
+import Modal, {
+  modalInputClass,
+  modalLabelClass,
+  modalSecondaryBtnClass,
+  modalPrimaryBtnClass,
+} from '../../components/ui/Modal';
 import AutocompleteInput from '../../components/ui/AutocompleteInput';
 import { useGetAllStores } from '../../hooks/useStore';
 import { useGetAllProducts } from '../../hooks/useProduct';
@@ -396,97 +402,16 @@ export default function TransferManagement({ user: userProp }) {
       />
 
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Create Transfer Request</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">From Store</label>
-                {isFromStoreLocked ? (
-                  <input
-                    type="text"
-                    value={fromStoreLabel}
-                    disabled
-                    readOnly
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 outline-none cursor-not-allowed"
-                  />
-                ) : (
-                  <select
-                    value={formData.fromStoreId || ''}
-                    onChange={(e) => setFormData({ ...formData, fromStoreId: e.target.value, toStoreId: '' })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  >
-                    <option value="">Select store</option>
-                    {stores.map((store) => (
-                      <option key={store.storeId} value={store.storeId}>
-                        {store.name} ({store.storeId})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">To Store</label>
-                <select
-                  value={formData.toStoreId}
-                  onChange={(e) => setFormData({ ...formData, toStoreId: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                >
-                  {toStoreOptions.length === 0 && (
-                    <option value="">No other stores available</option>
-                  )}
-                  {toStoreOptions.map((store) => (
-                    <option key={store.storeId} value={store.storeId}>
-                      {store.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <AutocompleteInput
-                label="Product"
-                placeholder="Select Product"
-                value={productQuery}
-                onChange={(val) => {
-                  setProductQuery(val);
-                  setSelectedProduct(null);
-                }}
-                onSelect={(opt) => {
-                  setSelectedProduct(opt.raw);
-                  setProductQuery(opt.label);
-                }}
-                options={productOptions}
-              />
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value, 10) || 0 })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="Enter quantity"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Reason (Optional)</label>
-                <textarea
-                  value={formData.reason}
-                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  rows={3}
-                  placeholder="Why is this transfer needed?"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
+        <Modal
+          title="Create Transfer Request"
+          size="sm"
+          onClose={() => setShowCreateModal(false)}
+          footer={
+            <>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className={modalSecondaryBtnClass}
               >
                 Cancel
               </button>
@@ -494,13 +419,97 @@ export default function TransferManagement({ user: userProp }) {
                 type="button"
                 onClick={handleCreateTransfer}
                 disabled={createTransferMutation.isPending}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all disabled:opacity-60"
+                className={modalPrimaryBtnClass}
               >
                 {createTransferMutation.isPending ? 'Creating...' : 'Create Transfer'}
               </button>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 gap-y-3">
+            <div>
+              <label className={modalLabelClass}>From Store</label>
+              {isFromStoreLocked ? (
+                <input
+                  type="text"
+                  value={fromStoreLabel}
+                  disabled
+                  readOnly
+                  className={`${modalInputClass} bg-gray-50 cursor-not-allowed`}
+                />
+              ) : (
+                <select
+                  value={formData.fromStoreId || ''}
+                  onChange={(e) => setFormData({ ...formData, fromStoreId: e.target.value, toStoreId: '' })}
+                  className={modalInputClass}
+                >
+                  <option value="">Select store</option>
+                  {stores.map((store) => (
+                    <option key={store.storeId} value={store.storeId}>
+                      {store.name} ({store.storeId})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label className={modalLabelClass}>To Store</label>
+              <select
+                value={formData.toStoreId}
+                onChange={(e) => setFormData({ ...formData, toStoreId: e.target.value })}
+                className={modalInputClass}
+              >
+                {toStoreOptions.length === 0 && (
+                  <option value="">No other stores available</option>
+                )}
+                {toStoreOptions.map((store) => (
+                  <option key={store.storeId} value={store.storeId}>
+                    {store.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <AutocompleteInput
+              label="Product"
+              placeholder="Select Product"
+              value={productQuery}
+              onChange={(val) => {
+                setProductQuery(val);
+                setSelectedProduct(null);
+              }}
+              onSelect={(opt) => {
+                setSelectedProduct(opt.raw);
+                setProductQuery(opt.label);
+              }}
+              options={productOptions}
+            />
+
+            <div>
+              <label className={modalLabelClass}>Quantity</label>
+              <input
+                type="number"
+                min="1"
+                value={formData.quantity}
+                onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value, 10) || 0 })}
+                className={modalInputClass}
+                placeholder="Enter quantity"
+              />
+            </div>
+
+            <div>
+              <label className={modalLabelClass}>Reason (Optional)</label>
+              <textarea
+                value={formData.reason}
+                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                className={modalInputClass}
+                rows={3}
+                placeholder="Why is this transfer needed?"
+              />
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

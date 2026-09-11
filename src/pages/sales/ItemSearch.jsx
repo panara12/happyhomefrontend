@@ -57,7 +57,7 @@ export function ItemSearch({ onAddItem }) {
           className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
         />
         {searchTerm.length > 0 && searchResults.length > 0 && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-auto">
+          <div className="thin-scroll absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-auto">
             {searchResults.map((product) => (
               <div
                 key={product._id}

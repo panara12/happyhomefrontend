@@ -3,6 +3,12 @@ import { Plus, CheckCircle, Clock, XCircle, Search, Package } from 'lucide-react
 import { toast } from 'sonner';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
+import Modal, {
+  modalInputClass,
+  modalLabelClass,
+  modalPrimaryBtnClass,
+  modalSecondaryBtnClass,
+} from '../../components/ui/Modal';
 
 export default function PurchaseOrders({ user }) {
   const [orders, setOrders] = useState([
@@ -325,141 +331,136 @@ export default function PurchaseOrders({ user }) {
 
       {/* Create PO Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 my-8">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Create Purchase Order</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Supplier</label>
-                <select
-                  value={formData.supplier}
-                  onChange={(e) => setFormData({...formData, supplier: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Select Supplier</option>
-                  {mockSuppliers.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Destination Store</label>
-                <select
-                  value={formData.store}
-                  onChange={(e) => setFormData({...formData, store: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  disabled={user.role === 'manager'}
-                >
-                  {user.role === 'admin' ? (
-                    <>
-                      <option value="Store 1">Store 1</option>
-                      <option value="Store 2">Store 2</option>
-                      <option value="Store 3">Store 3</option>
-                    </>
-                  ) : user.storeId ? (
-                    <option value={`Store ${user.storeId}`}>Store {user.storeId}</option>
-                  ) : (
-                    <option value="Store 1">Store 1</option>
-                  )}
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Expected Delivery Date</label>
-                <input
-                  type="date"
-                  value={formData.expectedDate}
-                  onChange={(e) => setFormData({...formData, expectedDate: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="block text-sm font-medium text-gray-700">Items</label>
-                <button
-                  onClick={handleAddItem}
-                  className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-medium"
-                >
-                  <Plus size={16} />
-                  Add Item
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {formData.items.map((item, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-3 items-end">
-                    <div className="col-span-5">
-                      <label className="block text-xs text-gray-600 mb-1">Product</label>
-                      <select
-                        value={item.product}
-                        onChange={(e) => handleItemChange(index, 'product', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                      >
-                        <option value="">Select Product</option>
-                        {mockProducts.map(p => (
-                          <option key={p.name} value={p.name}>{p.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-xs text-gray-600 mb-1">Qty</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                      />
-                    </div>
-                    <div className="col-span-3">
-                      <label className="block text-xs text-gray-600 mb-1">Unit Price</label>
-                      <input
-                        type="number"
-                        value={item.price}
-                        readOnly
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      {formData.items.length > 1 && (
-                        <button
-                          onClick={() => handleRemoveItem(index)}
-                          className="w-full px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-gray-200 pt-4 mb-6">
-              <div className="flex justify-between items-center">
-                <span className="text-xl font-bold text-gray-800">Total Amount:</span>
-                <span className="text-2xl font-bold text-amber-600">₹{formTotal.toLocaleString()}</span>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+        <Modal
+          title="Create Purchase Order"
+          onClose={() => setShowCreateModal(false)}
+          size="lg"
+          footer={
+            <>
+              <button type="button" onClick={() => setShowCreateModal(false)} className={modalSecondaryBtnClass}>
                 Cancel
               </button>
-              <button
-                onClick={handleCreatePO}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all"
-              >
+              <button type="button" onClick={handleCreatePO} className={modalPrimaryBtnClass}>
                 Create Purchase Order
               </button>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
+            <div>
+              <label className={modalLabelClass}>Supplier</label>
+              <select
+                value={formData.supplier}
+                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                className={modalInputClass}
+              >
+                <option value="">Select Supplier</option>
+                {mockSuppliers.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Destination Store</label>
+              <select
+                value={formData.store}
+                onChange={(e) => setFormData({ ...formData, store: e.target.value })}
+                className={modalInputClass}
+                disabled={user.role === 'manager'}
+              >
+                {user.role === 'admin' ? (
+                  <>
+                    <option value="Store 1">Store 1</option>
+                    <option value="Store 2">Store 2</option>
+                    <option value="Store 3">Store 3</option>
+                  </>
+                ) : user.storeId ? (
+                  <option value={`Store ${user.storeId}`}>Store {user.storeId}</option>
+                ) : (
+                  <option value="Store 1">Store 1</option>
+                )}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={modalLabelClass}>Expected Delivery Date</label>
+              <input
+                type="date"
+                value={formData.expectedDate}
+                onChange={(e) => setFormData({ ...formData, expectedDate: e.target.value })}
+                className={modalInputClass}
+              />
             </div>
           </div>
-        </div>
+
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-medium text-gray-700">Items</label>
+              <button
+                type="button"
+                onClick={handleAddItem}
+                className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-medium"
+              >
+                <Plus size={16} />
+                Add Item
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {formData.items.map((item, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 bg-gray-50 rounded-lg">
+                  <div className="col-span-12 sm:col-span-5">
+                    <label className="block text-xs text-gray-600 mb-1">Product</label>
+                    <select
+                      value={item.product}
+                      onChange={(e) => handleItemChange(index, 'product', e.target.value)}
+                      className={modalInputClass}
+                    >
+                      <option value="">Select Product</option>
+                      {mockProducts.map((p) => (
+                        <option key={p.name} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-4 sm:col-span-2">
+                    <label className="block text-xs text-gray-600 mb-1">Qty</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
+                      className={modalInputClass}
+                    />
+                  </div>
+                  <div className="col-span-5 sm:col-span-3">
+                    <label className="block text-xs text-gray-600 mb-1">Unit Price</label>
+                    <input
+                      type="number"
+                      value={item.price}
+                      readOnly
+                      className={`${modalInputClass} bg-gray-100`}
+                    />
+                  </div>
+                  <div className="col-span-3 sm:col-span-2">
+                    {formData.items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(index)}
+                        className="w-full px-3 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
+            <span className="text-base font-bold text-gray-800">Total Amount:</span>
+            <span className="text-xl font-bold text-amber-600">₹{formTotal.toLocaleString()}</span>
+          </div>
+        </Modal>
       )}
     </div>
   );

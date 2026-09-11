@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Clock, CheckCircle, XCircle, Eye, Calendar } from 'lucide-react';
 import { useLeaveContext } from '../../context/leaveContext';
+import Modal, { modalSecondaryBtnClass } from '../../components/ui/Modal';
 
 export function LeaveRequests({ requests,onApprove, onReject, showActions = false, currentUser }) {
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -119,67 +120,77 @@ export function LeaveRequests({ requests,onApprove, onReject, showActions = fals
       </div>
 
       {selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-auto p-6">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold">Leave Request Details</h2>
-                <div className="text-gray-600 mt-1">Submitted on {selectedRequest.applied_date.toString().split("T")[0]}</div>
+        <Modal
+          title={
+            <div>
+              <h3 className="text-xl font-bold text-gray-800">Leave Request Details</h3>
+              <div className="text-sm text-gray-600 mt-0.5">
+                Submitted on {selectedRequest.applied_date.toString().split('T')[0]}
               </div>
-              <button
-                onClick={() => setSelectedRequest(null)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                ×
-              </button>
+            </div>
+          }
+          size="md"
+          onClose={() => setSelectedRequest(null)}
+          footer={
+            <button
+              type="button"
+              onClick={() => setSelectedRequest(null)}
+              className={modalSecondaryBtnClass}
+            >
+              Close
+            </button>
+          }
+        >
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-sm text-gray-600 mb-1">Employee Name</div>
+                <div className="font-medium">{selectedRequest.userId.fullName}</div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-sm text-gray-600 mb-1">Leave Type</div>
+                <span className={`inline-block px-3 py-1 rounded-full text-sm ${getLeaveTypeBadge(selectedRequest.leave_type)}`}>
+                  {selectedRequest.leave_type}
+                </span>
+              </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Employee Name</div>
-                  <div className="font-medium">{selectedRequest.userId.fullName}</div>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Leave Type</div>
-                  <span className={`inline-block px-3 py-1 rounded-full text-sm ${getLeaveTypeBadge(selectedRequest.leave_type)}`}>
-                    {selectedRequest.leave_type}
-                  </span>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-sm text-gray-600 mb-1">Start Date</div>
+                <div className="font-medium">{selectedRequest.start_date.toString().split('T')[0]}</div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-sm text-gray-600 mb-1">End Date</div>
+                <div className="font-medium">{selectedRequest.end_date.toString().split('T')[0]}</div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-sm text-gray-600 mb-1">Total Days</div>
+                <div className="font-medium text-amber-600">
+                  {selectedRequest.number_of_days}{' '}
+                  {selectedRequest.number_of_days === 1 ? 'day' : 'days'}
                 </div>
               </div>
+            </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Start Date</div>
-                  <div className="font-medium">{selectedRequest.start_date.toString().split("T")[0]}</div>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">End Date</div>
-                  <div className="font-medium">{selectedRequest.end_date.toString().split("T")[0]}</div>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Total Days</div>
-                  <div className="font-medium text-amber-600">{selectedRequest.number_of_days} {selectedRequest.number_of_days === 1 ? 'day' : 'days'}</div>
-                </div>
-              </div>
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <div className="text-sm text-gray-600 mb-2">Reason</div>
+              <div className="text-gray-800">{selectedRequest.reason}</div>
+            </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-2">Reason</div>
-                <div className="text-gray-800">{selectedRequest.reason}</div>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-2">Status</div>
-                {getStatusBadge(selectedRequest.status)}
-                {selectedRequest.status !== 'Pending' && selectedRequest.approvedBy && (
-                  <div className="mt-2 text-sm text-gray-600">
-                    {selectedRequest.status === 'Approved' ? 'Approved' : 'Rejected'} by {selectedRequest.approved_user_id.fullName} on {selectedRequest.updatedAt && selectedRequest.updatedAt.toString().split("T")[0]}
-                  </div>
-                )}
-              </div>
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <div className="text-sm text-gray-600 mb-2">Status</div>
+              {getStatusBadge(selectedRequest.status)}
+              {selectedRequest.status !== 'Pending' && selectedRequest.approvedBy && (
+                <div className="mt-2 text-sm text-gray-600">
+                  {selectedRequest.status === 'Approved' ? 'Approved' : 'Rejected'} by{' '}
+                  {selectedRequest.approved_user_id.fullName} on{' '}
+                  {selectedRequest.updatedAt && selectedRequest.updatedAt.toString().split('T')[0]}
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -4,6 +4,12 @@ import { toast } from 'sonner';
 import logoImg from '../../assets/logo.jpg';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
+import Modal, {
+  modalInputClass,
+  modalLabelClass,
+  modalSecondaryBtnClass,
+  modalPrimaryBtnClass,
+} from '../../components/ui/Modal';
 
 export default function InvoiceManagement({ user }) {
   const [invoices, setInvoices] = useState([
@@ -471,43 +477,54 @@ export default function InvoiceManagement({ user }) {
 
         {/* Create Invoice Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 my-8">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6">Create New Invoice</h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <Modal
+          title="Create New Invoice"
+          size="lg"
+          onClose={() => setShowCreateModal(false)}
+          footer={
+            <>
+              <button type="button" onClick={() => setShowCreateModal(false)} className={modalSecondaryBtnClass}>
+                Cancel
+              </button>
+              <button type="button" onClick={handleCreateInvoice} className={modalPrimaryBtnClass}>
+                Create Invoice
+              </button>
+            </>
+          }
+        >
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Customer Name *</label>
+                  <label className={modalLabelClass}>Customer Name *</label>
                   <input
                     type="text"
                     value={formData.customer}
                     onChange={(e) => setFormData({...formData, customer: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                    className={modalInputClass}
                     placeholder="Enter customer name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
+                  <label className={modalLabelClass}>Phone Number *</label>
                   <input
                     type="text"
                     value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                    className={modalInputClass}
                     placeholder="+91 XXXXX XXXXX"
                   />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Store</label>
+                <div className="sm:col-span-2">
+                  <label className={modalLabelClass}>Store</label>
                   <input
                     type="text"
                     value={formData.store}
                     readOnly
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
+                    className={`${modalInputClass} bg-gray-50`}
                   />
                 </div>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-4">
                 <div className="flex items-center justify-between mb-4">
                   <label className="block text-sm font-medium text-gray-700">Items *</label>
                   <button
@@ -535,7 +552,7 @@ export default function InvoiceManagement({ user }) {
                           ))}
                         </select>
                       </div>
-                      <div className="col-span-6 md:col-span-2">
+                      <div className="col-span-6 sm:col-span-2">
                         <label className="block text-xs text-gray-600 mb-1">Qty</label>
                         <input
                           type="number"
@@ -554,7 +571,7 @@ export default function InvoiceManagement({ user }) {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
                         />
                       </div>
-                      <div className="col-span-12 md:col-span-2">
+                      <div className="col-span-12 sm:col-span-2">
                         {formData.items.length > 1 && (
                           <button
                             onClick={() => handleRemoveItem(index)}
@@ -570,59 +587,64 @@ export default function InvoiceManagement({ user }) {
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 pt-4 mb-6">
+              <div className="border-t border-gray-200 pt-4 mb-4">
                 <div className="flex justify-between items-center">
                   <span className="text-xl font-bold text-gray-800">Total Amount:</span>
                   <span className="text-2xl font-bold text-amber-600">₹{formTotal.toLocaleString()}</span>
                 </div>
               </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateInvoice}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all"
-                >
-                  Create Invoice
-                </button>
-              </div>
-            </div>
-          </div>
+        </Modal>
         )}
 
         {/* Edit Invoice Modal */}
         {showEditModal && editingInvoice && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 my-8 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6">Edit Invoice - {editingInvoice.id}</h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <Modal
+          title={`Edit Invoice - ${editingInvoice.id}`}
+          size="lg"
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingInvoice(null);
+          }}
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingInvoice(null);
+                }}
+                className={modalSecondaryBtnClass}
+              >
+                Cancel
+              </button>
+              <button type="button" onClick={handleSaveEdit} className={modalPrimaryBtnClass}>
+                Save Changes
+              </button>
+            </>
+          }
+        >
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Customer Name</label>
+                  <label className={modalLabelClass}>Customer Name</label>
                   <input
                     type="text"
                     value={editingInvoice.customer}
                     onChange={(e) => setEditingInvoice({...editingInvoice, customer: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                    className={modalInputClass}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                  <label className={modalLabelClass}>Phone Number</label>
                   <input
                     type="text"
                     value={editingInvoice.phone}
                     onChange={(e) => setEditingInvoice({...editingInvoice, phone: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                    className={modalInputClass}
                   />
                 </div>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-4">
                 <div className="flex items-center justify-between mb-4">
                   <label className="block text-sm font-medium text-gray-700">Items</label>
                   <button
@@ -646,7 +668,7 @@ export default function InvoiceManagement({ user }) {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                         />
                       </div>
-                      <div className="col-span-6 md:col-span-2">
+                      <div className="col-span-6 sm:col-span-2">
                         <label className="block text-xs text-gray-600 mb-1">Qty</label>
                         <input
                           type="number"
@@ -665,7 +687,7 @@ export default function InvoiceManagement({ user }) {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                         />
                       </div>
-                      <div className="col-span-12 md:col-span-2">
+                      <div className="col-span-12 sm:col-span-2">
                         {editingInvoice.items.length > 1 && (
                           <button
                             onClick={() => handleRemoveEditItem(index)}
@@ -681,49 +703,52 @@ export default function InvoiceManagement({ user }) {
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 pt-4 mb-6">
+              <div className="border-t border-gray-200 pt-4 mb-4">
                 <div className="flex justify-between items-center">
                   <span className="text-xl font-bold text-gray-800">Total Amount:</span>
                   <span className="text-2xl font-bold text-amber-600">₹{editingInvoice.total.toLocaleString()}</span>
                 </div>
               </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingInvoice(null);
-                  }}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveEdit}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          </div>
+        </Modal>
         )}
 
         {/* View Invoice Modal */}
         {showViewModal && selectedInvoice && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-8 max-h-[90vh] overflow-y-auto">
-              <div className="text-center mb-6">
-                <img
-                  src={logoImg}
-                  alt="Happy Home"
-                  className="w-24 h-24 mx-auto mb-4"
-                />
-                <h2 className="text-3xl font-bold text-gray-800">Happy Home</h2>
-                <p className="text-gray-600">Invoice {selectedInvoice.id}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+        <Modal
+          title={
+            <div className="text-center">
+              <img src={logoImg} alt="Happy Home" className="w-16 h-16 mx-auto mb-1" />
+              <h3 className="text-xl font-bold text-gray-800">Happy Home</h3>
+              <p className="text-sm text-gray-600">Invoice {selectedInvoice.id}</p>
+            </div>
+          }
+          size="lg"
+          onClose={() => setShowViewModal(false)}
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => handlePrintInvoice(selectedInvoice)}
+                className="w-full sm:w-48 px-4 py-2.5 flex items-center justify-center gap-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium shrink-0"
+              >
+                <Printer size={18} />
+                Print
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendToWhatsApp(selectedInvoice)}
+                className="w-full sm:w-48 px-4 py-2.5 flex items-center justify-center gap-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium shrink-0"
+              >
+                <Send size={18} />
+                Send PDF
+              </button>
+              <button type="button" onClick={() => setShowViewModal(false)} className={modalSecondaryBtnClass}>
+                Close
+              </button>
+            </>
+          }
+        >
+<div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="text-sm text-gray-600">Customer:</p>
                   <p className="font-medium text-gray-800">{selectedInvoice.customer}</p>
@@ -742,7 +767,7 @@ export default function InvoiceManagement({ user }) {
                 </div>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-4">
                 <h3 className="font-bold text-gray-800 mb-3">Items</h3>
                 <div className="bg-gray-50 rounded-lg overflow-hidden">
                   <table className="w-full">
@@ -768,7 +793,7 @@ export default function InvoiceManagement({ user }) {
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 pt-4 mb-6">
+              <div className="border-t border-gray-200 pt-4 mb-4">
                 <div className="flex justify-between items-center py-4">
                   <span className="text-lg font-medium text-gray-700">Total Amount:</span>
                   <span className="text-3xl font-bold text-amber-600">₹{selectedInvoice.total.toLocaleString()}</span>
@@ -784,32 +809,7 @@ export default function InvoiceManagement({ user }) {
                   </span>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => handlePrintInvoice(selectedInvoice)}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                >
-                  <Printer size={18} />
-                  Print
-                </button>
-                <button
-                  onClick={() => handleSendToWhatsApp(selectedInvoice)}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                >
-                  <Send size={18} />
-                  Send PDF
-                </button>
-              </div>
-
-              <button
-                onClick={() => setShowViewModal(false)}
-                className="w-full mt-3 px-4 py-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+        </Modal>
         )}
       </div>
     );
@@ -955,37 +955,48 @@ export default function InvoiceManagement({ user }) {
 
       {/* Modals same as manager view */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 my-8">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Create New Invoice</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <Modal
+          title="Create New Invoice"
+          size="lg"
+          onClose={() => setShowCreateModal(false)}
+          footer={
+            <>
+              <button type="button" onClick={() => setShowCreateModal(false)} className={modalSecondaryBtnClass}>
+                Cancel
+              </button>
+              <button type="button" onClick={handleCreateInvoice} className={modalPrimaryBtnClass}>
+                Create Invoice
+              </button>
+            </>
+          }
+        >
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Customer Name *</label>
+                <label className={modalLabelClass}>Customer Name *</label>
                 <input
                   type="text"
                   value={formData.customer}
                   onChange={(e) => setFormData({...formData, customer: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                  className={modalInputClass}
                   placeholder="Enter customer name"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
+                <label className={modalLabelClass}>Phone Number *</label>
                 <input
                   type="text"
                   value={formData.phone}
                   onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                  className={modalInputClass}
                   placeholder="+91 XXXXX XXXXX"
                 />
               </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Store</label>
+              <div className="sm:col-span-2">
+                <label className={modalLabelClass}>Store</label>
                 <select
                   value={formData.store}
                   onChange={(e) => setFormData({...formData, store: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                  className={modalInputClass}
                 >
                   <option value="Store 1">Store 1</option>
                   <option value="Store 2">Store 2</option>
@@ -994,7 +1005,7 @@ export default function InvoiceManagement({ user }) {
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-4">
               <div className="flex items-center justify-between mb-4">
                 <label className="block text-sm font-medium text-gray-700">Items *</label>
                 <button
@@ -1022,7 +1033,7 @@ export default function InvoiceManagement({ user }) {
                         ))}
                       </select>
                     </div>
-                    <div className="col-span-6 md:col-span-2">
+                    <div className="col-span-6 sm:col-span-2">
                       <label className="block text-xs text-gray-600 mb-1">Qty</label>
                       <input
                         type="number"
@@ -1041,7 +1052,7 @@ export default function InvoiceManagement({ user }) {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
                       />
                     </div>
-                    <div className="col-span-12 md:col-span-2">
+                    <div className="col-span-12 sm:col-span-2">
                       {formData.items.length > 1 && (
                         <button
                           onClick={() => handleRemoveItem(index)}
@@ -1057,45 +1068,33 @@ export default function InvoiceManagement({ user }) {
               </div>
             </div>
 
-            <div className="border-t border-gray-200 pt-4 mb-6">
+            <div className="border-t border-gray-200 pt-4 mb-4">
               <div className="flex justify-between items-center">
                 <span className="text-xl font-bold text-gray-800">Total Amount:</span>
                 <span className="text-2xl font-bold text-amber-600">₹{formTotal.toLocaleString()}</span>
               </div>
             </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateInvoice}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all"
-              >
-                Create Invoice
-              </button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {showViewModal && selectedInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-8 max-h-[90vh] overflow-y-auto">
-            <div className="text-center mb-6">
-              <img
-                src={logoImg}
-                alt="Happy Home"
-                className="w-24 h-24 mx-auto mb-4"
-              />
-              <h2 className="text-3xl font-bold text-gray-800">Happy Home</h2>
-              <p className="text-gray-600">Invoice {selectedInvoice.id}</p>
+        <Modal
+          title={
+            <div className="text-center">
+              <img src={logoImg} alt="Happy Home" className="w-16 h-16 mx-auto mb-1" />
+              <h3 className="text-xl font-bold text-gray-800">Happy Home</h3>
+              <p className="text-sm text-gray-600">Invoice {selectedInvoice.id}</p>
             </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+          }
+          size="lg"
+          onClose={() => setShowViewModal(false)}
+          footer={
+            <button type="button" onClick={() => setShowViewModal(false)} className={modalSecondaryBtnClass}>
+              Close
+            </button>
+          }
+        >
+<div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
               <div>
                 <p className="text-sm text-gray-600">Customer:</p>
                 <p className="font-medium text-gray-800">{selectedInvoice.customer}</p>
@@ -1114,7 +1113,7 @@ export default function InvoiceManagement({ user }) {
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-4">
               <h3 className="font-bold text-gray-800 mb-3">Items</h3>
               <div className="bg-gray-50 rounded-lg overflow-hidden">
                 <table className="w-full">
@@ -1140,7 +1139,7 @@ export default function InvoiceManagement({ user }) {
               </div>
             </div>
 
-            <div className="border-t border-gray-200 pt-4 mb-6">
+            <div className="border-t border-gray-200 pt-4 mb-4">
               <div className="flex justify-between items-center py-4">
                 <span className="text-lg font-medium text-gray-700">Total Amount:</span>
                 <span className="text-3xl font-bold text-amber-600">₹{selectedInvoice.total.toLocaleString()}</span>
@@ -1156,30 +1155,40 @@ export default function InvoiceManagement({ user }) {
                 </span>
               </div>
             </div>
-
-            <button
-              onClick={() => setShowViewModal(false)}
-              className="w-full px-4 py-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Payment Method Selection Modal */}
       {showPaymentModal && approvingInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="text-green-600" size={32} />
+        <Modal
+          title={
+            <div className="text-center">
+              <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <CheckCircle className="text-green-600" size={28} />
               </div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-2">Select Payment Method</h3>
-              <p className="text-gray-600">How did the customer pay for this invoice?</p>
+              <h3 className="text-xl font-bold text-gray-800">Select Payment Method</h3>
+              <p className="text-sm text-gray-600">How did the customer pay for this invoice?</p>
             </div>
-
-            <div className="mb-6 bg-gray-50 rounded-lg p-4">
+          }
+          size="sm"
+          onClose={() => {
+            setShowPaymentModal(false);
+            setApprovingInvoice(null);
+          }}
+          footer={
+            <button
+              type="button"
+              onClick={() => {
+                setShowPaymentModal(false);
+                setApprovingInvoice(null);
+              }}
+              className={modalSecondaryBtnClass}
+            >
+              Cancel
+            </button>
+          }
+        >
+<div className="mb-4 bg-gray-50 rounded-lg p-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-gray-600">Invoice:</span>
                 <span className="font-medium text-gray-800">{approvingInvoice.id}</span>
@@ -1194,7 +1203,7 @@ export default function InvoiceManagement({ user }) {
               </div>
             </div>
 
-            <div className="space-y-3 mb-6">
+            <div className="space-y-3 mb-4">
               <button
                 onClick={() => handlePaymentMethodSelected('Cash')}
                 className="w-full flex items-center justify-between p-4 border-2 border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all group"
@@ -1227,18 +1236,7 @@ export default function InvoiceManagement({ user }) {
                 <CheckCircle className="text-gray-300 group-hover:text-blue-600" size={24} />
               </button>
             </div>
-
-            <button
-              onClick={() => {
-                setShowPaymentModal(false);
-                setApprovingInvoice(null);
-              }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

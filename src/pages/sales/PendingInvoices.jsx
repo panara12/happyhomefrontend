@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Clock, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { Pagination } from '../../components/ui/Pagination';
+import Modal, { modalSecondaryBtnClass } from '../../components/ui/Modal';
 import { usePagination } from '../../hooks/usePagination';
 
 function getItemName(item) {
@@ -103,83 +104,82 @@ export function PendingInvoices({ invoices = [], isLoading = false }) {
       />
 
       {selectedInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-auto">
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold">Invoice #{selectedInvoice.invoiceNumber}</h2>
-                  <div className="text-gray-600 mt-1">
-                    {selectedInvoice.createdAt ? new Date(selectedInvoice.createdAt).toLocaleString() : '-'}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedInvoice(null)}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <div className="text-sm text-gray-600">Customer</div>
-                    <div className="font-medium">{selectedInvoice.customerName}</div>
-                    <div className="text-sm text-gray-500">ID: {selectedInvoice.customerId}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Salesperson</div>
-                    <div className="font-medium">{selectedInvoice.createdBy}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-2">Items</h3>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2">Item</th>
-                        <th className="text-center py-2">Qty</th>
-                        <th className="text-right py-2">Price</th>
-                        <th className="text-right py-2">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(selectedInvoice.items || []).map((item, idx) => (
-                        <tr key={idx} className="border-b">
-                          <td className="py-2">{getItemName(item)}</td>
-                          <td className="text-center py-2">{item.quantity}</td>
-                          <td className="text-right py-2">₹{Number(item.price || 0).toFixed(2)}</td>
-                          <td className="text-right py-2">₹{Number(item.total || 0).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="border-t pt-4 space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>₹{Number(selectedInvoice.subtotal || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>GST (18%):</span>
-                    <span>₹{Number(selectedInvoice.tax || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-xl font-bold border-t pt-2">
-                    <span>Total:</span>
-                    <span className="text-amber-600">₹{Number(selectedInvoice.total || 0).toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  {getStatusBadge(selectedInvoice.status)}
-                </div>
+        <Modal
+          title={
+            <div>
+              <h3 className="text-xl font-bold text-gray-800">Invoice #{selectedInvoice.invoiceNumber}</h3>
+              <div className="text-sm text-gray-600 mt-0.5">
+                {selectedInvoice.createdAt ? new Date(selectedInvoice.createdAt).toLocaleString() : '-'}
               </div>
             </div>
+          }
+          size="md"
+          onClose={() => setSelectedInvoice(null)}
+          footer={
+            <button
+              type="button"
+              onClick={() => setSelectedInvoice(null)}
+              className={modalSecondaryBtnClass}
+            >
+              Close
+            </button>
+          }
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div>
+                <div className="text-sm text-gray-600">Customer</div>
+                <div className="font-medium">{selectedInvoice.customerName}</div>
+                <div className="text-sm text-gray-500">ID: {selectedInvoice.customerId}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600">Salesperson</div>
+                <div className="font-medium">{selectedInvoice.createdBy}</div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-medium mb-2">Items</h3>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2">Item</th>
+                    <th className="text-center py-2">Qty</th>
+                    <th className="text-right py-2">Price</th>
+                    <th className="text-right py-2">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(selectedInvoice.items || []).map((item, idx) => (
+                    <tr key={idx} className="border-b">
+                      <td className="py-2">{getItemName(item)}</td>
+                      <td className="text-center py-2">{item.quantity}</td>
+                      <td className="text-right py-2">₹{Number(item.price || 0).toFixed(2)}</td>
+                      <td className="text-right py-2">₹{Number(item.total || 0).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="border-t pt-4 space-y-2">
+              <div className="flex justify-between">
+                <span>Subtotal:</span>
+                <span>₹{Number(selectedInvoice.subtotal || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>GST (18%):</span>
+                <span>₹{Number(selectedInvoice.tax || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-xl font-bold border-t pt-2">
+                <span>Total:</span>
+                <span className="text-amber-600">₹{Number(selectedInvoice.total || 0).toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div>{getStatusBadge(selectedInvoice.status)}</div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
