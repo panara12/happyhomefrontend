@@ -54,7 +54,7 @@ export default function AutocompleteInput({
       />
 
       {open && options.length > 0 && (
-        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
+        <div className="thin-scroll absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
           {options.map((opt) => (
             <button
               key={opt.id}

@@ -1,38 +1,134 @@
 import { useMemo, useState } from 'react';
 import { Package, Search, Filter, Printer, Barcode, CheckCircle, Minus, Plus, Edit2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePagination } from '../../hooks/usePagination';
-import { Pagination } from '../../components/ui/Pagination';
+import Modal, {
+  modalInputClass,
+  modalLabelClass,
+  modalPrimaryBtnClass,
+  modalSecondaryBtnClass,
+} from '../../components/ui/Modal';
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 import { useStockCategoryContext } from '../../context/stockcategoryContext';
-import { useGetAllProducts } from '../../hooks/useProduct';
+import { useGetAllProducts, useUpdateProduct } from '../../hooks/useProduct';
 import { useGetAllAccountingConst } from '../../hooks/useGetAllAccountStates';
+import { useGetAllUnits } from '../../hooks/useUnit';
 
+function buildEditForm(product, stores) {
+  const qtyByStore = {};
+  stores.forEach((store) => {
+    qtyByStore[store.storeId] = product.qty?.find((q) => q.storeId === store.storeId)?.qty ?? 0;
+  });
+  return {
+    id: product._id,
+    barcode_text: product.barcode_text || '',
+    brand: product.brand?._id || product.brand || '',
+    category: product.category || '',
+    unit: product.unit || '',
+    hsncode: product.hsncode || '',
+    mrp: product.mrp ?? 0,
+    offer_price: product.offer_price ?? product.mrp ?? 0,
+    gst: product.gst ?? 0,
+    disc: product.disc ?? 0,
+    qtyByStore,
+  };
+}
 
-export default function InventoryManagement({user}) {
+export default function InventoryManagement({ user }) {
+  const role = user?.userType || user?.role || '';
+  const storeId = user?.storeId;
   const { stores } = useStoreContext();
-  // const { user} = useLoggedUserContext();
-  // console.log(user)
   const { data: stockGroupData } = useGetAllStockGroup();
   const stockGroup = stockGroupData?.data ?? [];
   const { stockCategory } = useStockCategoryContext();
+  const { data: unitsData } = useGetAllUnits();
+  const units = unitsData?.units || unitsData?.data || [];
 
   const { data: productsData, isLoading: productsLoading } = useGetAllProducts();
-  const { data: accounting} = useGetAllAccountingConst();
-  // console.log("data",accounting)
-  const products = useMemo(() => productsData?.products || [],[productsData?.products]);
-  const pagination = usePagination(products)
+  const { data: accounting } = useGetAllAccountingConst();
+  const updateProductMutation = useUpdateProduct();
+  const products = productsData?.products ?? [];
 
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [editForm, setEditForm] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
   const [barcodeQuantities, setBarcodeQuantities] = useState({});
 
+  const editableStores = useMemo(() => {
+    if (role === 'manager' && storeId) {
+      return stores.filter((s) => String(s.storeId) === String(storeId));
+    }
+    return stores;
+  }, [role, storeId, stores]);
+
   const getBrandName = (brandId) => stockGroup.find(sg => sg._id === brandId)?.name || '-';
   const getCategoryName = (categoryId) => stockCategory.find(sc => sc.categoryId === categoryId)?.name || categoryId || '-';
-  const getStoreQty = (product, storeId) => product.qty?.find(q => q.storeId === storeId)?.qty || 0;
+  const getStoreQty = (product, sid) => product.qty?.find(q => q.storeId === sid)?.qty || 0;
   const getTotalStock = (product) => (product.qty || []).reduce((sum, q) => sum + (q.qty || 0), 0);
+
+  const openEdit = (product) => {
+    setEditingProduct(product);
+    setEditForm(buildEditForm(product, stores));
+  };
+
+  const closeEdit = () => {
+    setEditingProduct(null);
+    setEditForm(null);
+  };
+
+  const handleEditField = (field, value) => {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleEditQty = (sid, value) => {
+    setEditForm((prev) => ({
+      ...prev,
+      qtyByStore: {
+        ...prev.qtyByStore,
+        [sid]: Math.max(0, Number(value) || 0),
+      },
+    }));
+  };
+
+  const handleSaveEdit = () => {
+    if (!editForm?.id) return;
+    if (!editForm.barcode_text?.trim()) {
+      toast.error('Barcode is required');
+      return;
+    }
+
+    const mrp = Number(editForm.mrp) || 0;
+    const disc = Number(editForm.disc) || 0;
+    const offer_price = Number(editForm.offer_price) || Math.max(0, mrp - (mrp * disc) / 100);
+    const dict_amt = Number(((mrp * disc) / 100).toFixed(2));
+
+    const qty = editableStores.map((store) => ({
+      storeId: store.storeId,
+      qty: Number(editForm.qtyByStore?.[store.storeId] ?? 0),
+    }));
+
+    updateProductMutation.mutate(
+      {
+        id: editForm.id,
+        barcode_text: editForm.barcode_text.trim(),
+        brand: editForm.brand || undefined,
+        category: editForm.category || undefined,
+        unit: editForm.unit || undefined,
+        hsncode: editForm.hsncode || '',
+        mrp,
+        gst: Number(editForm.gst) || 0,
+        disc,
+        dict_amt,
+        offer_price,
+        qty,
+      },
+      {
+        onSuccess: () => closeEdit(),
+      }
+    );
+  };
 
   const handleBarcodeQuantityChange = (productId, change) => {
     setBarcodeQuantities(prev => {
@@ -72,15 +168,15 @@ export default function InventoryManagement({user}) {
 
   // const inventoryPagination = usePagination(displayInventory);
 
-  const totalStockAcrossAll = useMemo(
-    () => products.reduce((sum, item) => sum + getTotalStock(item), 0),
-    [products]
-  );
+  // const totalStockAcrossAll = useMemo(
+  //   () => products.reduce((sum, item) => sum + getTotalStock(item), 0),
+  //   [products]
+  // );
 
-  const totalValueAcrossAll = useMemo(
-    () => products.reduce((sum, item) => sum + (getTotalStock(item) * (item.mrp || 0)), 0),
-    [products]
-  );
+  // const totalValueAcrossAll = useMemo(
+  //   () => products.reduce((sum, item) => sum + (getTotalStock(item) * (item.mrp || 0)), 0),
+  //   [products]
+  // );
 
   return (
     <div className="space-y-6">
@@ -88,7 +184,7 @@ export default function InventoryManagement({user}) {
         <div>
           <h2 className="text-3xl font-bold text-gray-800">Master Inventory</h2>
           <p className="text-gray-600 mt-1">
-            {user?.userType === 'admin'
+            {role === 'admin'
               ? 'Manage inventory across all stores'
               : 'View inventory across all stores'}
           </p>
@@ -104,7 +200,7 @@ export default function InventoryManagement({user}) {
         </div>
       </div>
 
-      {user?.userType === 'manager' && (
+      {role === 'manager' && (
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <div className="bg-purple-500 text-white p-2 rounded-lg">
@@ -113,7 +209,7 @@ export default function InventoryManagement({user}) {
             <div>
               <h3 className="font-bold text-purple-900 mb-1">Master Inventory Access</h3>
               <p className="text-sm text-purple-800">
-                You can view inventory levels across <strong>all stores</strong>. {user.storeId && `Your store's stock is highlighted in `}<span className="font-bold text-amber-600">amber</span> for easy identification.
+                You can view inventory levels across <strong>all stores</strong>. {storeId && `Your store's stock is highlighted in `}<span className="font-bold text-amber-600">amber</span> for easy identification.
               </p>
             </div>
           </div>
@@ -186,8 +282,8 @@ export default function InventoryManagement({user}) {
                   </td>
                 </tr>
               )}
-              {/* {!productsLoading && pagination.paginatedItems.map(item => ( */}
-              {!productsLoading && pagination.paginatedItems.map(item => (
+              {/* {!productsLoading && inventoryPagination.paginatedItems.map(item => ( */}
+              {displayInventory.map(item => (
                 <tr key={item._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -211,7 +307,7 @@ export default function InventoryManagement({user}) {
                     <td
                       key={store.storeId}
                       className={`px-4 py-3 text-center ${
-                        user.userType === 'manager' && user.storeId === store.storeId ? 'font-bold text-amber-600' : 'text-gray-600'
+                        role === 'manager' && storeId === store.storeId ? 'font-bold text-amber-600' : 'text-gray-600'
                       }`}
                     >
                       {getStoreQty(item, store.storeId)}
@@ -228,13 +324,22 @@ export default function InventoryManagement({user}) {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {user.userType !== 'sales' && (
+                    {role !== 'sales' && (
                       <div className="flex items-center justify-center gap-2">
-                        <button className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-600">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(item)}
+                          className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-600"
+                          title="Edit product"
+                        >
                           <Edit2 size={16} />
                         </button>
-                        {user.userType === 'admin' && (
-                          <button className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600">
+                        {role === 'admin' && (
+                          <button
+                            type="button"
+                            className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
+                            title="Delete product"
+                          >
                             <Trash2 size={16} />
                           </button>
                         )}
@@ -246,40 +351,205 @@ export default function InventoryManagement({user}) {
             </tbody>
           </table>
         </div>
-        <Pagination
-          page={pagination.page}
-          totalPages={pagination.totalPages}
-          totalItems={pagination.totalItems}
-          pageSize={pagination.pageSize}
-          onPageChange={pagination.goToPage}
-        />
+        {/* <Pagination
+          page={inventoryPagination.page}
+          totalPages={inventoryPagination.totalPages}
+          totalItems={inventoryPagination.totalItems}
+          pageSize={inventoryPagination.pageSize}
+          onPageChange={inventoryPagination.goToPage}
+        /> */}
       </div>
 
-      {showBarcodeModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto my-8">
-            <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 z-10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold flex items-center gap-3">
-                    <Barcode size={32} />
-                    Print Barcode Stickers
-                  </h2>
-                  <p className="text-sm opacity-90 mt-1">Select products and quantity to print barcode stickers</p>
-                </div>
-                <button
-                  onClick={() => setShowBarcodeModal(false)}
-                  className="p-2 hover:bg-white/20 rounded-lg transition-all"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+      {editingProduct && editForm && (
+        <Modal
+          title={`Edit Product — ${editingProduct.sku_code || editingProduct.barcode_text}`}
+          onClose={closeEdit}
+          size="lg"
+          footer={
+            <>
+              <button type="button" onClick={closeEdit} className={modalSecondaryBtnClass}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEdit}
+                disabled={updateProductMutation.isPending}
+                className={modalPrimaryBtnClass}
+              >
+                {updateProductMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+            <div className="sm:col-span-2">
+              <label className={modalLabelClass}>Barcode *</label>
+              <input
+                type="text"
+                value={editForm.barcode_text}
+                onChange={(e) => handleEditField('barcode_text', e.target.value)}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Brand</label>
+              <select
+                value={editForm.brand}
+                onChange={(e) => handleEditField('brand', e.target.value)}
+                className={modalInputClass}
+              >
+                <option value="">Select brand</option>
+                {stockGroup.map((sg) => (
+                  <option key={sg._id} value={sg._id}>{sg.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Category</label>
+              <select
+                value={editForm.category}
+                onChange={(e) => handleEditField('category', e.target.value)}
+                className={modalInputClass}
+              >
+                <option value="">Select category</option>
+                {stockCategory.map((cat) => (
+                  <option key={cat.categoryId} value={cat.categoryId}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Unit</label>
+              <select
+                value={editForm.unit}
+                onChange={(e) => handleEditField('unit', e.target.value)}
+                className={modalInputClass}
+              >
+                <option value="">Select unit</option>
+                {units.map((u) => (
+                  <option key={u.unitId || u._id} value={u.unitId || u._id}>
+                    {u.name || u.unitId}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>HSN Code</label>
+              <input
+                type="text"
+                value={editForm.hsncode}
+                onChange={(e) => handleEditField('hsncode', e.target.value)}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>MRP (₹)</label>
+              <input
+                type="number"
+                min="0"
+                value={editForm.mrp}
+                onChange={(e) => handleEditField('mrp', e.target.value)}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Offer Price (₹)</label>
+              <input
+                type="number"
+                min="0"
+                value={editForm.offer_price}
+                onChange={(e) => handleEditField('offer_price', e.target.value)}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>GST (%)</label>
+              <input
+                type="number"
+                min="0"
+                value={editForm.gst}
+                onChange={(e) => handleEditField('gst', e.target.value)}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Discount (%)</label>
+              <input
+                type="number"
+                min="0"
+                value={editForm.disc}
+                onChange={(e) => handleEditField('disc', e.target.value)}
+                className={modalInputClass}
+              />
             </div>
 
-            <div className="p-6">
-              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-lg p-4 mb-6">
+            <div className="sm:col-span-2 pt-2 border-t border-gray-100">
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                Stock Quantity {role === 'manager' ? '(Your Store)' : '(All Stores)'}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {editableStores.map((store) => (
+                  <div key={store.storeId}>
+                    <label className={modalLabelClass}>{store.name}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editForm.qtyByStore?.[store.storeId] ?? 0}
+                      onChange={(e) => handleEditQty(store.storeId, e.target.value)}
+                      className={modalInputClass}
+                    />
+                  </div>
+                ))}
+                {editableStores.length === 0 && (
+                  <p className="text-sm text-gray-500">No store assigned to edit stock.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {showBarcodeModal && (
+        <Modal
+          title={
+            <div className="flex items-center gap-3">
+              <Barcode className="text-purple-600" size={28} />
+              <div>
+                <h3 className="text-xl font-bold text-gray-800">Print Barcode Stickers</h3>
+                <p className="text-sm text-gray-500">Select products and quantity to print barcode stickers</p>
+              </div>
+            </div>
+          }
+          size="xl"
+          onClose={() => setShowBarcodeModal(false)}
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setBarcodeQuantities({});
+                  setShowBarcodeModal(false);
+                }}
+                className={modalSecondaryBtnClass}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handlePrintBarcodes}
+                disabled={totalSelectedStickers === 0}
+                className={`w-full sm:w-48 px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg font-medium text-sm transition-all shrink-0 ${
+                  totalSelectedStickers > 0
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <Printer size={18} />
+                Print ({totalSelectedStickers})
+              </button>
+            </>
+          }
+        >
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="bg-purple-600 text-white p-3 rounded-lg">
@@ -408,41 +678,9 @@ export default function InventoryManagement({user}) {
                   <p className="text-gray-600">Add products via a purchase bill or the products module to see them here</p>
                 </div>
               )}
-            </div>
-
-            <div className="sticky bottom-0 bg-gray-50 border-t-2 border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  <p className="font-medium">💡 Tip: You can adjust quantities using +/- buttons or type directly</p>
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      setBarcodeQuantities({});
-                      setShowBarcodeModal(false);
-                    }}
-                    className="px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-all font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handlePrintBarcodes}
-                    disabled={totalSelectedStickers === 0}
-                    className={`flex items-center gap-2 px-8 py-3 rounded-lg font-medium transition-all ${
-                      totalSelectedStickers > 0
-                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-lg'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <Printer size={20} />
-                    Print {totalSelectedStickers} Sticker{totalSelectedStickers !== 1 ? 's' : ''}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
+
     </div>
   );
 }

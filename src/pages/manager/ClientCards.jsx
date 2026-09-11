@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, User, Phone, Mail, MapPin, Award, Building2, Users, ShoppingBag, Eye, Filter } from 'lucide-react';
 import { Pagination } from '../../components/ui/Pagination';
+import Modal, { modalSecondaryBtnClass } from '../../components/ui/Modal';
 import { useGetAllCustomers } from '../../hooks/useCustomer';
 
 const PAGE_SIZE = 9;
@@ -303,112 +304,122 @@ export default function ClientCards() {
       )}
 
       {showDetailModal && selectedClient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-2xl font-bold">{selectedClient.name}</h2>
-                  <p className="text-sm opacity-90 mt-1">Client ID: {selectedClient._id || selectedClient.id}</p>
-                </div>
-                <span className={`px-4 py-2 rounded-full text-sm font-medium border-2 flex items-center gap-2 ${getClientTypeColor(selectedClient.clientType)} bg-white`}>
-                  {getClientTypeIcon(selectedClient.clientType)}
-                  {selectedClient.clientType}
-                </span>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-6">
+        <Modal
+          title={
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <Phone className="text-amber-600" size={20} />
-                  Contact Information
-                </h3>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-600">Phone Number</p>
-                      <p className="font-medium text-gray-800">{selectedClient.phone || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Email Address</p>
-                      <p className="font-medium text-gray-800">{selectedClient.email || '—'}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Full Address</p>
-                    <p className="font-medium text-gray-800">{selectedClient.address || '—'}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <Award className="text-amber-600" size={20} />
-                  Loyalty & Purchase History
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-5 border-2 border-amber-200">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Award className="text-amber-600" size={24} />
-                      <p className="text-sm font-medium text-amber-800">Loyalty Points</p>
-                    </div>
-                    <p className="text-4xl font-bold text-amber-600">{selectedClient.loyaltyPoints || 0}</p>
-                    <p className="text-xs text-amber-700 mt-2">Available for redemption</p>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-5 border-2 border-blue-200">
-                    <div className="flex items-center gap-3 mb-2">
-                      <ShoppingBag className="text-blue-600" size={24} />
-                      <p className="text-sm font-medium text-blue-800">Total Purchases</p>
-                    </div>
-                    <p className="text-4xl font-bold text-blue-600">{formatMoney(selectedClient.totalPurchases)}</p>
-                    <p className="text-xs text-blue-700 mt-2">{selectedClient.invoiceCount || 0} invoices</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Timeline</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div>
-                      <p className="text-sm font-medium text-green-800">Last Purchase Date</p>
-                      <p className="text-xs text-green-600 mt-1">Most recent transaction</p>
-                    </div>
-                    <p className="text-lg font-bold text-green-700">{formatDate(selectedClient.lastPurchase)}</p>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <div>
-                      <p className="text-sm font-medium text-purple-800">Member Since</p>
-                      <p className="text-xs text-purple-600 mt-1">Registration date</p>
-                    </div>
-                    <p className="text-lg font-bold text-purple-700">{formatDate(selectedClient.joinedDate || selectedClient.createdAt)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-900 text-center flex items-center justify-center gap-2">
-                  <Eye size={16} />
-                  <strong>View Only:</strong> Client cards cannot be deleted. For modifications, contact your administrator.
+                <h3 className="text-xl font-bold text-gray-800">{selectedClient.name}</h3>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Client ID: {selectedClient._id || selectedClient.id}
                 </p>
               </div>
+              <span
+                className={`px-3 py-1.5 rounded-full text-sm font-medium border flex items-center gap-2 ${getClientTypeColor(selectedClient.clientType)}`}
+              >
+                {getClientTypeIcon(selectedClient.clientType)}
+                {selectedClient.clientType}
+              </span>
+            </div>
+          }
+          size="lg"
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedClient(null);
+          }}
+          footer={
+            <button
+              type="button"
+              onClick={() => {
+                setShowDetailModal(false);
+                setSelectedClient(null);
+              }}
+              className={modalSecondaryBtnClass}
+            >
+              Close
+            </button>
+          }
+        >
+          <div className="space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <Phone className="text-amber-600" size={18} />
+                Contact Information
+              </h3>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                  <div>
+                    <p className="text-sm text-gray-600">Phone Number</p>
+                    <p className="font-medium text-gray-800">{selectedClient.phone || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Email Address</p>
+                    <p className="font-medium text-gray-800">{selectedClient.email || '—'}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Full Address</p>
+                  <p className="font-medium text-gray-800">{selectedClient.address || '—'}</p>
+                </div>
+              </div>
             </div>
 
-            <div className="p-6 border-t bg-gray-50">
-              <button
-                onClick={() => {
-                  setShowDetailModal(false);
-                  setSelectedClient(null);
-                }}
-                className="w-full px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all font-medium"
-              >
-                Close
-              </button>
+            <div>
+              <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <Award className="text-amber-600" size={18} />
+                Loyalty & Purchase History
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 border-2 border-amber-200">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Award className="text-amber-600" size={20} />
+                    <p className="text-sm font-medium text-amber-800">Loyalty Points</p>
+                  </div>
+                  <p className="text-3xl font-bold text-amber-600">{selectedClient.loyaltyPoints || 0}</p>
+                  <p className="text-xs text-amber-700 mt-1">Available for redemption</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-blue-200">
+                  <div className="flex items-center gap-3 mb-2">
+                    <ShoppingBag className="text-blue-600" size={20} />
+                    <p className="text-sm font-medium text-blue-800">Total Purchases</p>
+                  </div>
+                  <p className="text-3xl font-bold text-blue-600">{formatMoney(selectedClient.totalPurchases)}</p>
+                  <p className="text-xs text-blue-700 mt-1">{selectedClient.invoiceCount || 0} invoices</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-gray-800 mb-3">Timeline</h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div>
+                    <p className="text-sm font-medium text-green-800">Last Purchase Date</p>
+                    <p className="text-xs text-green-600 mt-0.5">Most recent transaction</p>
+                  </div>
+                  <p className="text-base font-bold text-green-700">{formatDate(selectedClient.lastPurchase)}</p>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <div>
+                    <p className="text-sm font-medium text-purple-800">Member Since</p>
+                    <p className="text-xs text-purple-600 mt-0.5">Registration date</p>
+                  </div>
+                  <p className="text-base font-bold text-purple-700">
+                    {formatDate(selectedClient.joinedDate || selectedClient.createdAt)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-900 text-center flex items-center justify-center gap-2">
+                <Eye size={16} />
+                <strong>View Only:</strong> Client cards cannot be deleted. For modifications, contact
+                your administrator.
+              </p>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

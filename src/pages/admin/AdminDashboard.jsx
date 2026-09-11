@@ -11,7 +11,7 @@ import Layout from "../../layouts/adminLayout"
 import DashboardHome from "../../pages/admin/DashboardHome"
 import StoreManagement from "../../pages/admin/StoreManagement"
 import InventoryManagement from "../../pages/admin/InventoryManagement"
-import InvoiceManagement from "../../pages/admin/InvoiceManagement"
+import ManagerInvoices from "../../pages/manager/ManagerInvoices"
 import SalesReturn from "../../pages/admin/SalesReturn"
 import UserManagement from "../../pages/admin/UserManagement"
 import TransferManagement from "../../pages/admin/TransferManagement"
@@ -81,7 +81,7 @@ export default function AdminRouter() {
           <Route path="/dashboard" element={<DashboardHome user={user} />} />
           <Route path="/stores" element={<StoreManagement user={user} />} />
           <Route path="/inventory" element={<InventoryManagement user={user} />} />
-          <Route path="/invoices" element={<InvoiceManagement user={user} />} />
+          <Route path="/invoices" element={<ManagerInvoices />} />
           <Route path="/sales-return" element={<SalesReturn user={user} />} />
           <Route path="/users" element={<UserManagement user={user} />} />
           <Route path="/transfers" element={<TransferManagement user={user} />} />

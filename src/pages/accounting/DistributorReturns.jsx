@@ -3,6 +3,12 @@ import { Plus, Search, Trash2, CheckCircle, XCircle, Package } from 'lucide-reac
 import { toast } from 'sonner';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
+import Modal, {
+  modalInputClass,
+  modalLabelClass,
+  modalPrimaryBtnClass,
+  modalSecondaryBtnClass,
+} from '../../components/ui/Modal';
 
 export default function DistributorReturns({ user }) {
   const [returns, setReturns] = useState([
@@ -278,221 +284,209 @@ export default function DistributorReturns({ user }) {
 
       {/* Create Return Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg max-w-4xl w-full my-8">
-            <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-900">New Distributor Return</h2>
+        <Modal
+          title="New Distributor Return"
+          size="lg"
+          onClose={() => setShowModal(false)}
+          footer={
+            <>
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className={modalSecondaryBtnClass}
               >
-                <XCircle size={24} />
+                Cancel
               </button>
+              <button
+                type="submit"
+                form="distributor-return-form"
+                className={`${modalPrimaryBtnClass} !bg-indigo-600 hover:!bg-indigo-700 !from-indigo-600 !to-indigo-600`}
+              >
+                Create Return
+              </button>
+            </>
+          }
+        >
+          <form id="distributor-return-form" onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className={modalLabelClass}>
+                Store <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={selectedStore}
+                onChange={(e) => setSelectedStore(e.target.value)}
+                className={modalInputClass}
+                required
+              >
+                <option value="Store 1">Store 1</option>
+                <option value="Store 2">Store 2</option>
+                <option value="Store 3">Store 3</option>
+              </select>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-              {/* Store Selection */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Store <span className="text-red-500">*</span>
+                <label className={modalLabelClass}>
+                  Original Bill Number <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={selectedStore}
-                  onChange={(e) => setSelectedStore(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  required
-                >
-                  <option value="Store 1">Store 1</option>
-                  <option value="Store 2">Store 2</option>
-                  <option value="Store 3">Store 3</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Original Bill Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.billNumber}
-                    onChange={(e) => setFormData({ ...formData, billNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="PB-001"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Return Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.returnDate}
-                    onChange={(e) => setFormData({ ...formData, returnDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Distributor Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.distributorName}
-                    onChange={(e) => setFormData({ ...formData, distributorName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="ABC Distributors"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Distributor GSTIN
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.distributorGSTIN}
-                    onChange={(e) => setFormData({ ...formData, distributorGSTIN: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="27AABCU9603R1ZM"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Reason for Return <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={formData.reason}
-                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  rows={2}
-                  placeholder="e.g., Damaged goods, Excess stock, Quality issues"
+                <input
+                  type="text"
+                  value={formData.billNumber}
+                  onChange={(e) => setFormData({ ...formData, billNumber: e.target.value })}
+                  className={modalInputClass}
+                  placeholder="PB-001"
                   required
                 />
               </div>
 
-              {/* Items */}
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Return Items <span className="text-red-500">*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleAddItem}
-                    className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
-                  >
-                    <Plus size={16} />
-                    Add Item
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {formData.items.map((item, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 p-3 bg-gray-50 rounded-lg">
-                      <div className="col-span-12 md:col-span-3">
-                        <input
-                          type="text"
-                          value={item.productName}
-                          onChange={(e) => handleItemChange(index, 'productName', e.target.value)}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
-                          placeholder="Product Name"
-                          required
-                        />
-                      </div>
-                      <div className="col-span-6 md:col-span-2">
-                        <input
-                          type="text"
-                          value={item.hsn}
-                          onChange={(e) => handleItemChange(index, 'hsn', e.target.value)}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
-                          placeholder="HSN"
-                        />
-                      </div>
-                      <div className="col-span-6 md:col-span-2">
-                        <input
-                          type="number"
-                          value={item.quantity || ''}
-                          onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
-                          placeholder="Qty"
-                          required
-                        />
-                      </div>
-                      <div className="col-span-6 md:col-span-2">
-                        <input
-                          type="number"
-                          value={item.rate || ''}
-                          onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
-                          placeholder="Rate"
-                          required
-                        />
-                      </div>
-                      <div className="col-span-4 md:col-span-1">
-                        <input
-                          type="number"
-                          value={item.gst || ''}
-                          onChange={(e) => handleItemChange(index, 'gst', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
-                          placeholder="GST%"
-                        />
-                      </div>
-                      <div className="col-span-6 md:col-span-1">
-                        <div className="text-sm font-medium text-gray-700 px-2 py-1">
-                          ₹{calculateItemAmount(item).toFixed(2)}
-                        </div>
-                      </div>
-                      <div className="col-span-2 md:col-span-1">
-                        {formData.items.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(index)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <label className={modalLabelClass}>
+                  Return Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={formData.returnDate}
+                  onChange={(e) => setFormData({ ...formData, returnDate: e.target.value })}
+                  className={modalInputClass}
+                  required
+                />
               </div>
 
-              {/* Total */}
-              <div className="flex justify-end">
-                <div className="bg-indigo-50 rounded-lg p-4">
-                  <p className="text-sm text-indigo-800">Total Return Amount</p>
-                  <p className="text-2xl font-bold text-indigo-900">₹{calculateTotal().toFixed(2)}</p>
-                </div>
+              <div>
+                <label className={modalLabelClass}>
+                  Distributor Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.distributorName}
+                  onChange={(e) => setFormData({ ...formData, distributorName: e.target.value })}
+                  className={modalInputClass}
+                  placeholder="ABC Distributors"
+                  required
+                />
               </div>
 
-              {/* Actions */}
-              <div className="flex justify-end gap-3 pt-4 border-t">
+              <div>
+                <label className={modalLabelClass}>Distributor GSTIN</label>
+                <input
+                  type="text"
+                  value={formData.distributorGSTIN}
+                  onChange={(e) => setFormData({ ...formData, distributorGSTIN: e.target.value })}
+                  className={modalInputClass}
+                  placeholder="27AABCU9603R1ZM"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={modalLabelClass}>
+                Reason for Return <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={formData.reason}
+                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                className={modalInputClass}
+                rows={2}
+                placeholder="e.g., Damaged goods, Excess stock, Quality issues"
+                required
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Return Items <span className="text-red-500">*</span>
+                </label>
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  onClick={handleAddItem}
+                  className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                >
-                  Create Return
+                  <Plus size={16} />
+                  Add Item
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
+
+              <div className="space-y-2">
+                {formData.items.map((item, index) => (
+                  <div key={index} className="grid grid-cols-12 gap-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="col-span-12 md:col-span-3">
+                      <input
+                        type="text"
+                        value={item.productName}
+                        onChange={(e) => handleItemChange(index, 'productName', e.target.value)}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                        placeholder="Product Name"
+                        required
+                      />
+                    </div>
+                    <div className="col-span-6 md:col-span-2">
+                      <input
+                        type="text"
+                        value={item.hsn}
+                        onChange={(e) => handleItemChange(index, 'hsn', e.target.value)}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                        placeholder="HSN"
+                      />
+                    </div>
+                    <div className="col-span-6 md:col-span-2">
+                      <input
+                        type="number"
+                        value={item.quantity || ''}
+                        onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                        placeholder="Qty"
+                        required
+                      />
+                    </div>
+                    <div className="col-span-6 md:col-span-2">
+                      <input
+                        type="number"
+                        value={item.rate || ''}
+                        onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                        placeholder="Rate"
+                        required
+                      />
+                    </div>
+                    <div className="col-span-4 md:col-span-1">
+                      <input
+                        type="number"
+                        value={item.gst || ''}
+                        onChange={(e) => handleItemChange(index, 'gst', parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                        placeholder="GST%"
+                      />
+                    </div>
+                    <div className="col-span-6 md:col-span-1">
+                      <div className="text-sm font-medium text-gray-700 px-2 py-1.5">
+                        ₹{calculateItemAmount(item).toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="col-span-2 md:col-span-1">
+                      {formData.items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <div className="bg-indigo-50 rounded-lg p-3">
+                <p className="text-sm text-indigo-800">Total Return Amount</p>
+                <p className="text-xl font-bold text-indigo-900">₹{calculateTotal().toFixed(2)}</p>
+              </div>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );
