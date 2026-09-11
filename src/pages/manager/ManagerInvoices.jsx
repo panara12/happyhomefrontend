@@ -101,8 +101,8 @@ export default function ManagerInvoices() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">Invoice Approval</h2>
-          <p className="text-gray-600 mt-1">Review and approve invoices from your team</p>
+          <h2 className="text-3xl font-bold text-gray-800">Sales Invoices</h2>
+          <p className="text-gray-600 mt-1">Create, review, and approve customer invoices</p>
         </div>
         <button
           type="button"

@@ -25,8 +25,9 @@ export function useAddStore() {
 
 export function useUpdateStore() {
     return useApiMutation({
-        url: "/stores/updatestore",
-        method: "post",
+        url: (variables) => `/stores/updatestore/${variables.id}`,
+        method: "put",
         invalidateKeys: [STORES_QUERY_KEY],
+        successMessage: "Store updated successfully",
     });
 }

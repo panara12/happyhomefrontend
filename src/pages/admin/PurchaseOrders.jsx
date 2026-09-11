@@ -9,6 +9,12 @@ import { useSelector } from 'react-redux';
 import { useLoggedUserContext } from '../../context/loggedUserContext';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
+import Modal, {
+  modalInputClass,
+  modalLabelClass,
+  modalPrimaryBtnClass,
+  modalSecondaryBtnClass,
+} from '../../components/ui/Modal';
 
 const emptyItem = { barcode_text: '', quantity: 1, matchedProduct: null };
 
@@ -332,149 +338,155 @@ export default function PurchaseOrders() {
                 />
 
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 my-8">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Create Purchase Order</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Supplier</label>
-                <select
-                  value={formData.supplierId}
-                  onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Select Supplier</option>
-                  {stockGroup.map(sg => (
-                    <option key={sg._id} value={sg._id}>{sg.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Destination Store</label>
-                <select
-                  value={formData.storeId}
-                  onChange={(e) => setFormData({ ...formData, storeId: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  disabled={userRole === 'manager'}
-                >
-                  <option value="">Select Store</option>
-                  {stores.map(store => (
-                    <option key={store.storeId} value={store.storeId}>{store.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Expected Delivery Date</label>
-                <input
-                  type="date"
-                  value={formData.expectedDeliveryDate}
-                  onChange={(e) => setFormData({ ...formData, expectedDeliveryDate: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="block text-sm font-medium text-gray-700">Items</label>
-                <button
-                  onClick={handleAddItem}
-                  className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-medium"
-                >
-                  <Plus size={16} />
-                  Add Item
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {formData.items.map((item, index) => (
-                  <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="relative mb-2">
-                      <label className="block text-xs text-gray-600 mb-1">Product (must already exist)</label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          value={activeSearchIndex === index ? itemSearchTerm : (item.matchedProduct ? item.barcode_text : '')}
-                          onChange={(e) => handleItemSearchChange(index, e.target.value)}
-                          onFocus={() => setActiveSearchIndex(index)}
-                          placeholder="Search by barcode, SKU, or product code..."
-                          className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white"
-                        />
-                      </div>
-
-                      {activeSearchIndex === index && itemSearchTerm.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
-                          {itemSearchResults.length > 0 ? (
-                            itemSearchResults.map((product) => (
-                              <div
-                                key={product._id}
-                                onClick={() => handleSelectProduct(index, product)}
-                                className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                              >
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <div className="font-medium">{product.sku_code}</div>
-                                    <div className="text-sm text-gray-600">Barcode: {product.barcode_text}</div>
-                                  </div>
-                                  <div className="font-medium text-amber-600">₹{product.mrp || 0}</div>
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="p-3 text-sm text-gray-500">
-                              No matching product found. Purchase orders can only include existing products.
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-12 gap-3 items-end">
-                      <div className="col-span-4">
-                        <label className="block text-xs text-gray-600 mb-1">Qty</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => handleQuantityChange(index, e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        {formData.items.length > 1 && (
-                          <button
-                            onClick={() => handleRemoveItem(index)}
-                            className="w-full px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+        <Modal
+          title="Create Purchase Order"
+          onClose={() => setShowCreateModal(false)}
+          size="lg"
+          footer={
+            <>
+              <button type="button" onClick={() => setShowCreateModal(false)} className={modalSecondaryBtnClass}>
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleCreatePO}
                 disabled={addPurchaseOrderMutation.isPending}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all disabled:opacity-50"
+                className={modalPrimaryBtnClass}
               >
                 {addPurchaseOrderMutation.isPending ? 'Creating...' : 'Create Purchase Order'}
               </button>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
+            <div>
+              <label className={modalLabelClass}>Supplier</label>
+              <select
+                value={formData.supplierId}
+                onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
+                className={modalInputClass}
+              >
+                <option value="">Select Supplier</option>
+                {stockGroup.map(sg => (
+                  <option key={sg._id} value={sg._id}>{sg.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Destination Store</label>
+              <select
+                value={formData.storeId}
+                onChange={(e) => setFormData({ ...formData, storeId: e.target.value })}
+                className={modalInputClass}
+                disabled={userRole === 'manager'}
+              >
+                <option value="">Select Store</option>
+                {stores.map(store => (
+                  <option key={store.storeId} value={store.storeId}>{store.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={modalLabelClass}>Expected Delivery Date</label>
+              <input
+                type="date"
+                value={formData.expectedDeliveryDate}
+                onChange={(e) => setFormData({ ...formData, expectedDeliveryDate: e.target.value })}
+                className={modalInputClass}
+              />
             </div>
           </div>
-        </div>
+
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-medium text-gray-700">Items</label>
+              <button
+                type="button"
+                onClick={handleAddItem}
+                className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-medium"
+              >
+                <Plus size={16} />
+                Add Item
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {formData.items.map((item, index) => (
+                <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="relative mb-2">
+                    <label className="block text-xs text-gray-600 mb-1">Product (must already exist)</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={activeSearchIndex === index ? itemSearchTerm : (item.matchedProduct ? item.barcode_text : '')}
+                        onChange={(e) => handleItemSearchChange(index, e.target.value)}
+                        onFocus={() => setActiveSearchIndex(index)}
+                        placeholder="Search by barcode, SKU, or product code..."
+                        className={`${modalInputClass} pl-9`}
+                      />
+                    </div>
+
+                    {activeSearchIndex === index && itemSearchTerm.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
+                        {itemSearchResults.length > 0 ? (
+                          itemSearchResults.map((product) => (
+                            <div
+                              key={product._id}
+                              onClick={() => handleSelectProduct(index, product)}
+                              className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div className="font-medium">{product.sku_code}</div>
+                                  <div className="text-sm text-gray-600">Barcode: {product.barcode_text}</div>
+                                </div>
+                                <div className="font-medium text-amber-600">₹{product.mrp || 0}</div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-3 text-sm text-gray-500">
+                            No matching product found. Purchase orders can only include existing products.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-12 gap-3 items-end">
+                    <div className="col-span-4">
+                      <label className="block text-xs text-gray-600 mb-1">Qty</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => handleQuantityChange(index, e.target.value)}
+                        className={modalInputClass}
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      {formData.items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          className="w-full px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
+            <span className="text-base font-bold text-gray-800">Total Amount:</span>
+            <span className="text-xl font-bold text-amber-600">₹{formTotal.toLocaleString()}</span>
+          </div>
+        </Modal>
       )}
     </div>
   );

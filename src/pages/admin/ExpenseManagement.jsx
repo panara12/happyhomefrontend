@@ -3,6 +3,12 @@ import { Plus, DollarSign, Search, Calendar, TrendingUp, CheckCircle } from 'luc
 import { toast } from 'sonner';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
+import Modal, {
+  modalInputClass,
+  modalLabelClass,
+  modalPrimaryBtnClass,
+  modalSecondaryBtnClass,
+} from '../../components/ui/Modal';
 import { useStoreContext } from '../../context/storeContext';
 import { useAddExpense, useGetAllExpense, useUpdateExpense } from '../../hooks/useExpense';
 import { useSelector } from 'react-redux';
@@ -319,95 +325,96 @@ export default function ExpenseManagement({user}) {
 
       {/* Add Expense Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Add New Expense</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({...formData, date: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Store</label>
-                <select
-                  value={formData.storeId}
-                  onChange={(e) => setFormData({...formData, storeId: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  disabled={user.userType === 'manager'}
-                >
-                  <option value="">Select Store</option>
-                  {stores.map((store) => (
-                    <option value={store.storeId} key={store.storeId}>{store.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                >
-                  {categories.filter(c => c !== 'All').map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  rows={3}
-                  placeholder="Enter expense description"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Amount (₹)</label>
-                <input
-                  type="number"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="10000"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
-                <select
-                  value={formData.paymentMethod}
-                  onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                >
-                  {paymentMethods.map(method => (
-                    <option key={method} value={method}>{method}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+        <Modal
+          title="Add New Expense"
+          onClose={() => setShowAddModal(false)}
+          size="md"
+          footer={
+            <>
+              <button type="button" onClick={() => setShowAddModal(false)} className={modalSecondaryBtnClass}>
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleAddExpense}
                 disabled={isAdding}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all disabled:opacity-50"
+                className={modalPrimaryBtnClass}
               >
                 {isAdding ? 'Adding...' : 'Add Expense'}
               </button>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+            <div>
+              <label className={modalLabelClass}>Date</label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Store</label>
+              <select
+                value={formData.storeId}
+                onChange={(e) => setFormData({ ...formData, storeId: e.target.value })}
+                className={modalInputClass}
+                disabled={user.userType === 'manager'}
+              >
+                <option value="">Select Store</option>
+                {stores.map((store) => (
+                  <option value={store.storeId} key={store.storeId}>{store.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Category</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className={modalInputClass}
+              >
+                {categories.filter((c) => c !== 'All').map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Amount (₹)</label>
+              <input
+                type="number"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                className={modalInputClass}
+                placeholder="10000"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={modalLabelClass}>Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className={modalInputClass}
+                rows={2}
+                placeholder="Enter expense description"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={modalLabelClass}>Payment Method</label>
+              <select
+                value={formData.paymentMethod}
+                onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                className={modalInputClass}
+              >
+                {paymentMethods.map((method) => (
+                  <option key={method} value={method}>{method}</option>
+                ))}
+              </select>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

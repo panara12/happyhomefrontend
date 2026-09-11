@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, ArrowLeftRight, Eye, Package, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useGetTransfers } from '../../hooks/useTransfer';
+import Modal, { modalSecondaryBtnClass } from '../../components/ui/Modal';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -291,126 +292,116 @@ export default function ViewTransfers() {
       </div>
 
       {selectedTransfer && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-900">Transfer Details</h2>
-              <button
-                type="button"
-                onClick={() => setSelectedTransfer(null)}
-                className="text-gray-400 hover:text-gray-600"
+        <Modal
+          title="Transfer Details"
+          size="md"
+          onClose={() => setSelectedTransfer(null)}
+          footer={
+            <button
+              type="button"
+              onClick={() => setSelectedTransfer(null)}
+              className={modalSecondaryBtnClass}
+            >
+              Close
+            </button>
+          }
+        >
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <span
+                className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${statusBadgeClass(selectedTransfer.status)}`}
               >
-                <XCircle size={24} />
-              </button>
+                {statusIcon(selectedTransfer.status)}
+                {statusLabel(selectedTransfer.status)}
+              </span>
             </div>
 
-            <div className="p-6 space-y-6">
-              <div className="flex justify-center">
-                <span
-                  className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${statusBadgeClass(selectedTransfer.status)}`}
-                >
-                  {statusIcon(selectedTransfer.status)}
-                  {statusLabel(selectedTransfer.status)}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <div className="bg-blue-50 rounded-lg p-3">
+                <p className="text-xs text-blue-800 mb-1">From Store</p>
+                <p className="font-medium text-blue-900">{selectedTransfer.fromStore}</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3">
+                <p className="text-xs text-green-800 mb-1">To Store</p>
+                <p className="font-medium text-green-900">{selectedTransfer.toStore}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Transfer ID:</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {selectedTransfer.transferNumber}
                 </span>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <p className="text-xs text-blue-800 mb-1">From Store</p>
-                  <p className="font-medium text-blue-900">{selectedTransfer.fromStore}</p>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4">
-                  <p className="text-xs text-green-800 mb-1">To Store</p>
-                  <p className="font-medium text-green-900">{selectedTransfer.toStore}</p>
-                </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Request Date:</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {selectedTransfer.requestDate}
+                </span>
               </div>
-
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Transfer ID:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {selectedTransfer.transferNumber}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Request Date:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {selectedTransfer.requestDate}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Requested By:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {selectedTransfer.requestedBy}
-                  </span>
-                </div>
-                {selectedTransfer.processedBy && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Processed By:</span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {selectedTransfer.processedBy}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Processed Date:</span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {selectedTransfer.processedDate}
-                      </span>
-                    </div>
-                  </>
-                )}
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Requested By:</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {selectedTransfer.requestedBy}
+                </span>
               </div>
-
-              <div>
-                <h3 className="font-medium text-gray-900 mb-3">Items to Transfer</h3>
-                <div className="bg-gray-50 rounded-lg overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Product</th>
-                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-700">Quantity</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {selectedTransfer.items.map((item, index) => (
-                        <tr key={index}>
-                          <td className="px-4 py-2 text-sm text-gray-900">{item.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-900 text-right">{item.quantity}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {selectedTransfer.notes && (
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-2">Notes</h3>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-sm text-gray-700">{selectedTransfer.notes}</p>
+              {selectedTransfer.processedBy && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Processed By:</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {selectedTransfer.processedBy}
+                    </span>
                   </div>
-                </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Processed Date:</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {selectedTransfer.processedDate}
+                    </span>
+                  </div>
+                </>
               )}
+            </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-xs text-blue-900 text-center">
-                  📋 This is a read-only view. You cannot modify or process this transfer.
-                </p>
+            <div>
+              <h3 className="font-medium text-gray-900 mb-2">Items to Transfer</h3>
+              <div className="bg-gray-50 rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Product</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-700">Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {selectedTransfer.items.map((item, index) => (
+                      <tr key={index}>
+                        <td className="px-4 py-2 text-sm text-gray-900">{item.name}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 text-right">{item.quantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
 
-            <div className="p-6 border-t">
-              <button
-                type="button"
-                onClick={() => setSelectedTransfer(null)}
-                className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-              >
-                Close
-              </button>
+            {selectedTransfer.notes && (
+              <div>
+                <h3 className="font-medium text-gray-900 mb-2">Notes</h3>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-sm text-gray-700">{selectedTransfer.notes}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-900 text-center">
+                📋 This is a read-only view. You cannot modify or process this transfer.
+              </p>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

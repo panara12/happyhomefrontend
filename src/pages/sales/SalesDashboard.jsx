@@ -148,26 +148,27 @@ export default function SalesmanDashboard() {
       <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src={logoImg} alt="Happy Home" className="h-12 w-12 object-contain" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Happy Home</h1>
-                <p className="text-sm text-gray-600">Sales Invoice System</p>
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <img src={logoImg} alt="Happy Home" className="h-10 w-10 sm:h-12 sm:w-12 object-contain shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">Happy Home</h1>
+                <p className="text-xs sm:text-sm text-gray-600 truncate">Sales Invoice System</p>
               </div>
             </div>
             {user && (
-              <div className="text-right">
-                <div className="text-sm text-gray-600">Salesman</div>
-                <div className="font-medium">{user.fullName || user.name}</div>
+              <div className="text-right shrink-0">
+                <div className="text-xs sm:text-sm text-gray-600">Salesman</div>
+                <div className="font-medium text-sm sm:text-base truncate max-w-[8rem] sm:max-w-none">
+                  {user.fullName || user.name}
+                </div>
                 <button
                   onClick={handleLogout}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                  className="mt-1 px-3 py-1.5 sm:px-4 sm:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 inline-flex items-center gap-2 text-sm"
                 >
                   <LogOut className="w-4 h-4" />
-                  Logout
+                  <span className="hidden xs:inline sm:inline">Logout</span>
                 </button>
               </div>
-              
             )}
           </div>
         </div>
