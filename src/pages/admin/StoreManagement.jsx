@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Plus, Edit2, Trash2, MapPin, Phone, User, Search } from 'lucide-react';
+import { Plus, Edit2, Trash2, MapPin, Phone, User, Search, Loader2, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGetAllStores, useAddStore, useUpdateStore } from '../../hooks/useStore';
 import { useSelector } from 'react-redux';
@@ -19,8 +19,80 @@ const emptyForm = {
   address: '',
   number: '',
   gstNumber: '',
+  latitude: '',
+  longitude: '',
   status: 'active',
 };
+
+function getBrowserGps() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation is not supported by this browser'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({
+          latitude: Number(pos.coords.latitude.toFixed(6)),
+          longitude: Number(pos.coords.longitude.toFixed(6)),
+        });
+      },
+      (err) => {
+        reject(
+          new Error(
+            err?.code === 1
+              ? 'Location permission denied'
+              : 'Unable to get current GPS location'
+          )
+        );
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+}
+
+function LocationFields({ form, setForm, locating, onGetGps }) {
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={modalLabelClass}>Latitude</label>
+          <input
+            type="number"
+            step="any"
+            value={form.latitude}
+            onChange={(e) => setForm({ ...form, latitude: e.target.value })}
+            className={modalInputClass}
+            placeholder="From GPS"
+          />
+        </div>
+        <div>
+          <label className={modalLabelClass}>Longitude</label>
+          <input
+            type="number"
+            step="any"
+            value={form.longitude}
+            onChange={(e) => setForm({ ...form, longitude: e.target.value })}
+            className={modalInputClass}
+            placeholder="From GPS"
+          />
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onGetGps}
+        disabled={locating}
+        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium border border-blue-300 text-blue-800 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:opacity-60"
+      >
+        {locating ? <Loader2 size={16} className="animate-spin" /> : <Navigation size={16} />}
+        Use current GPS
+      </button>
+      <p className="text-xs text-gray-500">
+        Stand at the store and tap Use current GPS to fill coordinates (required for sales/manager login).
+      </p>
+    </>
+  );
+}
 
 export default function StoreManagement() {
   const user = useSelector((state) => state.app.userInfo);
@@ -45,12 +117,39 @@ export default function StoreManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
+  const [locating, setLocating] = useState(false);
 
   const resetAddForm = () => setFormData(emptyForm);
+
+  const fillCoords = useCallback((setter, coords) => {
+    setter((prev) => ({
+      ...prev,
+      latitude: String(coords.latitude),
+      longitude: String(coords.longitude),
+    }));
+  }, []);
+
+  const handleGetGps = async (setter) => {
+    setLocating(true);
+    try {
+      const coords = await getBrowserGps();
+      fillCoords(setter, coords);
+      toast.success('GPS coordinates filled');
+    } catch (err) {
+      toast.error(err.message || 'Failed to get GPS');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const handleAddStore = async () => {
     if (!formData.name || !formData.address) {
       toast.error('Store name and address are required');
+      return;
+    }
+
+    if (formData.latitude === '' || formData.longitude === '') {
+      toast.error('Please set store GPS using Use current GPS');
       return;
     }
 
@@ -60,6 +159,8 @@ export default function StoreManagement() {
         address: formData.address.trim(),
         number: formData.number,
         gstNumber: formData.gstNumber.trim(),
+        latitude: Number(formData.latitude),
+        longitude: Number(formData.longitude),
       });
       resetAddForm();
       setShowAddModal(false);
@@ -75,6 +176,8 @@ export default function StoreManagement() {
       address: store.address || '',
       number: store.number ?? '',
       gstNumber: store.gstNumber || '',
+      latitude: store.latitude != null ? String(store.latitude) : '',
+      longitude: store.longitude != null ? String(store.longitude) : '',
       status: store.status || 'active',
     });
   };
@@ -91,6 +194,11 @@ export default function StoreManagement() {
       return;
     }
 
+    if (editForm.latitude === '' || editForm.longitude === '') {
+      toast.error('Please set store GPS using Use current GPS');
+      return;
+    }
+
     updateStoreMutation.mutate(
       {
         id: editingStore.storeId,
@@ -99,6 +207,8 @@ export default function StoreManagement() {
         number: editForm.number,
         gstNumber: editForm.gstNumber.trim(),
         status: editForm.status,
+        latitude: Number(editForm.latitude),
+        longitude: Number(editForm.longitude),
       },
       {
         onSuccess: () => closeEdit(),
@@ -215,7 +325,16 @@ export default function StoreManagement() {
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <MapPin size={18} className="text-gray-500 mt-1" />
-                <span className="text-gray-700">{store.address}</span>
+                <div>
+                  <span className="text-gray-700">{store.address}</span>
+                  {store.latitude != null && store.longitude != null ? (
+                    <p className="text-xs text-gray-500 mt-1">
+                      GPS: {Number(store.latitude).toFixed(6)}, {Number(store.longitude).toFixed(6)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-600 mt-1">GPS not set — sales/manager login blocked</p>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <Phone size={18} className="text-gray-500" />
@@ -268,10 +387,10 @@ export default function StoreManagement() {
               <button
                 type="button"
                 onClick={handleAddStore}
-                disabled={addStoreMutation.isPending}
+                disabled={addStoreMutation.isPending || locating}
                 className={modalPrimaryBtnClass}
               >
-                {addStoreMutation.isPending ? 'Adding…' : 'Add Store'}
+                {addStoreMutation.isPending || locating ? 'Saving…' : 'Add Store'}
               </button>
             </>
           }
@@ -317,6 +436,12 @@ export default function StoreManagement() {
                 placeholder="GST Number"
               />
             </div>
+            <LocationFields
+              form={formData}
+              setForm={setFormData}
+              locating={locating}
+              onGetGps={() => handleGetGps(setFormData)}
+            />
           </div>
         </Modal>
       )}
@@ -334,10 +459,10 @@ export default function StoreManagement() {
               <button
                 type="button"
                 onClick={handleUpdateStore}
-                disabled={updateStoreMutation.isPending}
+                disabled={updateStoreMutation.isPending || locating}
                 className={modalPrimaryBtnClass}
               >
-                {updateStoreMutation.isPending ? 'Saving…' : 'Save Changes'}
+                {updateStoreMutation.isPending || locating ? 'Saving…' : 'Save Changes'}
               </button>
             </>
           }
@@ -379,6 +504,12 @@ export default function StoreManagement() {
                 className={modalInputClass}
               />
             </div>
+            <LocationFields
+              form={editForm}
+              setForm={setEditForm}
+              locating={locating}
+              onGetGps={() => handleGetGps(setEditForm)}
+            />
             <div>
               <label className={modalLabelClass}>Status</label>
               <select
