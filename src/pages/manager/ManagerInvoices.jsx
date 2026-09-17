@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Search, Eye, CheckCircle, XCircle, Printer, Send, Edit2, Plus
+  Search, Eye, CheckCircle, XCircle, Printer, Send, Edit2, Plus, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -13,6 +13,7 @@ import {
   useUpdateInvoiceStatus,
   useUpdateInvoice,
 } from '../../hooks/useInvoice';
+import { useSyncPendingTally } from '../../hooks/useTally';
 import EditInvoiceModal from './EditInvoiceModal';
 import ViewInvoiceModal from './ViewInvoiceModal';
 import CreateInvoiceModal from './CreateInvoiceModal';
@@ -188,6 +189,7 @@ export default function ManagerInvoices() {
 
   const updateStatusMutation = useUpdateInvoiceStatus();
   const updateInvoiceMutation = useUpdateInvoice();
+  const syncPendingTally = useSyncPendingTally();
 
   const invoices = data?.invoices || [];
   const summary = data?.summary || { total: 0, pending: 0, approved: 0, rejected: 0 };
@@ -311,14 +313,25 @@ export default function ManagerInvoices() {
           <h2 className="text-3xl font-bold text-gray-800">Sales Invoices</h2>
           <p className="text-gray-600 mt-1">Create, review, and approve customer invoices</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateModal(true)}
-          className={`inline-flex items-center justify-center gap-2 px-5 py-3 text-white rounded-lg font-medium shadow ${theme.primaryBtn}`}
-        >
-          <Plus size={18} />
-          Create Invoice
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => syncPendingTally.mutate({})}
+            disabled={syncPendingTally.isPending}
+            className="inline-flex items-center justify-center gap-2 px-5 py-3 border border-gray-300 bg-white text-gray-800 rounded-lg font-medium shadow-sm hover:bg-gray-50 disabled:opacity-60"
+          >
+            <RefreshCw size={18} className={syncPendingTally.isPending ? 'animate-spin' : ''} />
+            {syncPendingTally.isPending ? 'Syncing Tally…' : 'Sync Pending to Tally'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className={`inline-flex items-center justify-center gap-2 px-5 py-3 text-white rounded-lg font-medium shadow ${theme.primaryBtn}`}
+          >
+            <Plus size={18} />
+            Create Invoice
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

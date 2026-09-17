@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search, Download, Eye, Calendar, CheckCircle } from 'lucide-react';
+import { Plus, Search, Download, Eye, Calendar, CheckCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
@@ -15,6 +15,7 @@ import { useStockCategoryContext } from '../../context/stockcategoryContext';
 import { useGetAllUnits } from '../../hooks/useUnit';
 import { useAddPurchaseBill, useGetAllPurchaseBill } from '../../hooks/usePurchaseBill';
 import { useGetAllProducts } from '../../hooks/useProduct';
+import { useSyncPendingTally } from '../../hooks/useTally';
 
 const emptyItem = {
   brand: '',
@@ -78,6 +79,7 @@ export default function AccountingPurchaseBills() {
     const bills = purchaseBillsData?.bills ?? [];
 
     const { mutate: addPurchaseBill, isPending: isSubmitting } = useAddPurchaseBill(); // swap isPending -> isLoading if on an older react-query
+    const syncPendingTally = useSyncPendingTally();
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [viewingBill, setViewingBill] = useState(null);
@@ -256,13 +258,24 @@ export default function AccountingPurchaseBills() {
                     <h2 className="text-3xl font-bold text-gray-800">Purchase Bills</h2>
                     <p className="text-gray-600 mt-1">Create bills with auto inventory & pricing update</p>
                 </div>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg"
-                >
-                    <Plus size={20} />
-                    Add Purchase Bill
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => syncPendingTally.mutate({})}
+                        disabled={syncPendingTally.isPending}
+                        className="flex items-center gap-2 border border-gray-300 bg-white text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-50 transition-all shadow-sm disabled:opacity-60"
+                    >
+                        <RefreshCw size={20} className={syncPendingTally.isPending ? 'animate-spin' : ''} />
+                        {syncPendingTally.isPending ? 'Syncing Tally…' : 'Sync Pending to Tally'}
+                    </button>
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg"
+                    >
+                        <Plus size={20} />
+                        Add Purchase Bill
+                    </button>
+                </div>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
