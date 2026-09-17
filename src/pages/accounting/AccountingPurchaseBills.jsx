@@ -188,7 +188,7 @@ export default function AccountingPurchaseBills() {
 
     // NOTE: this paginates client-side over whatever the server already returned for one page.
     // If getPagination limits server-side by default, this will hide bills beyond page 1.
-    // const billsPagination = usePagination(filteredBills);
+    const billsPagination = usePagination(filteredBills);
 
     const getStoreName = (storeId) => stores.find(s => s.storeId === storeId)?.name || storeId;
     const getBrandName = (brandId) => {
@@ -282,8 +282,8 @@ export default function AccountingPurchaseBills() {
                             {billsLoading && (
                                 <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-500">Loading purchase bills...</td></tr>
                             )}
-                            {/* {!billsLoading && billsPagination.paginatedItems.map(bill => ( */}
-                            {filteredBills.map(bill => (
+                            {!billsLoading && billsPagination.paginatedItems.map(bill => (
+                            // {filteredBills.map(bill => (
                                 <tr key={bill.billId} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-4 py-3 font-medium text-gray-800">{bill.billId}</td>
                                     <td className="px-4 py-3 text-gray-600">
@@ -323,9 +323,9 @@ export default function AccountingPurchaseBills() {
                                             >
                                                 <Eye size={16} />
                                             </button>
-                                            <button className="p-2 hover:bg-purple-50 rounded-lg transition-colors text-purple-600" title="Download">
+                                            {/* <button className="p-2 hover:bg-purple-50 rounded-lg transition-colors text-purple-600" title="Download">
                                                 <Download size={16} />
-                                            </button>
+                                            </button> */}
                                         </div>
                                     </td>
                                 </tr>
@@ -333,13 +333,13 @@ export default function AccountingPurchaseBills() {
                         </tbody>
                     </table>
                 </div>
-                {/* <Pagination
+                <Pagination
                     page={billsPagination.page}
                     totalPages={billsPagination.totalPages}
                     totalItems={billsPagination.totalItems}
                     pageSize={billsPagination.pageSize}
                     onPageChange={billsPagination.goToPage}
-                /> */}
+                />
             </div>
 
             {viewingBill && (

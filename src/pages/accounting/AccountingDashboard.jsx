@@ -8,6 +8,7 @@ import Layout from "../../layouts/adminLayout"
 import DashboardHome from "../../pages/admin/DashboardHome"
 import AccountingPurchaseBills from "../../pages/accounting/AccountingPurchaseBills"
 import DistributorReturns from "../../pages/accounting/DistributorReturns"
+import InventoryManagement from "../../pages/admin/InventoryManagement"
 import ViewTransfers from "../../pages/accounting/ViewTransfers"
 
 import { useSelector } from "react-redux"
@@ -81,7 +82,7 @@ export default function AccountingRouter() {
         <Route path="/transfers" element={<ViewTransfers user={user} />} />
         <Route path="/category" element={<AddCategory user={user} />} />
         <Route path="/brand" element={<AddBrand user={user} />} />
-        <Route path="/inventory" element={<div>Inventory Status (page not provided yet)</div>} />
+        <Route path="/inventory" element={<InventoryManagement user={user} />} />
         <Route path="*" element={<Navigate to="/accounting/dashboard" replace />} />
       </Routes>
     </LayoutWrapper>

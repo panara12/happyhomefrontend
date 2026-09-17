@@ -81,7 +81,7 @@ export default function PurchaseBills() {
     itemsPurchased: bills.reduce((sum, b) => sum + (b.items || []).reduce((s, i) => s + (i.quantity || 0), 0), 0),
   }), [bills]);
 
-  // const billsPagination = usePagination(filteredBills);
+  const billsPagination = usePagination(filteredBills);
 
   return (
     <div className="space-y-6">
@@ -152,10 +152,10 @@ export default function PurchaseBills() {
               {billsLoading && (
                 <tr><td colSpan={9} className="px-4 py-6 text-center text-gray-500">Loading purchase bills...</td></tr>
               )}
-              {/* {!billsLoading && billsPagination.paginatedItems.length === 0 && (
+              {!billsLoading && billsPagination.paginatedItems.length === 0 && (
                 <tr><td colSpan={9} className="px-4 py-6 text-center text-gray-500">No purchase bills found.</td></tr>
-              )} */}
-              {filteredBills.map(bill => (
+              )}
+              {billsPagination.paginatedItems.map(bill => (
                 <tr key={bill.billId} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-800">{bill.billId}</td>
                   <td className="px-4 py-3 text-gray-600">
@@ -203,13 +203,13 @@ export default function PurchaseBills() {
             </tbody>
           </table>
         </div>
-        {/* <Pagination
+        <Pagination
           page={billsPagination.page}
           totalPages={billsPagination.totalPages}
           totalItems={billsPagination.totalItems}
           pageSize={billsPagination.pageSize}
           onPageChange={billsPagination.goToPage}
-        /> */}
+        />
       </div>
 
       {viewingBill && (
