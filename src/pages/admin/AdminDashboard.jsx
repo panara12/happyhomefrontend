@@ -20,6 +20,7 @@ import PurchaseBills from "../../pages/admin/PurchaseBills"
 import ExpenseManagement from "../../pages/admin/ExpenseManagement"
 import GSTReports from "../../pages/admin/GSTReports"
 import ProfitLoss from "../../pages/admin/ProfitLoss"
+import ServicePanel from "../manager/ServicePanel"
 
 import { useSelector } from "react-redux"
 import { useLogout } from "../../hooks/useAuth"
@@ -38,6 +39,7 @@ const navigationItems = [
   { id: "purchase", label: "Purchase Orders", icon: ShoppingCart, path: "/admin/purchase" },
   { id: "purchase-bills", label: "Purchase Bills", icon: Receipt, path: "/admin/purchase-bills" },
   { id: "expenses", label: "Expenses", icon: DollarSign, path: "/admin/expenses" },
+  { id: "service", label: "Service", icon: Wrench, path: "/admin/service" },
   { id: "gst-reports", label: "GST Reports", icon: BarChart3, path: "/admin/gst-reports" },
   { id: "profit-loss", label: "Profit & Loss", icon: TrendingUp, path: "/admin/profit-loss" },
 ]
@@ -88,6 +90,7 @@ export default function AdminRouter() {
           <Route path="/purchase" element={<PurchaseOrders user={user} />} />
           <Route path="/purchase-bills" element={<PurchaseBills user={user} />} />
           <Route path="/expenses" element={<ExpenseManagement user={user} />} />
+          <Route path="/service" element={<ServicePanel user={user} />} />
           <Route path="/gst-reports" element={<GSTReports user={user} />} />
           <Route path="/profit-loss" element={<ProfitLoss user={user} />} />
           <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />

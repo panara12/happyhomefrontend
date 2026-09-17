@@ -4,6 +4,13 @@ import { toast } from 'sonner';
 import { useAddService, useGetAllService } from '../../hooks/useService';
 import { Pagination } from '../../components/ui/Pagination';
 import { usePagination } from '../../hooks/usePagination';
+import Modal, {
+  modalInputClass,
+  modalLabelClass,
+  modalPrimaryBtnClass,
+  modalSecondaryBtnClass,
+  modalSelectClass,
+} from '../../components/ui/Modal';
 
 const initialFormData = {
   customerName: '',
@@ -11,7 +18,6 @@ const initialFormData = {
   productName: '',
   productBrand: '',
   warranty: 'in-warranty',
-  repairCharge: 0,
   Problem: '',
   notes: ''
 };
@@ -26,7 +32,7 @@ const STATUS_BADGE = {
 };
 
 export default function Service() {
-  const { data: servicesData, isLoading } = useGetAllService();
+  const { data: servicesData, isLoading, refetch } = useGetAllService();
   const services = useMemo(() => servicesData?.services || [], [servicesData?.services]);
   const pagination = usePagination(services)
 
@@ -46,16 +52,29 @@ export default function Service() {
       return;
     }
 
-    addService(formData, {
-      onSuccess: () => {
-        toast.success('Service request submitted!');
-        setFormData(initialFormData);
-        setShowAddModal(false);
+    addService(
+      {
+        customerName: formData.customerName,
+        mobileNumber: formData.mobileNumber,
+        productName: formData.productName,
+        productBrand: formData.productBrand,
+        warranty: formData.warranty,
+        problem: formData.Problem,
+        notes: formData.notes,
+        repairCharge: 0,
       },
-      onError: (err) => {
-        toast.error(err?.response?.data?.message || 'Failed to submit service request');
+      {
+        onSuccess: async () => {
+          toast.success('Service request submitted!');
+          setFormData(initialFormData);
+          setShowAddModal(false);
+          await refetch();
+        },
+        onError: (err) => {
+          toast.error(err?.response?.data?.message || 'Failed to submit service request');
+        },
       }
-    });
+    );
   };
 
   return (
@@ -128,112 +147,105 @@ export default function Service() {
       />
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 my-8">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">New Service Request</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Customer Name *</label>
-                <input
-                  type="text"
-                  value={formData.customerName}
-                  onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="Enter customer name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number *</label>
-                <input
-                  type="tel"
-                  value={formData.mobileNumber}
-                  onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="98765 43210"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
-                <input
-                  type="text"
-                  value={formData.productName}
-                  onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="e.g., LED TV 43 inch"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Product Brand *</label>
-                <input
-                  type="text"
-                  value={formData.productBrand}
-                  onChange={(e) => setFormData({ ...formData, productBrand: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="e.g., Samsung"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Repair Charge (₹)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.repairCharge}
-                  onChange={(e) => setFormData({ ...formData, repairCharge: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Warranty Status</label>
-                <select
-                  value={formData.warranty}
-                  onChange={(e) => setFormData({ ...formData, warranty: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                >
-                  <option value="in-warranty">In warranty</option>
-                  <option value="out-warranty">Out of warranty</option>
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Problem *</label>
-                <textarea
-                  value={formData.Problem}
-                  onChange={(e) => setFormData({ ...formData, Problem: e.target.value })}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="Describe the issue reported by the customer"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={2}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  placeholder="Any additional notes (optional)"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
+        <Modal
+          title="New Service Request"
+          size="md"
+          onClose={() => setShowAddModal(false)}
+          footer={
+            <>
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={isSubmitting}
+                className={modalSecondaryBtnClass}
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all disabled:opacity-50"
+                className={modalPrimaryBtnClass}
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Request'}
               </button>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+            <div>
+              <label className={modalLabelClass}>Customer Name *</label>
+              <input
+                type="text"
+                value={formData.customerName}
+                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                className={modalInputClass}
+                placeholder="Enter customer name"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Mobile Number *</label>
+              <input
+                type="tel"
+                value={formData.mobileNumber}
+                onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value })}
+                className={modalInputClass}
+                placeholder="98765 43210"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Product Name *</label>
+              <input
+                type="text"
+                value={formData.productName}
+                onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
+                className={modalInputClass}
+                placeholder="e.g., LED TV 43 inch"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Product Brand *</label>
+              <input
+                type="text"
+                value={formData.productBrand}
+                onChange={(e) => setFormData({ ...formData, productBrand: e.target.value })}
+                className={modalInputClass}
+                placeholder="e.g., Samsung"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={modalLabelClass}>Warranty Status</label>
+              <select
+                value={formData.warranty}
+                onChange={(e) => setFormData({ ...formData, warranty: e.target.value })}
+                className={modalSelectClass}
+              >
+                <option value="in-warranty">In warranty</option>
+                <option value="out-warranty">Out of warranty</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={modalLabelClass}>Problem *</label>
+              <textarea
+                value={formData.Problem}
+                onChange={(e) => setFormData({ ...formData, Problem: e.target.value })}
+                rows={3}
+                className={modalInputClass}
+                placeholder="Describe the issue reported by the customer"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={modalLabelClass}>Notes</label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={2}
+                className={modalInputClass}
+                placeholder="Any additional notes (optional)"
+              />
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

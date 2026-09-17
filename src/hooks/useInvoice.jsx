@@ -2,14 +2,13 @@ import { useApiMutation } from "./useApiMutation";
 import { useApiQuery } from "./useApiQuery";
 
 const MY_INVOICES_KEY = ["my-invoices"];
-const STORE_INVOICES_KEY = ["store-invoices"];
+export const STORE_INVOICES_KEY = ["store-invoices"];
 const PRODUCTS_QUERY_KEY = ["products"];
 
 export function useSubmitInvoice() {
   return useApiMutation({
     url: "/invoices/invoice-submit",
     method: "post",
-    successMessage: "Invoice submitted successfully",
     invalidateKeys: [MY_INVOICES_KEY, STORE_INVOICES_KEY, PRODUCTS_QUERY_KEY],
   });
 }
@@ -28,15 +27,27 @@ export function useGetMyInvoices({ status, page = 1, limit = 100 } = {}) {
 }
 
 // Store invoices for manager approval board
-export function useGetStoreInvoices({ status, q = "", page = 1, limit = 100, enabled = true } = {}) {
+export function useGetStoreInvoices({
+  status,
+  q = "",
+  fromDate = "",
+  toDate = "",
+  dateField = "createdAt",
+  page = 1,
+  limit = 100,
+  enabled = true,
+} = {}) {
   return useApiQuery({
-    queryKey: [...STORE_INVOICES_KEY, status || "all", q, page, limit],
+    queryKey: [...STORE_INVOICES_KEY, status || "all", q, fromDate, toDate, dateField, page, limit],
     path: "/invoices/store-invoices",
     params: {
       page,
       limit,
       ...(status ? { status } : {}),
       ...(q ? { q } : {}),
+      ...(fromDate ? { fromDate } : {}),
+      ...(toDate ? { toDate } : {}),
+      ...(dateField ? { dateField } : {}),
     },
     enabled,
     keepPrevious: true,

@@ -59,7 +59,10 @@ export function useApiMutation({
       if (invalidateKeys?.length) {
         await Promise.all(
           invalidateKeys.map((queryKey) =>
-            queryClient.invalidateQueries({ queryKey }),
+            queryClient.invalidateQueries({
+              queryKey,
+              refetchType: "active",
+            }),
           ),
         );
       }

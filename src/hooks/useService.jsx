@@ -5,7 +5,7 @@ const SERVICE_QUERY_KEY = ["service"];
 
 export function useGetAllService() {
     return useApiQuery({
-        queryKey: SERVICE_QUERY_KEY,
+        queryKey: [...SERVICE_QUERY_KEY, { limit: 100 }],
         path: "/services/getallservice",
         params: { limit: 100 },
     });

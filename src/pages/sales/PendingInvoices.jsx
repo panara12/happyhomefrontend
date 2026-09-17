@@ -163,17 +163,9 @@ export function PendingInvoices({ invoices = [], isLoading = false }) {
             </div>
 
             <div className="border-t pt-4 space-y-2">
-              <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span>₹{Number(selectedInvoice.subtotal || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>GST (18%):</span>
-                <span>₹{Number(selectedInvoice.tax || 0).toFixed(2)}</span>
-              </div>
               <div className="flex justify-between text-xl font-bold border-t pt-2">
-                <span>Total:</span>
-                <span className="text-amber-600">₹{Number(selectedInvoice.total || 0).toFixed(2)}</span>
+                <span>Total Amount:</span>
+                <span className="text-amber-600">₹{Number(selectedInvoice.total || selectedInvoice.subtotal || 0).toFixed(2)}</span>
               </div>
             </div>
 
