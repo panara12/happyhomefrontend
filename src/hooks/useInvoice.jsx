@@ -9,7 +9,6 @@ export function useSubmitInvoice() {
   return useApiMutation({
     url: "/invoices/invoice-submit",
     method: "post",
-    successMessage: "Invoice submitted successfully",
     invalidateKeys: [MY_INVOICES_KEY, STORE_INVOICES_KEY, PRODUCTS_QUERY_KEY],
   });
 }

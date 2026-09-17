@@ -97,9 +97,14 @@ export default function SalesmanDashboard() {
     submitInvoice(payload, {
       onSuccess: (data) => {
         const savedInvoiceNumber = data?.invoice?.invoiceNumber || 'new';
+        const appended = Boolean(data?.appended);
         setSelectedCustomer(null);
         setInvoiceItems([]);
-        alert(`Invoice #${savedInvoiceNumber} sent for approval!`);
+        toast.success(
+          appended
+            ? `Items added to pending invoice #${savedInvoiceNumber}`
+            : `Invoice #${savedInvoiceNumber} sent for approval!`
+        );
       },
     });
   };
