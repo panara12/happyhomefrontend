@@ -16,10 +16,31 @@ import EditInvoiceModal from './EditInvoiceModal';
 import ViewInvoiceModal from './ViewInvoiceModal';
 import CreateInvoiceModal from './CreateInvoiceModal';
 import ApprovePaymentModal from './ApprovePaymentModal';
+import { ConfirmModal } from '../admin/ConfirmModal';
 import { printInvoice } from '../../utils/printInvoice';
 import { useStoreContext } from '../../context/storeContext';
 
 const PAGE_SIZE = 10;
+
+const TABS = [
+  { id: 'pending', label: 'Pending', countKey: 'pending', activeClass: 'bg-yellow-500 text-white', badgeClass: 'bg-yellow-100 text-yellow-800' },
+  { id: 'approved', label: 'Approved', countKey: 'approved', activeClass: 'bg-green-600 text-white', badgeClass: 'bg-green-100 text-green-800' },
+  { id: 'rejected', label: 'Rejected', countKey: 'rejected', activeClass: 'bg-red-600 text-white', badgeClass: 'bg-red-100 text-red-800' },
+];
+
+function toInputDate(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getDefaultDateRange() {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - 29); // last 30 days inclusive
+  return { fromDate: toInputDate(from), toDate: toInputDate(to) };
+}
 
 function formatDate(value) {
   if (!value) return '—';
@@ -70,11 +91,16 @@ function patchStoreInvoicesCache(queryClient, updatedInvoice) {
 export default function ManagerInvoices() {
   const queryClient = useQueryClient();
   const { stores } = useStoreContext();
+  const defaultRange = useMemo(() => getDefaultDateRange(), []);
+  const [activeTab, setActiveTab] = useState('pending');
+  const [fromDate, setFromDate] = useState(defaultRange.fromDate);
+  const [toDate, setToDate] = useState(defaultRange.toDate);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [approvingInvoice, setApprovingInvoice] = useState(null);
+  const [rejectingInvoice, setRejectingInvoice] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
@@ -84,7 +110,9 @@ export default function ManagerInvoices() {
 
   const { data, isLoading, isError, refetch } = useGetStoreInvoices({
     q: debouncedSearch,
-    limit: 100,
+    fromDate,
+    toDate,
+    limit: 500,
   });
 
   const updateStatusMutation = useUpdateInvoiceStatus();
@@ -106,9 +134,14 @@ export default function ManagerInvoices() {
     [invoices]
   );
 
-  const pendingPagination = usePagination(pendingInvoices, { pageSize: PAGE_SIZE });
-  const approvedPagination = usePagination(approvedInvoices, { pageSize: PAGE_SIZE });
-  const rejectedPagination = usePagination(rejectedInvoices, { pageSize: PAGE_SIZE });
+  const tabLists = {
+    pending: pendingInvoices,
+    approved: approvedInvoices,
+    rejected: rejectedInvoices,
+  };
+
+  const activeInvoices = tabLists[activeTab] || pendingInvoices;
+  const pagination = usePagination(activeInvoices, { pageSize: PAGE_SIZE });
 
   const refreshInvoiceLists = async (updatedInvoice) => {
     patchStoreInvoicesCache(queryClient, updatedInvoice);
@@ -145,18 +178,23 @@ export default function ManagerInvoices() {
   };
 
   const handleReject = (invoice) => {
-    if (!confirm(`Reject invoice ${invoice.invoiceNumber}?`)) return;
+    setRejectingInvoice(invoice);
+  };
+
+  const handleConfirmReject = () => {
+    if (!rejectingInvoice || updateStatusMutation.isPending) return;
     updateStatusMutation.mutate(
-      { id: invoice._id || invoice.id, status: 'rejected' },
+      { id: rejectingInvoice._id || rejectingInvoice.id, status: 'rejected' },
       {
         onSuccess: async (res) => {
           const updated = res?.invoice || {
-            ...invoice,
+            ...rejectingInvoice,
             status: 'rejected',
             approvedAt: new Date().toISOString(),
           };
           await refreshInvoiceLists(updated);
-          toast.error(`Invoice ${invoice.invoiceNumber} rejected`);
+          toast.error(`Invoice ${rejectingInvoice.invoiceNumber} rejected`);
+          setRejectingInvoice(null);
         },
       }
     );
@@ -187,6 +225,12 @@ export default function ManagerInvoices() {
     updateInvoiceMutation.mutate(payload, {
       onSuccess: () => setEditingInvoice(null),
     });
+  };
+
+  const tabCounts = {
+    pending: pendingInvoices.length,
+    approved: approvedInvoices.length,
+    rejected: rejectedInvoices.length,
   };
 
   return (
@@ -225,15 +269,76 @@ export default function ManagerInvoices() {
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-        <input
-          type="text"
-          placeholder="Search by invoice number, customer name, or phone..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-        />
+      <div className="bg-white rounded-lg shadow p-4 flex flex-col lg:flex-row gap-4 lg:items-end">
+        <div className="relative flex-1 min-w-0">
+          <label htmlFor="invoice-search" className="block text-sm font-medium text-gray-700 mb-1">
+            Search
+          </label>
+          <Search className="absolute left-4 bottom-3 text-gray-400" size={18} />
+          <input
+            id="invoice-search"
+            type="text"
+            placeholder="Invoice number, customer name, or phone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:w-auto lg:min-w-[360px]">
+          <div>
+            <label htmlFor="invoice-from-date" className="block text-sm font-medium text-gray-700 mb-1">
+              From Date
+            </label>
+            <input
+              id="invoice-from-date"
+              type="date"
+              value={fromDate}
+              max={toDate || undefined}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+            />
+          </div>
+          <div>
+            <label htmlFor="invoice-to-date" className="block text-sm font-medium text-gray-700 mb-1">
+              To Date
+            </label>
+            <input
+              id="invoice-to-date"
+              type="date"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(e) => setToDate(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-1.5 flex flex-wrap gap-1.5">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                isActive
+                  ? `${tab.activeClass} shadow`
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {tab.label}
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  isActive ? 'bg-white/25 text-inherit' : tab.badgeClass
+                }`}
+              >
+                {tabCounts[tab.id]}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {isLoading && (
@@ -248,253 +353,229 @@ export default function ManagerInvoices() {
         </div>
       )}
 
-      {!isLoading && !isError && (
-        <>
-          {/* Pending */}
-          <div>
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm">
-                {pendingInvoices.length}
-              </span>
-              Pending Approval
-            </h3>
+      {!isLoading && !isError && activeTab === 'pending' && (
+        <div>
+          {pendingInvoices.length === 0 ? (
+            <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+              No pending invoices.
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                {pagination.paginatedItems.map((invoice) => (
+                  <div
+                    key={invoice._id || invoice.id}
+                    className="bg-white rounded-xl shadow-lg border-2 border-yellow-200 overflow-hidden hover:shadow-xl transition-shadow"
+                  >
+                    <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-lg">{invoice.invoiceNumber}</h4>
+                        <span className="bg-white text-yellow-700 px-3 py-1 rounded-full text-xs font-medium">
+                          Pending
+                        </span>
+                      </div>
+                      <p className="text-sm opacity-90 mt-1">{formatDate(invoice.createdAt)}</p>
+                    </div>
 
-            {pendingInvoices.length === 0 ? (
-              <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-                No pending invoices.
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {pendingPagination.paginatedItems.map((invoice) => (
-                    <div
-                      key={invoice._id || invoice.id}
-                      className="bg-white rounded-xl shadow-lg border-2 border-yellow-200 overflow-hidden hover:shadow-xl transition-shadow"
-                    >
-                      <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-4">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-bold text-lg">{invoice.invoiceNumber}</h4>
-                          <span className="bg-white text-yellow-700 px-3 py-1 rounded-full text-xs font-medium">
-                            Pending
-                          </span>
-                        </div>
-                        <p className="text-sm opacity-90 mt-1">{formatDate(invoice.createdAt)}</p>
+                    <div className="p-4 space-y-3">
+                      <div>
+                        <p className="text-sm text-gray-600">Customer</p>
+                        <p className="font-medium text-gray-800">{invoice.customerName || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Phone</p>
+                        <p className="font-medium text-gray-800">{invoice.customerPhone || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Items</p>
+                        <p className="font-medium text-gray-800">{invoice.items?.length || 0} item(s)</p>
+                      </div>
+                      <div className="border-t pt-3">
+                        <p className="text-sm text-gray-600">Total Amount</p>
+                        <p className="text-2xl font-bold text-amber-600">{formatMoney(invoice.total)}</p>
                       </div>
 
-                      <div className="p-4 space-y-3">
-                        <div>
-                          <p className="text-sm text-gray-600">Customer</p>
-                          <p className="font-medium text-gray-800">{invoice.customerName || '—'}</p>
+                      {invoice.createdBy && (
+                        <div className="text-xs text-gray-500">
+                          Created by: {invoice.createdBy}
                         </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Phone</p>
-                          <p className="font-medium text-gray-800">{invoice.customerPhone || '—'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Items</p>
-                          <p className="font-medium text-gray-800">{invoice.items?.length || 0} item(s)</p>
-                        </div>
-                        <div className="border-t pt-3">
-                          <p className="text-sm text-gray-600">Total Amount</p>
-                          <p className="text-2xl font-bold text-amber-600">{formatMoney(invoice.total)}</p>
-                        </div>
+                      )}
 
-                        {invoice.createdBy && (
-                          <div className="text-xs text-gray-500">
-                            Created by: {invoice.createdBy}
-                          </div>
-                        )}
+                      <div className="grid grid-cols-2 gap-2 pt-3">
+                        <button
+                          onClick={() => setEditingInvoice(invoice)}
+                          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
+                        >
+                          <Edit2 size={16} />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setSelectedInvoice(invoice)}
+                          className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all"
+                        >
+                          <Eye size={16} />
+                          View
+                        </button>
+                      </div>
 
-                        <div className="grid grid-cols-2 gap-2 pt-3">
-                          <button
-                            onClick={() => setEditingInvoice(invoice)}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
-                          >
-                            <Edit2 size={16} />
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => setSelectedInvoice(invoice)}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all"
-                          >
-                            <Eye size={16} />
-                            View
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => handleApprove(invoice)}
-                            disabled={updateStatusMutation.isPending}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all disabled:opacity-60"
-                          >
-                            <CheckCircle size={16} />
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleReject(invoice)}
-                            disabled={updateStatusMutation.isPending}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all disabled:opacity-60"
-                          >
-                            <XCircle size={16} />
-                            Reject
-                          </button>
-                        </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => handleApprove(invoice)}
+                          disabled={updateStatusMutation.isPending}
+                          className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all disabled:opacity-60"
+                        >
+                          <CheckCircle size={16} />
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleReject(invoice)}
+                          disabled={updateStatusMutation.isPending}
+                          className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all disabled:opacity-60"
+                        >
+                          <XCircle size={16} />
+                          Reject
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-                <Pagination
-                  page={pendingPagination.page}
-                  totalPages={pendingPagination.totalPages}
-                  totalItems={pendingPagination.totalItems}
-                  pageSize={pendingPagination.pageSize}
-                  onPageChange={pendingPagination.goToPage}
-                />
-              </>
-            )}
-          </div>
-
-          {/* Approved */}
-          <div>
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                {approvedInvoices.length}
-              </span>
-              Approved Invoices
-            </h3>
-            <div className="bg-white rounded-xl shadow overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-green-600 text-white">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm">Invoice #</th>
-                      <th className="px-4 py-3 text-left text-sm">Customer</th>
-                      <th className="px-4 py-3 text-left text-sm">Phone</th>
-                      <th className="px-4 py-3 text-left text-sm">Approved</th>
-                      <th className="px-4 py-3 text-right text-sm">Total</th>
-                      <th className="px-4 py-3 text-center text-sm">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {approvedPagination.paginatedItems.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                          No approved invoices.
-                        </td>
-                      </tr>
-                    ) : (
-                      approvedPagination.paginatedItems.map((invoice) => (
-                        <tr key={invoice._id || invoice.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium text-gray-800">{invoice.invoiceNumber}</td>
-                          <td className="px-4 py-3 text-gray-800">{invoice.customerName || '—'}</td>
-                          <td className="px-4 py-3 text-gray-600">{invoice.customerPhone || '—'}</td>
-                          <td className="px-4 py-3 text-gray-600">{formatDate(invoice.approvedAt || invoice.createdAt)}</td>
-                          <td className="px-4 py-3 text-right font-bold text-gray-800">{formatMoney(invoice.total)}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                onClick={() => setSelectedInvoice(invoice)}
-                                className="p-2 hover:bg-blue-50 rounded-lg text-blue-600"
-                                title="View"
-                              >
-                                <Eye size={16} />
-                              </button>
-                              <button
-                                onClick={() => handlePrint(invoice)}
-                                className="p-2 hover:bg-purple-50 rounded-lg text-purple-600"
-                                title="Print"
-                              >
-                                <Printer size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleSendPdf(invoice)}
-                                className="p-2 hover:bg-green-50 rounded-lg text-green-600"
-                                title="Share"
-                              >
-                                <Send size={16} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                  </div>
+                ))}
               </div>
               <Pagination
-                page={approvedPagination.page}
-                totalPages={approvedPagination.totalPages}
-                totalItems={approvedPagination.totalItems}
-                pageSize={approvedPagination.pageSize}
-                onPageChange={approvedPagination.goToPage}
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                totalItems={pagination.totalItems}
+                pageSize={pagination.pageSize}
+                onPageChange={pagination.goToPage}
               />
-            </div>
-          </div>
+            </>
+          )}
+        </div>
+      )}
 
-          {/* Rejected */}
-          <div>
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm">
-                {rejectedInvoices.length}
-              </span>
-              Rejected Invoices
-            </h3>
-            <div className="bg-white rounded-xl shadow overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-red-600 text-white">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm">Invoice #</th>
-                      <th className="px-4 py-3 text-left text-sm">Customer</th>
-                      <th className="px-4 py-3 text-left text-sm">Phone</th>
-                      <th className="px-4 py-3 text-left text-sm">Rejected</th>
-                      <th className="px-4 py-3 text-right text-sm">Total</th>
-                      <th className="px-4 py-3 text-center text-sm">Actions</th>
+      {!isLoading && !isError && activeTab === 'approved' && (
+        <div className="bg-white rounded-xl shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-green-600 text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm">Invoice #</th>
+                  <th className="px-4 py-3 text-left text-sm">Customer</th>
+                  <th className="px-4 py-3 text-left text-sm">Phone</th>
+                  <th className="px-4 py-3 text-left text-sm">Approved</th>
+                  <th className="px-4 py-3 text-right text-sm">Total</th>
+                  <th className="px-4 py-3 text-center text-sm">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {pagination.paginatedItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                      No approved invoices.
+                    </td>
+                  </tr>
+                ) : (
+                  pagination.paginatedItems.map((invoice) => (
+                    <tr key={invoice._id || invoice.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-800">{invoice.invoiceNumber}</td>
+                      <td className="px-4 py-3 text-gray-800">{invoice.customerName || '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{invoice.customerPhone || '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{formatDate(invoice.approvedAt || invoice.createdAt)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-gray-800">{formatMoney(invoice.total)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => setSelectedInvoice(invoice)}
+                            className="p-2 hover:bg-blue-50 rounded-lg text-blue-600"
+                            title="View"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            onClick={() => handlePrint(invoice)}
+                            className="p-2 hover:bg-purple-50 rounded-lg text-purple-600"
+                            title="Print"
+                          >
+                            <Printer size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleSendPdf(invoice)}
+                            className="p-2 hover:bg-green-50 rounded-lg text-green-600"
+                            title="Share"
+                          >
+                            <Send size={16} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {rejectedPagination.paginatedItems.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                          No rejected invoices.
-                        </td>
-                      </tr>
-                    ) : (
-                      rejectedPagination.paginatedItems.map((invoice) => (
-                        <tr key={invoice._id || invoice.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium text-gray-800">{invoice.invoiceNumber}</td>
-                          <td className="px-4 py-3 text-gray-800">{invoice.customerName || '—'}</td>
-                          <td className="px-4 py-3 text-gray-600">{invoice.customerPhone || '—'}</td>
-                          <td className="px-4 py-3 text-gray-600">{formatDate(invoice.approvedAt || invoice.createdAt)}</td>
-                          <td className="px-4 py-3 text-right font-bold text-gray-800">{formatMoney(invoice.total)}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                onClick={() => setSelectedInvoice(invoice)}
-                                className="p-2 hover:bg-blue-50 rounded-lg text-blue-600"
-                                title="View"
-                              >
-                                <Eye size={16} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <Pagination
-                page={rejectedPagination.page}
-                totalPages={rejectedPagination.totalPages}
-                totalItems={rejectedPagination.totalItems}
-                pageSize={rejectedPagination.pageSize}
-                onPageChange={rejectedPagination.goToPage}
-              />
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        </>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={pagination.pageSize}
+            onPageChange={pagination.goToPage}
+          />
+        </div>
+      )}
+
+      {!isLoading && !isError && activeTab === 'rejected' && (
+        <div className="bg-white rounded-xl shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-red-600 text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm">Invoice #</th>
+                  <th className="px-4 py-3 text-left text-sm">Customer</th>
+                  <th className="px-4 py-3 text-left text-sm">Phone</th>
+                  <th className="px-4 py-3 text-left text-sm">Rejected</th>
+                  <th className="px-4 py-3 text-right text-sm">Total</th>
+                  <th className="px-4 py-3 text-center text-sm">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {pagination.paginatedItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                      No rejected invoices.
+                    </td>
+                  </tr>
+                ) : (
+                  pagination.paginatedItems.map((invoice) => (
+                    <tr key={invoice._id || invoice.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-800">{invoice.invoiceNumber}</td>
+                      <td className="px-4 py-3 text-gray-800">{invoice.customerName || '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{invoice.customerPhone || '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{formatDate(invoice.approvedAt || invoice.createdAt)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-gray-800">{formatMoney(invoice.total)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => setSelectedInvoice(invoice)}
+                            className="p-2 hover:bg-blue-50 rounded-lg text-blue-600"
+                            title="View"
+                          >
+                            <Eye size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={pagination.pageSize}
+            onPageChange={pagination.goToPage}
+          />
+        </div>
       )}
 
       {approvingInvoice && (
@@ -503,6 +584,19 @@ export default function ManagerInvoices() {
           onClose={() => setApprovingInvoice(null)}
           onConfirm={handleConfirmApprove}
           isSubmitting={updateStatusMutation.isPending}
+        />
+      )}
+
+      {rejectingInvoice && (
+        <ConfirmModal
+          title="Reject Invoice"
+          message={`Are you sure you want to reject invoice ${rejectingInvoice.invoiceNumber}? This action cannot be undone.`}
+          confirmLabel={updateStatusMutation.isPending ? 'Rejecting...' : 'Reject'}
+          confirmClassName="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:opacity-60"
+          onConfirm={handleConfirmReject}
+          onClose={() => {
+            if (!updateStatusMutation.isPending) setRejectingInvoice(null);
+          }}
         />
       )}
 

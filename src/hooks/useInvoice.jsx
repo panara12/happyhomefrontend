@@ -27,15 +27,25 @@ export function useGetMyInvoices({ status, page = 1, limit = 100 } = {}) {
 }
 
 // Store invoices for manager approval board
-export function useGetStoreInvoices({ status, q = "", page = 1, limit = 100, enabled = true } = {}) {
+export function useGetStoreInvoices({
+  status,
+  q = "",
+  fromDate = "",
+  toDate = "",
+  page = 1,
+  limit = 100,
+  enabled = true,
+} = {}) {
   return useApiQuery({
-    queryKey: [...STORE_INVOICES_KEY, status || "all", q, page, limit],
+    queryKey: [...STORE_INVOICES_KEY, status || "all", q, fromDate, toDate, page, limit],
     path: "/invoices/store-invoices",
     params: {
       page,
       limit,
       ...(status ? { status } : {}),
       ...(q ? { q } : {}),
+      ...(fromDate ? { fromDate } : {}),
+      ...(toDate ? { toDate } : {}),
     },
     enabled,
     keepPrevious: true,
