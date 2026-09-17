@@ -31,6 +31,19 @@ function statusBadgeClass(status) {
 export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf }) {
   if (!invoice) return null;
 
+  const payment = invoice.paymentBreakdown || {};
+  const hasPaymentBreakdown =
+    Number(payment.cash || 0) > 0 ||
+    Number(payment.gpay || 0) > 0 ||
+    Number(payment.debit || 0) > 0;
+
+  const itemsSubtotal = (invoice.items || []).reduce(
+    (sum, item) => sum + Number(item.total || 0),
+    0
+  );
+  // Total Amount = final selling prices (GST already included in price)
+  const totalAmount = Number(invoice.total ?? itemsSubtotal);
+
   return (
     <Modal
       title={
@@ -95,7 +108,7 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf 
               <tr className="bg-gray-100 text-left">
                 <th className="px-3 py-2 font-medium text-gray-600">Product</th>
                 <th className="px-3 py-2 font-medium text-gray-600 text-center">Qty</th>
-                <th className="px-3 py-2 font-medium text-gray-600 text-right">Price</th>
+                <th className="px-3 py-2 font-medium text-gray-600 text-right">Price (including GST)</th>
                 <th className="px-3 py-2 font-medium text-gray-600 text-right">Total</th>
               </tr>
             </thead>
@@ -114,10 +127,29 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf 
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-1">
           <span className="text-gray-700 font-medium">Total Amount:</span>
-          <span className="text-2xl font-bold text-amber-600">{formatMoney(invoice.total)}</span>
+          <span className="text-2xl font-bold text-amber-600">{formatMoney(totalAmount)}</span>
         </div>
+
+        {(invoice.status === 'approved' || hasPaymentBreakdown) && (
+          <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-1.5">
+            <p className="text-sm font-semibold text-gray-800 mb-1">Payment Mode</p>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Cash</span>
+              <span className="font-medium text-gray-800">{formatMoney(payment.cash)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">GPay</span>
+              <span className="font-medium text-gray-800">{formatMoney(payment.gpay)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Debit</span>
+              <span className="font-medium text-gray-800">{formatMoney(payment.debit)}</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <span className="text-gray-700 font-medium">Status:</span>
           <span className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${statusBadgeClass(invoice.status)}`}>

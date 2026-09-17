@@ -20,6 +20,12 @@ function formatMoney(value) {
 
 export default function CreateInvoiceModal({ onClose }) {
   const user = useSelector((state) => state.app.userInfo);
+  const isAccounting = user?.userType === 'accounting';
+  const primaryBtnClass = isAccounting
+    ? `${modalPrimaryBtnClass} !bg-gradient-to-r !from-indigo-600 !to-purple-600 hover:!from-indigo-700 hover:!to-purple-700`
+    : modalPrimaryBtnClass;
+  const accentText = isAccounting ? 'text-indigo-600 hover:text-indigo-700' : 'text-amber-600 hover:text-amber-700';
+  const totalText = isAccounting ? 'text-indigo-600' : 'text-amber-600';
 
   const [customerQuery, setCustomerQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -28,7 +34,7 @@ export default function CreateInvoiceModal({ onClose }) {
   const [storeQuery, setStoreQuery] = useState('');
   const [selectedStore, setSelectedStore] = useState(null);
 
-  const [items, setItems] = useState([{ productId: '', productQuery: '', quantity: 1, price: 0 }]);
+  const [items, setItems] = useState([{ productId: '', productQuery: '', quantity: 1, price: 0, gst: 0 }]);
   const [activeProductRow, setActiveProductRow] = useState(0);
 
   const { data: customerSearchData } = useSearchCustomers(customerQuery);
@@ -87,10 +93,13 @@ export default function CreateInvoiceModal({ onClose }) {
     }));
   }, [products]);
 
-  const totalAmount = useMemo(
-    () => items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0),
-    [items]
-  );
+  const totalAmount = useMemo(() => {
+    // Final selling prices (GST already included in price)
+    return items.reduce(
+      (sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0),
+      0
+    );
+  }, [items]);
 
   const handleSelectCustomer = (opt) => {
     setSelectedCustomer(opt.raw);
@@ -110,7 +119,9 @@ export default function CreateInvoiceModal({ onClose }) {
         ...next[index],
         productId: opt.id,
         productQuery: opt.label,
+        // offer_price / mrp from purchase bill are stored without GST in price
         price: opt.raw?.offer_price || opt.raw?.mrp || 0,
+        gst: Number(opt.raw?.gst ?? 0),
       };
       return next;
     });
@@ -131,7 +142,7 @@ export default function CreateInvoiceModal({ onClose }) {
   };
 
   const handleAddItem = () => {
-    setItems((prev) => [...prev, { productId: '', productQuery: '', quantity: 1, price: 0 }]);
+    setItems((prev) => [...prev, { productId: '', productQuery: '', quantity: 1, price: 0, gst: 0 }]);
   };
 
   const handleRemoveItem = (index) => {
@@ -153,17 +164,18 @@ export default function CreateInvoiceModal({ onClose }) {
       quantity: item.quantity,
       price: item.price,
       total: Number((item.quantity * item.price).toFixed(2)),
+      gst: Number(item.gst ?? 0),
     }));
 
+    // Price is final selling price (including GST) — total is sum of line totals only
     const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
-    const tax = Number((subtotal * 0.18).toFixed(2));
-    const total = Number((subtotal + tax).toFixed(2));
-    console.log("store",selectedStore)
+    const tax = 0;
+    const total = Number(subtotal.toFixed(2));
     submitInvoiceMutation.mutate(
       {
         customerId: selectedCustomer._id,
         storeId: selectedStore.storeId,
-        summary: { subtotal, tax, total },
+        summary: { subtotal: total, tax, total },
         items: lineItems,
       },
       {
@@ -186,7 +198,7 @@ export default function CreateInvoiceModal({ onClose }) {
             type="button"
             onClick={handleCreate}
             disabled={submitInvoiceMutation.isPending || !selectedCustomer}
-            className={modalPrimaryBtnClass}
+            className={primaryBtnClass}
           >
             {submitInvoiceMutation.isPending ? 'Creating...' : 'Create Invoice'}
           </button>
@@ -237,7 +249,7 @@ export default function CreateInvoiceModal({ onClose }) {
           <button
             type="button"
             onClick={handleAddItem}
-            className="flex items-center gap-1 text-amber-600 hover:text-amber-700 font-medium text-sm"
+            className={`flex items-center gap-1 font-medium text-sm ${accentText}`}
           >
             <Plus size={18} />
             Add Item
@@ -248,7 +260,6 @@ export default function CreateInvoiceModal({ onClose }) {
           {items.map((item, index) => (
             <div key={index} className="bg-gray-50 rounded-lg p-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-6">
-                {console.log(item)}
                 <AutocompleteInput
                   label="Product"
                   placeholder="Select Product"
@@ -273,7 +284,7 @@ export default function CreateInvoiceModal({ onClose }) {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs text-gray-500 mb-1">Price</label>
+                <label className="block text-xs text-gray-500 mb-1">Price (including GST)</label>
                 <input
                   type="number"
                   min="0"
@@ -301,7 +312,7 @@ export default function CreateInvoiceModal({ onClose }) {
 
       <div className="flex items-center justify-between border-t pt-3">
         <span className="text-gray-800 font-semibold">Total Amount:</span>
-        <span className="text-2xl font-bold text-amber-600">{formatMoney(totalAmount)}</span>
+        <span className={`text-2xl font-bold ${totalText}`}>{formatMoney(totalAmount)}</span>
       </div>
     </Modal>
   );

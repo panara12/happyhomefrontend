@@ -29,6 +29,7 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
         productId: String(item.productId || ''),
         quantity: item.quantity || 1,
         price: item.price || 0,
+        gst: Number(item.gst ?? 0),
       }))
     );
   }, [invoice]);
@@ -47,6 +48,7 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
           ...next[index],
           productId: value,
           price: product?.offer_price || product?.mrp || next[index].price || 0,
+          gst: Number(product?.gst ?? 0),
         };
       } else {
         next[index] = {
@@ -59,7 +61,7 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
   };
 
   const handleAddItem = () => {
-    setItems((prev) => [...prev, { productId: '', quantity: 1, price: 0 }]);
+    setItems((prev) => [...prev, { productId: '', quantity: 1, price: 0, gst: 0 }]);
   };
 
   const handleRemoveItem = (index) => {
@@ -79,6 +81,7 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
         quantity: item.quantity,
         price: item.price,
         total: Number((item.quantity * item.price).toFixed(2)),
+        gst: Number(item.gst ?? 0),
       })),
     });
   };
