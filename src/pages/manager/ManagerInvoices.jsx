@@ -22,10 +22,28 @@ import { useStoreContext } from '../../context/storeContext';
 
 const PAGE_SIZE = 10;
 
+const TAB_DATE_CONFIG = {
+  pending: {
+    dateField: 'createdAt',
+    fromLabel: 'Created From',
+    toLabel: 'Created To',
+  },
+  approved: {
+    dateField: 'approvedAt',
+    fromLabel: 'Approved From',
+    toLabel: 'Approved To',
+  },
+  rejected: {
+    dateField: 'approvedAt',
+    fromLabel: 'Rejected From',
+    toLabel: 'Rejected To',
+  },
+};
+
 const TABS = [
-  { id: 'pending', label: 'Pending', countKey: 'pending', activeClass: 'bg-yellow-500 text-white', badgeClass: 'bg-yellow-100 text-yellow-800' },
-  { id: 'approved', label: 'Approved', countKey: 'approved', activeClass: 'bg-green-600 text-white', badgeClass: 'bg-green-100 text-green-800' },
-  { id: 'rejected', label: 'Rejected', countKey: 'rejected', activeClass: 'bg-red-600 text-white', badgeClass: 'bg-red-100 text-red-800' },
+  { id: 'pending', label: 'Pending', activeClass: 'bg-yellow-500 text-white', badgeClass: 'bg-yellow-100 text-yellow-800' },
+  { id: 'approved', label: 'Approved', activeClass: 'bg-green-600 text-white', badgeClass: 'bg-green-100 text-green-800' },
+  { id: 'rejected', label: 'Rejected', activeClass: 'bg-red-600 text-white', badgeClass: 'bg-red-100 text-red-800' },
 ];
 
 function toInputDate(date) {
@@ -93,8 +111,11 @@ export default function ManagerInvoices() {
   const { stores } = useStoreContext();
   const defaultRange = useMemo(() => getDefaultDateRange(), []);
   const [activeTab, setActiveTab] = useState('pending');
-  const [fromDate, setFromDate] = useState(defaultRange.fromDate);
-  const [toDate, setToDate] = useState(defaultRange.toDate);
+  const [dateRanges, setDateRanges] = useState({
+    pending: { ...defaultRange },
+    approved: { ...defaultRange },
+    rejected: { ...defaultRange },
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -108,10 +129,30 @@ export default function ManagerInvoices() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  const activeDateRange = dateRanges[activeTab] || defaultRange;
+  const activeDateConfig = TAB_DATE_CONFIG[activeTab] || TAB_DATE_CONFIG.pending;
+  const fromDate = activeDateRange.fromDate;
+  const toDate = activeDateRange.toDate;
+
+  const setFromDate = (value) => {
+    setDateRanges((prev) => ({
+      ...prev,
+      [activeTab]: { ...prev[activeTab], fromDate: value },
+    }));
+  };
+
+  const setToDate = (value) => {
+    setDateRanges((prev) => ({
+      ...prev,
+      [activeTab]: { ...prev[activeTab], toDate: value },
+    }));
+  };
+
   const { data, isLoading, isError, refetch } = useGetStoreInvoices({
     q: debouncedSearch,
     fromDate,
     toDate,
+    dateField: activeDateConfig.dateField,
     limit: 500,
   });
 
@@ -142,6 +183,12 @@ export default function ManagerInvoices() {
 
   const activeInvoices = tabLists[activeTab] || pendingInvoices;
   const pagination = usePagination(activeInvoices, { pageSize: PAGE_SIZE });
+
+  const tabCounts = {
+    pending: pendingInvoices.length,
+    approved: approvedInvoices.length,
+    rejected: rejectedInvoices.length,
+  };
 
   const refreshInvoiceLists = async (updatedInvoice) => {
     patchStoreInvoicesCache(queryClient, updatedInvoice);
@@ -227,12 +274,6 @@ export default function ManagerInvoices() {
     });
   };
 
-  const tabCounts = {
-    pending: pendingInvoices.length,
-    approved: approvedInvoices.length,
-    rejected: rejectedInvoices.length,
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -287,7 +328,7 @@ export default function ManagerInvoices() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:w-auto lg:min-w-[360px]">
           <div>
             <label htmlFor="invoice-from-date" className="block text-sm font-medium text-gray-700 mb-1">
-              From Date
+              {activeDateConfig.fromLabel}
             </label>
             <input
               id="invoice-from-date"
@@ -300,7 +341,7 @@ export default function ManagerInvoices() {
           </div>
           <div>
             <label htmlFor="invoice-to-date" className="block text-sm font-medium text-gray-700 mb-1">
-              To Date
+              {activeDateConfig.toLabel}
             </label>
             <input
               id="invoice-to-date"

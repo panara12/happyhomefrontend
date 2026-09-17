@@ -32,12 +32,13 @@ export function useGetStoreInvoices({
   q = "",
   fromDate = "",
   toDate = "",
+  dateField = "createdAt",
   page = 1,
   limit = 100,
   enabled = true,
 } = {}) {
   return useApiQuery({
-    queryKey: [...STORE_INVOICES_KEY, status || "all", q, fromDate, toDate, page, limit],
+    queryKey: [...STORE_INVOICES_KEY, status || "all", q, fromDate, toDate, dateField, page, limit],
     path: "/invoices/store-invoices",
     params: {
       page,
@@ -46,6 +47,7 @@ export function useGetStoreInvoices({
       ...(q ? { q } : {}),
       ...(fromDate ? { fromDate } : {}),
       ...(toDate ? { toDate } : {}),
+      ...(dateField ? { dateField } : {}),
     },
     enabled,
     keepPrevious: true,

@@ -2,10 +2,16 @@ import { useState } from 'react';
 import {
   Wrench, Plus, Phone, User, Package, Building2, ShieldCheck, ShieldOff,
   IndianRupee, Calendar, FileText, CheckCircle2, Clock, AlertTriangle,
-  Search, X, MessageCircle, ChevronDown, Eye, ArrowLeft
+  Search, X, MessageCircle, ChevronDown, Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGetAllService, useAddService, useUpdateService } from '../../hooks/useService';
+import Modal, {
+  modalInputClass,
+  modalLabelClass,
+  modalPrimaryBtnClass,
+  modalSecondaryBtnClass,
+} from '../../components/ui/Modal';
 
 const LOGO = '/src/imports/475883765_1412800516794054_7992306912571437520_n-1.jpg';
 
@@ -17,7 +23,6 @@ const emptyForm = {
   productName: '',
   productBrand: '',
   warranty: 'in-warranty',
-  repairCharge: '',
   followUpDate: '',
   notes: '',
   problem: '',
@@ -93,7 +98,7 @@ function normalizeService(raw) {
     productBrand: raw.productBrand,
     warranty: raw.warranty,
     repairCharge: raw.repairCharge ?? 0,
-    problem: raw.Problem || '',
+    problem: raw.problem || raw.Problem || '',
     notes: stripFollowUpTag(raw.notes),
     followUpDate: extractFollowUpDate(raw.notes),
     status: getLatestStatus(raw.status),
@@ -128,7 +133,6 @@ function ComplaintCard({ complaint, onView, onComplete, onFollowUp }) {
             {complaint.warranty === 'in-warranty' ? <ShieldCheck size={10} /> : <ShieldOff size={10} />}
             {complaint.warranty === 'in-warranty' ? 'In Warranty' : 'Out of Warranty'}
           </span>
-          {console.log(complaint)}
         </div>
         <button
           onClick={onView}
@@ -178,7 +182,7 @@ function ComplaintCard({ complaint, onView, onComplete, onFollowUp }) {
         ) : (
           <span className="text-gray-400 italic">No follow-up date set</span>
         )}
-        {complaint.warranty === 'out-warranty' && complaint.repairCharge && Number(complaint.repairCharge) > 0 && (
+        {complaint.repairCharge && Number(complaint.repairCharge) > 0 && (
           <span className="flex items-center gap-1 text-gray-600">
             <IndianRupee size={11} />₹{complaint.repairCharge}
           </span>
@@ -318,9 +322,9 @@ function ComplaintForm({ onClose, onSubmit, isSubmitting }) {
           {/* Warranty */}
           <div>
             <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <ShieldCheck size={13} /> Warranty & Charges
+              <ShieldCheck size={13} /> Warranty Status
             </p>
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => set('warranty', 'in-warranty')}
@@ -344,21 +348,6 @@ function ComplaintForm({ onClose, onSubmit, isSubmitting }) {
                 <ShieldOff size={17} /> Out of Warranty
               </button>
             </div>
-            {form.warranty === 'out-warranty' && (
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Repair Charges (₹)</label>
-                <div className="relative">
-                  <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="number"
-                    value={form.repairCharge}
-                    onChange={e => set('repairCharge', e.target.value)}
-                    placeholder="Estimated amount"
-                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Follow-up & Issues */}
@@ -408,8 +397,7 @@ function ComplaintForm({ onClose, onSubmit, isSubmitting }) {
             <div>
               <p className="text-sm font-semibold text-green-800">Auto WhatsApp Notification</p>
               <p className="text-xs text-green-600 mt-0.5">
-                A confirmation message with complaint ID, product details, warranty status
-                {form.warranty === 'out-warranty' && form.repairCharge ? `, and repair charges of ₹${form.repairCharge}` : ''} will be sent to the customer.
+                A confirmation message with complaint ID, product details, and warranty status will be sent to the customer.
               </p>
             </div>
           </div>
@@ -437,6 +425,81 @@ function ComplaintForm({ onClose, onSubmit, isSubmitting }) {
   );
 }
 
+// ─── Mark Complete Modal (manager/admin) ──────────────────────────────────────
+function CompleteConfirmModal({ complaint, onClose, onConfirm, isCompleting }) {
+  const [repairCharge, setRepairCharge] = useState(
+    complaint?.repairCharge && Number(complaint.repairCharge) > 0
+      ? String(complaint.repairCharge)
+      : ''
+  );
+
+  const handleConfirm = () => {
+    if (isCompleting) return;
+    onConfirm?.(complaint, repairCharge === '' ? undefined : Number(repairCharge) || 0);
+  };
+
+  if (!complaint) return null;
+
+  return (
+    <Modal
+      title={`Mark Complete — ${complaint.id}`}
+      size="sm"
+      onClose={onClose}
+      closeOnBackdrop={!isCompleting}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isCompleting}
+            className={modalSecondaryBtnClass}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={isCompleting}
+            className={`${modalPrimaryBtnClass} bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700`}
+          >
+            {isCompleting ? 'Completing…' : 'Confirm Complete'}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-gray-700">
+          Mark service request for <span className="font-semibold">{complaint.customerName}</span>
+          {' '}({complaint.productBrand} — {complaint.productName}) as completed?
+        </p>
+
+        <div>
+          <label className={modalLabelClass}>
+            Repair Charge (₹) <span className="font-normal text-gray-400">(optional)</span>
+          </label>
+          <div className="relative">
+            <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={repairCharge}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
+                  setRepairCharge(value);
+                }
+              }}
+              placeholder="Enter amount if any"
+              className={`${modalInputClass} pl-9`}
+            />
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── View Detail Modal ────────────────────────────────────────────────────────
 function ComplaintDetail({ complaint, onClose, onComplete, isCompleting }) {
   const cfg = STATUS_CONFIG[complaint.status] || STATUS_CONFIG.pending;
@@ -446,127 +509,142 @@ function ComplaintDetail({ complaint, onClose, onComplete, isCompleting }) {
   const followUpMsg = `Dear ${complaint.customerName}, this is a follow-up regarding your service complaint *${complaint.id}* for *${complaint.productName}* (${complaint.productBrand}). Our team is actively working on it. We will update you shortly. Thank you for your patience! 🙏 - Happy Home`;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
-      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[92vh] flex flex-col">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white px-5 py-4 rounded-t-2xl flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <img src={LOGO} alt="Happy Home" className="w-9 h-9 rounded-full bg-white p-0.5 object-contain" />
-            <div>
-              <h2 className="text-base font-bold leading-tight">Complaint Details</h2>
-              <p className="text-xs text-amber-100 font-mono">{complaint.id}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-amber-700 rounded-lg transition-all shrink-0">
-            <X size={20} />
+    <Modal
+      title={
+        <div>
+          <h3 className="text-xl font-bold text-gray-800">Service Details</h3>
+          <p className="text-sm text-gray-500 font-mono mt-0.5">{complaint.id}</p>
+        </div>
+      }
+      size="md"
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className={modalSecondaryBtnClass}
+          >
+            Close
           </button>
-        </div>
-
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 p-4 sm:p-5 space-y-4">
-          {/* Status badges */}
-          <div className="flex flex-wrap gap-2">
-            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${cfg.bg}`}>
-              <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
-              {cfg.label}
-            </span>
-            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${
-              complaint.warranty === 'in-warranty' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-            }`}>
-              {complaint.warranty === 'in-warranty' ? <ShieldCheck size={12} /> : <ShieldOff size={12} />}
-              {complaint.warranty === 'in-warranty' ? 'In Warranty' : 'Out of Warranty'}
-            </span>
-            {isOverdue && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-red-100 text-red-700">
-                <AlertTriangle size={12} /> Overdue
-              </span>
-            )}
-            {isToday && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-purple-100 text-purple-700">
-                <Calendar size={12} /> Follow-up Today
-              </span>
-            )}
-          </div>
-
-          {/* Info grid */}
-          <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
-            {[
-              { label: 'Customer Name', value: complaint.customerName, icon: User },
-              { label: 'Mobile Number', value: complaint.mobileNumber, icon: Phone },
-              { label: 'Product Name', value: complaint.productName, icon: Package },
-              { label: 'Brand', value: complaint.productBrand, icon: Building2 },
-              { label: 'Follow-up Date', value: complaint.followUpDate || '—', icon: Calendar },
-              {
-                label: 'Repair Charges',
-                value: complaint.warranty === 'out-warranty' && complaint.repairCharge && Number(complaint.repairCharge) > 0
-                  ? `₹${complaint.repairCharge}`
-                  : 'Nil (In Warranty)',
-                icon: IndianRupee,
-              },
-              { label: 'Registered On', value: new Date(complaint.registeredAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), icon: FileText },
-              ...(complaint.completedAt ? [{ label: 'Completed On', value: new Date(complaint.completedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), icon: CheckCircle2 }] : []),
-            ].map(row => (
-              <div key={row.label} className="bg-gray-50 rounded-xl p-3">
-                <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-1">
-                  <row.icon size={11} /> {row.label}
-                </div>
-                <div className="font-semibold text-gray-800 text-sm break-words">{row.value}</div>
-              </div>
-            ))}
-          </div>
-
-          {complaint.problem && (
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-              <p className="text-xs font-bold text-amber-700 mb-1.5 uppercase tracking-wide">Issues Reported</p>
-              <p className="text-sm text-gray-700 leading-relaxed">{complaint.problem}</p>
-            </div>
-          )}
-
-          {complaint.notes && (
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-              <p className="text-xs font-bold text-blue-700 mb-1.5 uppercase tracking-wide">Internal Notes</p>
-              <p className="text-sm text-gray-700 leading-relaxed">{complaint.notes}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Footer actions */}
-        <div className="p-4 sm:p-5 border-t border-gray-100 shrink-0">
-          <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => sendWhatsApp(complaint.mobileNumber, followUpMsg)}
+            className={`${modalPrimaryBtnClass} bg-green-600 hover:bg-green-700 from-green-600 to-green-700`}
+          >
+            WhatsApp
+          </button>
+          {complaint.status !== 'completed' && (
             <button
-              onClick={() => sendWhatsApp(complaint.mobileNumber, followUpMsg)}
-              className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold flex items-center justify-center gap-1.5 transition-all text-sm"
+              type="button"
+              onClick={onComplete}
+              disabled={isCompleting}
+              className={`${modalPrimaryBtnClass} bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700`}
             >
-              <MessageCircle size={15} /> WhatsApp
+              {isCompleting ? 'Updating…' : 'Mark Complete'}
             </button>
-            {complaint.status !== 'completed' && (
-              <button
-                onClick={onComplete}
-                disabled={isCompleting}
-                className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl font-semibold flex items-center justify-center gap-1.5 shadow-md transition-all text-sm disabled:opacity-60"
-              >
-                <CheckCircle2 size={15} /> {isCompleting ? 'Updating…' : 'Mark Complete'}
-              </button>
-            )}
-          </div>
+          )}
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${cfg.bg}`}>
+            <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
+            {cfg.label}
+          </span>
+          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${
+            complaint.warranty === 'in-warranty' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+          }`}>
+            {complaint.warranty === 'in-warranty' ? <ShieldCheck size={12} /> : <ShieldOff size={12} />}
+            {complaint.warranty === 'in-warranty' ? 'In Warranty' : 'Out of Warranty'}
+          </span>
+          {isOverdue && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-red-100 text-red-700">
+              <AlertTriangle size={12} /> Overdue
+            </span>
+          )}
+          {isToday && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-purple-100 text-purple-700">
+              <Calendar size={12} /> Follow-up Today
+            </span>
+          )}
         </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { label: 'Customer Name', value: complaint.customerName, icon: User },
+            { label: 'Mobile Number', value: complaint.mobileNumber, icon: Phone },
+            { label: 'Product Name', value: complaint.productName, icon: Package },
+            { label: 'Brand', value: complaint.productBrand, icon: Building2 },
+            { label: 'Follow-up Date', value: complaint.followUpDate || '—', icon: Calendar },
+            {
+              label: 'Repair Charges',
+              value: complaint.repairCharge && Number(complaint.repairCharge) > 0
+                ? `₹${complaint.repairCharge}`
+                : '—',
+              icon: IndianRupee,
+            },
+            {
+              label: 'Registered On',
+              value: new Date(complaint.registeredAt).toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              }),
+              icon: FileText,
+            },
+            ...(complaint.completedAt
+              ? [{
+                  label: 'Completed On',
+                  value: new Date(complaint.completedAt).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  }),
+                  icon: CheckCircle2,
+                }]
+              : []),
+          ].map((row) => (
+            <div key={row.label} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+                <row.icon size={12} /> {row.label}
+              </div>
+              <div className="font-semibold text-gray-800 text-sm break-words">{row.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {complaint.problem && (
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-4">
+            <p className="text-xs font-bold text-amber-700 mb-1.5 uppercase tracking-wide">Issues Reported</p>
+            <p className="text-sm text-gray-700 leading-relaxed">{complaint.problem}</p>
+          </div>
+        )}
+
+        {complaint.notes && (
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <p className="text-xs font-bold text-blue-700 mb-1.5 uppercase tracking-wide">Internal Notes</p>
+            <p className="text-sm text-gray-700 leading-relaxed">{complaint.notes}</p>
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }
 
 // ─── Main Service Panel ───────────────────────────────────────────────────────
 export default function ServicePanel({ user }) {
-  const { data: serviceData, isLoading: complaintsLoading, isError: isComplaintsError, error: complaintsError } = useGetAllService();
+  const { data: serviceData, isLoading: complaintsLoading, isError: isComplaintsError, error: complaintsError, refetch } = useGetAllService();
   // Raw docs come back in the actual Service schema shape — normalize once here
   // so every component below can keep using the flat field names it already had.
   const complaints = (serviceData?.services ?? []).map(normalizeService);
-  console.log(normalizeService)
   const addServiceMutation = useAddService();
   const updateServiceMutation = useUpdateService();
 
   const [showForm, setShowForm] = useState(false);
   const [viewComplaint, setViewComplaint] = useState(null);
+  const [completingComplaint, setCompletingComplaint] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -580,7 +658,7 @@ export default function ServicePanel({ user }) {
       productName: form.productName,
       productBrand: form.productBrand,
       warranty: form.warranty,
-      repairCharge: form.repairCharge ? Number(form.repairCharge) : 0,
+      repairCharge: 0,
       problem: form.problem,
       notes: buildNotesWithFollowUp(form.followUpDate, form.notes),
     };
@@ -593,33 +671,42 @@ export default function ServicePanel({ user }) {
         `Dear ${form.customerName}, your service complaint for *${form.productName}* (${form.productBrand}) has been registered at *Happy Home*.\n\n` +
         `🔖 Complaint ID: *${newId}*\n` +
         `🛡️ Warranty: ${form.warranty === 'in-warranty' ? 'In Warranty ✅' : 'Out of Warranty ❌'}` +
-        (form.warranty === 'out-warranty' && form.repairCharge && Number(form.repairCharge) > 0 ? `\n💰 Estimated Charges: ₹${form.repairCharge}` : '') +
         `\n📅 Follow-up Date: ${form.followUpDate}\n\nWe will keep you updated. Thank you! 🙏`;
 
       sendWhatsApp(form.mobileNumber, msg);
       toast.success(`Complaint ${newId} registered! WhatsApp message opened.`);
       setShowForm(false);
+      await refetch();
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Failed to register complaint');
     }
   };
 
-  const handleComplete = async (complaint) => {
+  const handleComplete = async (complaint, repairCharge) => {
     try {
       await updateServiceMutation.mutateAsync({
         id: complaint._id,
         status: STATUS_TO_BACKEND.completed, // must be the literal enum string "completed"
+        ...(repairCharge !== undefined ? { repairCharge } : {}),
       });
+
+      const chargeText =
+        repairCharge !== undefined && Number(repairCharge) > 0
+          ? `\n💰 Repair Charges: ₹${Number(repairCharge).toLocaleString('en-IN')}\n`
+          : '';
 
       const msg =
         `Dear ${complaint.customerName}, great news! 🎉\n\n` +
-        `Your service complaint (*${complaint.id}*) for *${complaint.productName}* (${complaint.productBrand}) has been *successfully resolved*.\n\n` +
-        `✅ Please visit our store to collect your product.\n\n` +
+        `Your service complaint (*${complaint.id}*) for *${complaint.productName}* (${complaint.productBrand}) has been *successfully resolved*.\n` +
+        chargeText +
+        `\n✅ Please visit our store to collect your product.\n\n` +
         `Thank you for choosing *Happy Home*! We appreciate your trust. 😊`;
 
       sendWhatsApp(complaint.mobileNumber, msg);
       toast.success(`Complaint ${complaint.id} marked complete! Resolution message sent.`);
+      setCompletingComplaint(null);
       setViewComplaint(null);
+      await refetch();
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Failed to update complaint');
     }
@@ -774,7 +861,7 @@ export default function ServicePanel({ user }) {
               key={c.id}
               complaint={c}
               onView={() => setViewComplaint(c)}
-              onComplete={() => handleComplete(c)}
+              onComplete={() => setCompletingComplaint(c)}
               onFollowUp={() =>
                 sendWhatsApp(
                   c.mobileNumber,
@@ -798,7 +885,17 @@ export default function ServicePanel({ user }) {
         <ComplaintDetail
           complaint={viewComplaint}
           onClose={() => setViewComplaint(null)}
-          onComplete={() => handleComplete(viewComplaint)}
+          onComplete={() => setCompletingComplaint(viewComplaint)}
+          isCompleting={updateServiceMutation.isPending}
+        />
+      )}
+      {completingComplaint && (
+        <CompleteConfirmModal
+          complaint={completingComplaint}
+          onClose={() => {
+            if (!updateServiceMutation.isPending) setCompletingComplaint(null);
+          }}
+          onConfirm={handleComplete}
           isCompleting={updateServiceMutation.isPending}
         />
       )}
