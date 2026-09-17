@@ -41,8 +41,8 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf 
     (sum, item) => sum + Number(item.total || 0),
     0
   );
-  const subtotal = Number(invoice.subtotal ?? itemsSubtotal);
-  const tax = Number(invoice.tax ?? Number((subtotal * 0.18).toFixed(2)));
+  // Total Amount = final selling prices (GST already included in price)
+  const totalAmount = Number(invoice.total ?? itemsSubtotal);
 
   return (
     <Modal
@@ -108,7 +108,7 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf 
               <tr className="bg-gray-100 text-left">
                 <th className="px-3 py-2 font-medium text-gray-600">Product</th>
                 <th className="px-3 py-2 font-medium text-gray-600 text-center">Qty</th>
-                <th className="px-3 py-2 font-medium text-gray-600 text-right">Price</th>
+                <th className="px-3 py-2 font-medium text-gray-600 text-right">Price (including GST)</th>
                 <th className="px-3 py-2 font-medium text-gray-600 text-right">Total</th>
               </tr>
             </thead>
@@ -127,17 +127,9 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf 
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">Subtotal:</span>
-          <span className="font-medium text-gray-800">{formatMoney(subtotal)}</span>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">GST (18%):</span>
-          <span className="font-medium text-gray-800">{formatMoney(tax)}</span>
-        </div>
-        <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+        <div className="flex items-center justify-between pt-1">
           <span className="text-gray-700 font-medium">Total Amount:</span>
-          <span className="text-2xl font-bold text-amber-600">{formatMoney(invoice.total)}</span>
+          <span className="text-2xl font-bold text-amber-600">{formatMoney(totalAmount)}</span>
         </div>
 
         {(invoice.status === 'approved' || hasPaymentBreakdown) && (

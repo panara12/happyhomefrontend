@@ -64,9 +64,10 @@ export default function SalesmanDashboard() {
       return;
     }
 
+    // Price is final selling price (including GST) — total is sum of line totals only
     const subtotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
-    const tax = subtotal * 0.18;
-    const total = subtotal + tax;
+    const tax = 0;
+    const total = subtotal;
 
     const newInvoice = {
       customerId: selectedCustomer._id || selectedCustomer.id,
@@ -82,15 +83,16 @@ export default function SalesmanDashboard() {
     const payload = {
       customerId: newInvoice.customerId,
       summary: {
-        subtotal: newInvoice.subtotal,
-        tax: newInvoice.tax,
-        total: newInvoice.total,
+        subtotal: Number(newInvoice.subtotal.toFixed(2)),
+        tax: Number(newInvoice.tax.toFixed(2)),
+        total: Number(newInvoice.total.toFixed(2)),
       },
       items: invoiceItems.map(({ item, quantity, price, total: itemTotal }) => ({
         productId: item._id || item.id,
         quantity,
         price,
         total: itemTotal,
+        gst: Number(item.gst ?? 0),
       })),
     };
 

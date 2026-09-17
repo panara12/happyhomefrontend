@@ -1,9 +1,8 @@
 import { Trash2 } from 'lucide-react';
 
 export function InvoiceItems({ items, onRemoveItem, onUpdateQuantity, onUpdatePrice }) {
-  const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-  const tax = subtotal * 0.18; // 18% GST
-  const total = subtotal + tax;
+  // Price is final selling price (including GST) — total is sum of line totals only
+  const total = items.reduce((sum, item) => sum + item.total, 0);
 
   if (items.length === 0) {
     return (
@@ -22,7 +21,7 @@ export function InvoiceItems({ items, onRemoveItem, onUpdateQuantity, onUpdatePr
               <th className="text-left py-3 px-2">Item</th>
               <th className="text-center py-3 px-2 hidden sm:table-cell">Code</th>
               <th className="text-center py-3 px-2">Qty</th>
-              <th className="text-right py-3 px-2">Price</th>
+              <th className="text-right py-3 px-2">Price (including GST)</th>
               <th className="text-right py-3 px-2">Total</th>
               <th className="py-3 px-2"></th>
             </tr>
@@ -72,17 +71,9 @@ export function InvoiceItems({ items, onRemoveItem, onUpdateQuantity, onUpdatePr
         </table>
       </div>
 
-      <div className="border-t-2 border-gray-300 pt-4 space-y-2">
-        <div className="flex justify-between text-gray-700">
-          <span>Subtotal:</span>
-          <span className="font-medium">₹{subtotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between text-gray-700">
-          <span>GST (18%):</span>
-          <span className="font-medium">₹{tax.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-200">
-          <span>Total:</span>
+      <div className="border-t-2 border-gray-300 pt-4">
+        <div className="flex justify-between text-xl font-bold text-gray-900">
+          <span>Total Amount:</span>
           <span className="text-amber-600">₹{total.toFixed(2)}</span>
         </div>
       </div>

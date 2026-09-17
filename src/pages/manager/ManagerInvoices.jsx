@@ -16,6 +16,8 @@ import EditInvoiceModal from './EditInvoiceModal';
 import ViewInvoiceModal from './ViewInvoiceModal';
 import CreateInvoiceModal from './CreateInvoiceModal';
 import ApprovePaymentModal from './ApprovePaymentModal';
+import { printInvoice } from '../../utils/printInvoice';
+import { useStoreContext } from '../../context/storeContext';
 
 const PAGE_SIZE = 10;
 
@@ -67,6 +69,7 @@ function patchStoreInvoicesCache(queryClient, updatedInvoice) {
 
 export default function ManagerInvoices() {
   const queryClient = useQueryClient();
+  const { stores } = useStoreContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -159,13 +162,25 @@ export default function ManagerInvoices() {
     );
   };
 
+  const resolveStore = (invoice) =>
+    stores.find((s) => String(s.storeId) === String(invoice?.storeId)) || null;
+
   const handlePrint = (invoice) => {
-    toast.success(`Print started for ${invoice.invoiceNumber}`);
-    window.print();
+    const ok = printInvoice(invoice, resolveStore(invoice));
+    if (ok) {
+      toast.success(`Print ready for ${invoice.invoiceNumber}`);
+    } else {
+      toast.error('Unable to print this invoice. Please try again.');
+    }
   };
 
   const handleSendPdf = (invoice) => {
-    toast.success(`PDF ready to send for ${invoice.invoiceNumber}`);
+    const ok = printInvoice(invoice, resolveStore(invoice));
+    if (ok) {
+      toast.success(`Use Print → Save as PDF for ${invoice.invoiceNumber}`);
+    } else {
+      toast.error('Unable to export this invoice. Please try again.');
+    }
   };
 
   const handleSaveEdit = (payload) => {
