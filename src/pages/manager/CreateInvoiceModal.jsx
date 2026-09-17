@@ -81,7 +81,7 @@ export default function CreateInvoiceModal({ onClose }) {
   const productOptions = useMemo(() => {
     return products.slice(0, 20).map((p) => ({
       id: p._id,
-      label: p.sku_code || p.barcode_text,
+      label: p.barcode_text,
       subLabel: `Code: ${p.product_code || '-'} • ₹${p.offer_price || p.mrp || 0}`,
       raw: p,
     }));
@@ -158,11 +158,11 @@ export default function CreateInvoiceModal({ onClose }) {
     const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
     const tax = Number((subtotal * 0.18).toFixed(2));
     const total = Number((subtotal + tax).toFixed(2));
-
+    console.log("store",selectedStore)
     submitInvoiceMutation.mutate(
       {
         customerId: selectedCustomer._id,
-        storeId: user?.storeId,
+        storeId: selectedStore.storeId,
         summary: { subtotal, tax, total },
         items: lineItems,
       },
@@ -248,6 +248,7 @@ export default function CreateInvoiceModal({ onClose }) {
           {items.map((item, index) => (
             <div key={index} className="bg-gray-50 rounded-lg p-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-6">
+                {console.log(item)}
                 <AutocompleteInput
                   label="Product"
                   placeholder="Select Product"

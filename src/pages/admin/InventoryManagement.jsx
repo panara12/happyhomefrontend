@@ -13,6 +13,8 @@ import { useStockCategoryContext } from '../../context/stockcategoryContext';
 import { useGetAllProducts, useUpdateProduct } from '../../hooks/useProduct';
 import { useGetAllAccountingConst } from '../../hooks/useGetAllAccountStates';
 import { useGetAllUnits } from '../../hooks/useUnit';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 
 function buildEditForm(product, stores) {
   const qtyByStore = {};
@@ -166,7 +168,7 @@ export default function InventoryManagement({ user }) {
     return matchesSearch && matchesCategory;
   }), [products, searchTerm, filterCategory]);
 
-  // const inventoryPagination = usePagination(displayInventory);
+  const inventoryPagination = usePagination(displayInventory);
 
   // const totalStockAcrossAll = useMemo(
   //   () => products.reduce((sum, item) => sum + getTotalStock(item), 0),
@@ -260,7 +262,9 @@ export default function InventoryManagement({ user }) {
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gradient-to-r from-amber-600 to-orange-600 text-white">
+            {role == "accounting" 
+            ? 
+            <thead className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white">
               <tr>
                 <th className="px-4 py-3 text-left">Product</th>
                 <th className="px-4 py-3 text-left">SKU</th>
@@ -274,6 +278,35 @@ export default function InventoryManagement({ user }) {
                 <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
+            : <thead className="bg-gradient-to-r from-amber-600 to-orange-600 text-white">
+              <tr>
+                <th className="px-4 py-3 text-left">Product</th>
+                <th className="px-4 py-3 text-left">SKU</th>
+                <th className="px-4 py-3 text-left">Category</th>
+                <th className="px-4 py-3 text-right">Price</th>
+                {stores.map(store => (
+                  <th key={store.storeId} className="px-4 py-3 text-center">{store.name}</th>
+                ))}
+                <th className="px-4 py-3 text-center">Total</th>
+                <th className="px-4 py-3 text-center">Sync Status</th>
+                <th className="px-4 py-3 text-center">Actions</th>
+              </tr>
+            </thead>
+            }
+            {/* <thead className="bg-gradient-to-r from-amber-600 to-orange-600 text-white">
+              <tr>
+                <th className="px-4 py-3 text-left">Product</th>
+                <th className="px-4 py-3 text-left">SKU</th>
+                <th className="px-4 py-3 text-left">Category</th>
+                <th className="px-4 py-3 text-right">Price</th>
+                {stores.map(store => (
+                  <th key={store.storeId} className="px-4 py-3 text-center">{store.name}</th>
+                ))}
+                <th className="px-4 py-3 text-center">Total</th>
+                <th className="px-4 py-3 text-center">Sync Status</th>
+                <th className="px-4 py-3 text-center">Actions</th>
+              </tr>
+            </thead> */}
             <tbody className="divide-y divide-gray-200">
               {productsLoading && (
                 <tr>
@@ -282,8 +315,8 @@ export default function InventoryManagement({ user }) {
                   </td>
                 </tr>
               )}
-              {/* {!productsLoading && inventoryPagination.paginatedItems.map(item => ( */}
-              {displayInventory.map(item => (
+              {!productsLoading && inventoryPagination.paginatedItems.map(item => (
+              // {displayInventory.map(item => (
                 <tr key={item._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -351,13 +384,13 @@ export default function InventoryManagement({ user }) {
             </tbody>
           </table>
         </div>
-        {/* <Pagination
+        <Pagination
           page={inventoryPagination.page}
           totalPages={inventoryPagination.totalPages}
           totalItems={inventoryPagination.totalItems}
           pageSize={inventoryPagination.pageSize}
           onPageChange={inventoryPagination.goToPage}
-        /> */}
+        />
       </div>
 
       {editingProduct && editForm && (

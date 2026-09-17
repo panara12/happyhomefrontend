@@ -65,13 +65,13 @@ export function UserFormModal({ mode, formData, setFormData, stores, onSubmit, o
           />
         </div>
         <div>
-          <label className={modalLabelClass}>Email *</label>
+          <label className={modalLabelClass}>Email</label>
           <input
             type="email"
             value={formData.email}
             onChange={updateField('email')}
             className={modalInputClass}
-            placeholder="john@example.com"
+            placeholder="demo@example.com"
           />
         </div>
         <div>

@@ -1,11 +1,14 @@
 import { TrendingUp, TrendingDown, Package, FileText, Store, Users, DollarSign, ShoppingCart, Receipt, RotateCcw, BarChart3 } from 'lucide-react';
 import { useLoggedUserContext } from '../../context/loggedUserContext';
+import { useGetDashboardData } from '../../hooks/useGetAllAccountStates';
 
 export default function DashboardHome() {
 
     const { loggedUser} = useLoggedUserContext();
     const user =  loggedUser
     console.log(user)
+    const { data: dashboardData } = useGetDashboardData();
+    console.log("dashboardData", dashboardData)
 
   const stats = user?.userType === 'admin' ? [
     {
@@ -18,7 +21,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Sales Revenue',
-      value: '₹24.65L',
+      value: `₹${dashboardData?.totalSales?.toLocaleString('en-IN') || '0'}`,
       change: '+12.5%',
       trend: 'up',
       icon: DollarSign,
@@ -26,7 +29,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Purchase Value',
-      value: '₹12.00L',
+      value: `₹${dashboardData?.purchaseValue[0]?.totalAmount?.toLocaleString('en-IN') || '0'}`,
       change: '+8.2%',
       trend: 'up',
       icon: Receipt,
@@ -34,7 +37,7 @@ export default function DashboardHome() {
     },
     {
       label: 'GST Payable',
-      value: '₹1.53L',
+      value: `₹${dashboardData?.purchaseValue[0]?.totalGst?.toLocaleString('en-IN') || '0'}`,
       change: 'Net tax',
       trend: 'up',
       icon: BarChart3,
@@ -42,15 +45,15 @@ export default function DashboardHome() {
     },
     {
       label: 'Sales Returns',
-      value: '₹53,098',
-      change: '2 returns',
+      value: `₹${dashboardData?.salesReturns[0]?.totalAmount?.toLocaleString('en-IN') || '0'}`,
+      change: `${dashboardData?.salesReturns[0]?.count || '0'} returns`,
       trend: 'down',
       icon: RotateCcw,
       color: 'bg-red-500'
     },
     {
       label: 'Total Stores',
-      value: '3',
+      value: dashboardData?.storeCount ? dashboardData.storeCount : '0',
       change: 'Active',
       trend: 'up',
       icon: Store,
@@ -58,7 +61,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Total Inventory',
-      value: '1,234',
+      value: dashboardData?.totalStock?.items_purchased ? dashboardData.totalStock.items_purchased : '0',
       change: '-5.2%',
       trend: 'down',
       icon: Package,
@@ -66,7 +69,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Active Users',
-      value: '12',
+      value: dashboardData?.teamCount ? dashboardData.teamCount : '0',
       change: '+2 new',
       trend: 'up',
       icon: Users,
@@ -75,7 +78,7 @@ export default function DashboardHome() {
   ] : user.userType === 'manager' ? [
     {
       label: 'Store Revenue',
-      value: '₹82,450',
+      value: dashboardData?.totalSales ? `₹${dashboardData.totalSales.toLocaleString('en-IN')}` : '₹0',
       change: '+15.2%',
       trend: 'up',
       icon: DollarSign,
@@ -83,7 +86,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Store Inventory',
-      value: '450',
+      value: dashboardData?.totalStock?.items_purchased ? dashboardData.totalStock.items_purchased : '0',
       change: '-3.1%',
       trend: 'down',
       icon: Package,
@@ -91,7 +94,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Invoices (Month)',
-      value: '52',
+      value: dashboardData?.invoices ? dashboardData.invoices : '0',
       change: '+10.5%',
       trend: 'up',
       icon: FileText,
@@ -99,7 +102,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Sales Team',
-      value: '4',
+      value: dashboardData?.teamCount ? dashboardData.teamCount : '0',
       change: '+1 new',
       trend: 'up',
       icon: Users,
@@ -107,7 +110,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Pending POs',
-      value: '8',
+      value: dashboardData?.pendingPOs ? dashboardData.pendingPOs : '0',
       change: '+3',
       trend: 'up',
       icon: ShoppingCart,
@@ -115,7 +118,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Store Transfers',
-      value: '12',
+      value: dashboardData?.storeTransfers ? dashboardData.storeTransfers : '0',
       change: '+2',
       trend: 'up',
       icon: Store,
@@ -124,7 +127,7 @@ export default function DashboardHome() {
   ] : [
     {
       label: 'My Invoices',
-      value: '18',
+      value: dashboardData?.invoices || '0',
       change: '+5 today',
       trend: 'up',
       icon: FileText,
@@ -132,7 +135,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Total Sales',
-      value: '₹45,780',
+      value: `₹${dashboardData?.totalSales?.toLocaleString('en-IN') || '0'}`,
       change: '+18.2%',
       trend: 'up',
       icon: DollarSign,
@@ -140,7 +143,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Store Inventory',
-      value: '450',
+      value: dashboardData?.totalStock?.items_purchased || '0',
       change: '-3.1%',
       trend: 'down',
       icon: Package,
@@ -148,7 +151,7 @@ export default function DashboardHome() {
     },
     {
       label: 'Customers',
-      value: '34',
+      value: dashboardData?.customerCount || 0,
       change: '+12',
       trend: 'up',
       icon: Users,

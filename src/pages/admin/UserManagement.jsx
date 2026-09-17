@@ -82,7 +82,7 @@ export default function UserManagement({ user }) {
 
   const handleAddUser = useCallback((e) => {
     e.preventDefault();
-    if (formData.fullName && formData.username && formData.email) {
+    if (formData.fullName && formData.username ) {
       addUserMutation.mutate(formData);
       setFormData({ fullName: '', username: '', email: '', userType: '',mobile: "", storeId: "", password: '' });
       setShowAddModal(false);
@@ -94,7 +94,7 @@ export default function UserManagement({ user }) {
 
   const handleUpdateUser = useCallback((e) => {
     e.preventDefault();
-    if (formData.fullName && formData.username && formData.email) {
+    if (formData.fullName && formData.username ) {
       updateUserMutation.mutate(formData, {
         onSuccess: () => {
           setShowUpdateModal(false);

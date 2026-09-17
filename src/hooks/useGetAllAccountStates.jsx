@@ -8,3 +8,11 @@ export function useGetAllAccountingConst() {
         params: { limit: 100 },
     });
 }
+
+export function useGetDashboardData() {
+    return useApiQuery({
+        path: "/accounting/getdashboarddata",
+        queryKey: ["dashboardData"],
+        params: { limit: 100 },
+    });
+}
