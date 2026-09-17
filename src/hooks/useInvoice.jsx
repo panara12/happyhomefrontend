@@ -2,7 +2,7 @@ import { useApiMutation } from "./useApiMutation";
 import { useApiQuery } from "./useApiQuery";
 
 const MY_INVOICES_KEY = ["my-invoices"];
-const STORE_INVOICES_KEY = ["store-invoices"];
+export const STORE_INVOICES_KEY = ["store-invoices"];
 const PRODUCTS_QUERY_KEY = ["products"];
 
 export function useSubmitInvoice() {

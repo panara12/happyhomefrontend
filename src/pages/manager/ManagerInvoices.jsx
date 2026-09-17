@@ -3,12 +3,19 @@ import {
   Search, Eye, CheckCircle, XCircle, Printer, Send, Edit2, Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { Pagination } from '../../components/ui/Pagination';
 import { usePagination } from '../../hooks/usePagination';
-import { useGetStoreInvoices, useUpdateInvoiceStatus, useUpdateInvoice } from '../../hooks/useInvoice';
+import {
+  STORE_INVOICES_KEY,
+  useGetStoreInvoices,
+  useUpdateInvoiceStatus,
+  useUpdateInvoice,
+} from '../../hooks/useInvoice';
 import EditInvoiceModal from './EditInvoiceModal';
 import ViewInvoiceModal from './ViewInvoiceModal';
 import CreateInvoiceModal from './CreateInvoiceModal';
+import ApprovePaymentModal from './ApprovePaymentModal';
 
 const PAGE_SIZE = 10;
 
@@ -23,11 +30,48 @@ function formatMoney(value) {
   return `₹${Number(value || 0).toLocaleString('en-IN')}`;
 }
 
+function sortByRecentDecision(a, b) {
+  const aTime = new Date(a.approvedAt || a.updatedAt || a.createdAt || 0).getTime();
+  const bTime = new Date(b.approvedAt || b.updatedAt || b.createdAt || 0).getTime();
+  return bTime - aTime;
+}
+
+function patchStoreInvoicesCache(queryClient, updatedInvoice) {
+  if (!updatedInvoice) return;
+
+  const invoiceId = String(updatedInvoice._id || updatedInvoice.id || '');
+  if (!invoiceId) return;
+
+  queryClient.setQueriesData({ queryKey: STORE_INVOICES_KEY }, (old) => {
+    if (!old?.invoices) return old;
+
+    const invoices = old.invoices.map((inv) => {
+      const id = String(inv._id || inv.id || '');
+      return id === invoiceId ? { ...inv, ...updatedInvoice } : inv;
+    });
+
+    const summary = invoices.reduce(
+      (acc, inv) => {
+        acc.total += 1;
+        if (inv.status === 'pending') acc.pending += 1;
+        else if (inv.status === 'approved') acc.approved += 1;
+        else if (inv.status === 'rejected') acc.rejected += 1;
+        return acc;
+      },
+      { total: 0, pending: 0, approved: 0, rejected: 0 }
+    );
+
+    return { ...old, invoices, summary };
+  });
+}
+
 export default function ManagerInvoices() {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [editingInvoice, setEditingInvoice] = useState(null);
+  const [approvingInvoice, setApprovingInvoice] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
@@ -35,7 +79,7 @@ export default function ManagerInvoices() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { data, isLoading, isError } = useGetStoreInvoices({
+  const { data, isLoading, isError, refetch } = useGetStoreInvoices({
     q: debouncedSearch,
     limit: 100,
   });
@@ -51,11 +95,11 @@ export default function ManagerInvoices() {
     [invoices]
   );
   const approvedInvoices = useMemo(
-    () => invoices.filter((inv) => inv.status === 'approved'),
+    () => invoices.filter((inv) => inv.status === 'approved').sort(sortByRecentDecision),
     [invoices]
   );
   const rejectedInvoices = useMemo(
-    () => invoices.filter((inv) => inv.status === 'rejected'),
+    () => invoices.filter((inv) => inv.status === 'rejected').sort(sortByRecentDecision),
     [invoices]
   );
 
@@ -63,11 +107,36 @@ export default function ManagerInvoices() {
   const approvedPagination = usePagination(approvedInvoices, { pageSize: PAGE_SIZE });
   const rejectedPagination = usePagination(rejectedInvoices, { pageSize: PAGE_SIZE });
 
+  const refreshInvoiceLists = async (updatedInvoice) => {
+    patchStoreInvoicesCache(queryClient, updatedInvoice);
+    await queryClient.invalidateQueries({ queryKey: STORE_INVOICES_KEY });
+    await refetch();
+  };
+
   const handleApprove = (invoice) => {
+    setApprovingInvoice(invoice);
+  };
+
+  const handleConfirmApprove = (paymentBreakdown) => {
+    if (!approvingInvoice) return;
     updateStatusMutation.mutate(
-      { id: invoice._id || invoice.id, status: 'approved' },
       {
-        onSuccess: () => toast.success(`Invoice ${invoice.invoiceNumber} approved`),
+        id: approvingInvoice._id || approvingInvoice.id,
+        status: 'approved',
+        paymentBreakdown,
+      },
+      {
+        onSuccess: async (res) => {
+          const updated = res?.invoice || {
+            ...approvingInvoice,
+            status: 'approved',
+            paymentBreakdown,
+            approvedAt: new Date().toISOString(),
+          };
+          await refreshInvoiceLists(updated);
+          toast.success(`Invoice ${approvingInvoice.invoiceNumber} approved`);
+          setApprovingInvoice(null);
+        },
       }
     );
   };
@@ -77,7 +146,15 @@ export default function ManagerInvoices() {
     updateStatusMutation.mutate(
       { id: invoice._id || invoice.id, status: 'rejected' },
       {
-        onSuccess: () => toast.error(`Invoice ${invoice.invoiceNumber} rejected`),
+        onSuccess: async (res) => {
+          const updated = res?.invoice || {
+            ...invoice,
+            status: 'rejected',
+            approvedAt: new Date().toISOString(),
+          };
+          await refreshInvoiceLists(updated);
+          toast.error(`Invoice ${invoice.invoiceNumber} rejected`);
+        },
       }
     );
   };
@@ -279,7 +356,7 @@ export default function ManagerInvoices() {
                       <th className="px-4 py-3 text-left text-sm">Invoice #</th>
                       <th className="px-4 py-3 text-left text-sm">Customer</th>
                       <th className="px-4 py-3 text-left text-sm">Phone</th>
-                      <th className="px-4 py-3 text-left text-sm">Date</th>
+                      <th className="px-4 py-3 text-left text-sm">Approved</th>
                       <th className="px-4 py-3 text-right text-sm">Total</th>
                       <th className="px-4 py-3 text-center text-sm">Actions</th>
                     </tr>
@@ -297,7 +374,7 @@ export default function ManagerInvoices() {
                           <td className="px-4 py-3 font-medium text-gray-800">{invoice.invoiceNumber}</td>
                           <td className="px-4 py-3 text-gray-800">{invoice.customerName || '—'}</td>
                           <td className="px-4 py-3 text-gray-600">{invoice.customerPhone || '—'}</td>
-                          <td className="px-4 py-3 text-gray-600">{formatDate(invoice.createdAt)}</td>
+                          <td className="px-4 py-3 text-gray-600">{formatDate(invoice.approvedAt || invoice.createdAt)}</td>
                           <td className="px-4 py-3 text-right font-bold text-gray-800">{formatMoney(invoice.total)}</td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-center gap-2">
@@ -356,7 +433,7 @@ export default function ManagerInvoices() {
                       <th className="px-4 py-3 text-left text-sm">Invoice #</th>
                       <th className="px-4 py-3 text-left text-sm">Customer</th>
                       <th className="px-4 py-3 text-left text-sm">Phone</th>
-                      <th className="px-4 py-3 text-left text-sm">Date</th>
+                      <th className="px-4 py-3 text-left text-sm">Rejected</th>
                       <th className="px-4 py-3 text-right text-sm">Total</th>
                       <th className="px-4 py-3 text-center text-sm">Actions</th>
                     </tr>
@@ -374,7 +451,7 @@ export default function ManagerInvoices() {
                           <td className="px-4 py-3 font-medium text-gray-800">{invoice.invoiceNumber}</td>
                           <td className="px-4 py-3 text-gray-800">{invoice.customerName || '—'}</td>
                           <td className="px-4 py-3 text-gray-600">{invoice.customerPhone || '—'}</td>
-                          <td className="px-4 py-3 text-gray-600">{formatDate(invoice.createdAt)}</td>
+                          <td className="px-4 py-3 text-gray-600">{formatDate(invoice.approvedAt || invoice.createdAt)}</td>
                           <td className="px-4 py-3 text-right font-bold text-gray-800">{formatMoney(invoice.total)}</td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-center gap-2">
@@ -403,6 +480,15 @@ export default function ManagerInvoices() {
             </div>
           </div>
         </>
+      )}
+
+      {approvingInvoice && (
+        <ApprovePaymentModal
+          invoice={approvingInvoice}
+          onClose={() => setApprovingInvoice(null)}
+          onConfirm={handleConfirmApprove}
+          isSubmitting={updateStatusMutation.isPending}
+        />
       )}
 
       {selectedInvoice && (
