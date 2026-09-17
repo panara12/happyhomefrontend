@@ -16,7 +16,44 @@ import { useGetAllUnits } from '../../hooks/useUnit';
 import { useAddPurchaseBill, useGetAllPurchaseBill } from '../../hooks/usePurchaseBill';
 import { useGetAllProducts } from '../../hooks/useProduct';
 
-const emptyItem = { brand: '', category: '', barcode_text: '', hsncode: '', quantity: 1, purchaseRate: 0, gst: 18, mrp: 0, disc: 0,offer_price: 0, unit: '' };
+const emptyItem = {
+  brand: '',
+  category: '',
+  barcode_text: '',
+  hsncode: '',
+  quantity: 1,
+  purchaseRate: 0,
+  gst: 18,
+  mrp: 0,
+  disc: 0,
+  dict_amt: 0,
+  offer_price: 0,
+  discType: 'percent', // 'percent' | 'value'
+  unit: '',
+};
+
+/** Round money up to next whole rupee (no paise). */
+function roundUpMoney(value) {
+  return Math.ceil(Number(value) || 0);
+}
+
+/** Apply MRP discount: % → amount then minus; value → direct minus. Amounts round up. */
+function applyItemDiscount(item) {
+  const mrp = roundUpMoney(item.mrp);
+  const discType = item.discType === 'value' ? 'value' : 'percent';
+
+  if (discType === 'value') {
+    const dict_amt = Math.min(roundUpMoney(item.dict_amt), mrp);
+    const offer_price = Math.max(0, mrp - dict_amt);
+    const disc = mrp > 0 ? Number(((dict_amt / mrp) * 100).toFixed(2)) : 0;
+    return { ...item, mrp, discType, disc, dict_amt, offer_price };
+  }
+
+  const disc = Math.min(Math.max(Number(item.disc) || 0, 0), 100);
+  const dict_amt = Math.min(roundUpMoney((mrp * disc) / 100), mrp);
+  const offer_price = Math.max(0, mrp - dict_amt);
+  return { ...item, mrp, discType, disc, dict_amt, offer_price };
+}
 
 const initialFormData = {
     supplierName: '',      // display-only, not sent to backend
@@ -79,7 +116,13 @@ export default function AccountingPurchaseBills() {
 
     const handleItemChange = (index, field, value) => {
         const newItems = [...formData.items];
-        newItems[index] = { ...newItems[index], [field]: value };
+        let next = { ...newItems[index], [field]: value };
+
+        if (field === 'mrp' || field === 'disc' || field === 'dict_amt' || field === 'discType') {
+            next = applyItemDiscount(next);
+        }
+
+        newItems[index] = next;
         setFormData({ ...formData, items: newItems });
     };
 
@@ -93,7 +136,7 @@ export default function AccountingPurchaseBills() {
     // Doesn't touch quantity/purchaseRate since those are bill-specific, not product-specific.
     const handleSelectProduct = (index, product) => {
         const newItems = [...formData.items];
-        newItems[index] = {
+        newItems[index] = applyItemDiscount({
             ...newItems[index],
             brand: product.brand || newItems[index].brand,
             category: product.category || newItems[index].category,
@@ -103,8 +146,10 @@ export default function AccountingPurchaseBills() {
             gst: product.gst ?? newItems[index].gst,
             mrp: product.mrp ?? newItems[index].mrp,
             disc: product.disc ?? newItems[index].disc,
+            dict_amt: product.dict_amt ?? newItems[index].dict_amt,
             offer_price: product.offer_price ?? newItems[index].offer_price,
-        };
+            discType: 'percent',
+        });
         setFormData({ ...formData, items: newItems });
         setActiveSearchIndex(null);
         setItemSearchTerm('');
@@ -140,20 +185,23 @@ export default function AccountingPurchaseBills() {
             billDate: formData.billDate,
             supplierId: formData.supplierId,
             storeId: formData.storeId,
-           items: formData.items.map(item => ({
-                brand: item.brand,
-                category: item.category,
-                barcode_text: item.barcode_text,
-                hsncode: item.hsncode,
-                quantity: item.quantity,
-                purchaseRate: item.purchaseRate,
-                gst: item.gst,
-                mrp: item.mrp,
-                disc: item.disc,
-                dict_amt: item.mrp * (item.disc / 100),
-                offer_price: item.mrp - (item.mrp * (item.disc / 100)),
-                unit: item.unit
-            })),
+           items: formData.items.map(item => {
+                const priced = applyItemDiscount(item);
+                return {
+                    brand: priced.brand,
+                    category: priced.category,
+                    barcode_text: priced.barcode_text,
+                    hsncode: priced.hsncode,
+                    quantity: priced.quantity,
+                    purchaseRate: priced.purchaseRate,
+                    gst: priced.gst,
+                    mrp: priced.mrp,
+                    disc: priced.disc,
+                    dict_amt: priced.dict_amt,
+                    offer_price: priced.offer_price,
+                    unit: priced.unit
+                };
+            }),
             taxableValue: totals.subtotal,
             CGSTplusSGST: totals.cgst + totals.sgst,
             totalAmount: totals.total
@@ -719,34 +767,59 @@ export default function AccountingPurchaseBills() {
                                         </div>
 
                                         <div className="grid grid-cols-12 gap-3 pt-3 border-t border-gray-300">
-                                            <div className="col-span-12 md:col-span-4">
+                                            <div className="col-span-12 md:col-span-3">
                                                 <label className="block text-xs font-medium text-indigo-700 mb-1">MRP *</label>
                                                 <input
                                                     type="number"
+                                                    min="0"
                                                     value={item.mrp}
-                                                    onChange={(e) => handleItemChange(index, 'mrp', parseFloat(e.target.value))}
+                                                    onChange={(e) => handleItemChange(index, 'mrp', parseFloat(e.target.value) || 0)}
                                                     className="w-full px-3 py-2 border-2 border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-indigo-50"
                                                     placeholder="0"
                                                 />
                                             </div>
-                                            <div className="col-span-12 md:col-span-4">
-                                                <label className="block text-xs font-medium text-purple-700 mb-1">Discount %</label>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    max="100"
-                                                    value={item.disc}
-                                                    onChange={(e) => handleItemChange(index, 'disc', parseFloat(e.target.value))}
+                                            <div className="col-span-6 md:col-span-2">
+                                                <label className="block text-xs font-medium text-purple-700 mb-1">Disc Type</label>
+                                                <select
+                                                    value={item.discType || 'percent'}
+                                                    onChange={(e) => handleItemChange(index, 'discType', e.target.value)}
                                                     className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-purple-50"
-                                                    placeholder="0"
-                                                />
+                                                >
+                                                    <option value="percent">%</option>
+                                                    <option value="value">Value (₹)</option>
+                                                </select>
+                                            </div>
+                                            <div className="col-span-6 md:col-span-3">
+                                                <label className="block text-xs font-medium text-purple-700 mb-1">
+                                                    {(item.discType || 'percent') === 'value' ? 'Discount Value (₹)' : 'Discount %'}
+                                                </label>
+                                                {(item.discType || 'percent') === 'value' ? (
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={item.dict_amt ?? 0}
+                                                        onChange={(e) => handleItemChange(index, 'dict_amt', parseFloat(e.target.value) || 0)}
+                                                        className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-purple-50"
+                                                        placeholder="0"
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        value={item.disc ?? 0}
+                                                        onChange={(e) => handleItemChange(index, 'disc', parseFloat(e.target.value) || 0)}
+                                                        className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-purple-50"
+                                                        placeholder="0"
+                                                    />
+                                                )}
                                             </div>
                                             <div className="col-span-12 md:col-span-4">
                                                 <label className="block text-xs font-medium text-green-700 mb-1">Final Selling Price</label>
                                                 <input
                                                     type="number"
-                                                    value={item.mrp - (item.mrp * (item.disc / 100))}
-                                                    onChange={(e) => handleItemChange(index, 'offer_price', parseFloat(e.target.value))}
+                                                    value={item.offer_price ?? 0}
+                                                    readOnly
                                                     className="w-full px-3 py-2 border-2 border-green-300 rounded-lg bg-green-50 font-bold text-green-700"
                                                     placeholder="0"
                                                 />
