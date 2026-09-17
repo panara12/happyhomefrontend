@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
 import { Pagination } from '../../components/ui/Pagination';
 import { usePagination } from '../../hooks/usePagination';
 import {
@@ -21,6 +22,25 @@ import { printInvoice } from '../../utils/printInvoice';
 import { useStoreContext } from '../../context/storeContext';
 
 const PAGE_SIZE = 10;
+
+const THEME = {
+  manager: {
+    primaryBtn: 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700',
+    focusRing: 'focus:ring-amber-500',
+    amount: 'text-amber-600',
+    pendingCardBorder: 'border-yellow-200',
+    pendingCardHeader: 'bg-gradient-to-r from-yellow-500 to-orange-500',
+    pendingBadgeText: 'text-yellow-700',
+  },
+  accounting: {
+    primaryBtn: 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700',
+    focusRing: 'focus:ring-indigo-500',
+    amount: 'text-indigo-600',
+    pendingCardBorder: 'border-indigo-200',
+    pendingCardHeader: 'bg-gradient-to-r from-indigo-600 to-purple-600',
+    pendingBadgeText: 'text-indigo-700',
+  },
+};
 
 const TAB_DATE_CONFIG = {
   pending: {
@@ -43,6 +63,12 @@ const TAB_DATE_CONFIG = {
 const TABS = [
   { id: 'pending', label: 'Pending', activeClass: 'bg-yellow-500 text-white', badgeClass: 'bg-yellow-100 text-yellow-800' },
   { id: 'approved', label: 'Approved', activeClass: 'bg-green-600 text-white', badgeClass: 'bg-green-100 text-green-800' },
+  { id: 'rejected', label: 'Rejected', activeClass: 'bg-red-600 text-white', badgeClass: 'bg-red-100 text-red-800' },
+];
+
+const ACCOUNTING_TABS = [
+  { id: 'pending', label: 'Pending', activeClass: 'bg-indigo-600 text-white', badgeClass: 'bg-indigo-100 text-indigo-800' },
+  { id: 'approved', label: 'Approved', activeClass: 'bg-purple-600 text-white', badgeClass: 'bg-purple-100 text-purple-800' },
   { id: 'rejected', label: 'Rejected', activeClass: 'bg-red-600 text-white', badgeClass: 'bg-red-100 text-red-800' },
 ];
 
@@ -109,6 +135,10 @@ function patchStoreInvoicesCache(queryClient, updatedInvoice) {
 export default function ManagerInvoices() {
   const queryClient = useQueryClient();
   const { stores } = useStoreContext();
+  const user = useSelector((state) => state.app.userInfo);
+  const isAccounting = user?.userType === 'accounting';
+  const theme = isAccounting ? THEME.accounting : THEME.manager;
+  const tabs = isAccounting ? ACCOUNTING_TABS : TABS;
   const defaultRange = useMemo(() => getDefaultDateRange(), []);
   const [activeTab, setActiveTab] = useState('pending');
   const [dateRanges, setDateRanges] = useState({
@@ -284,7 +314,7 @@ export default function ManagerInvoices() {
         <button
           type="button"
           onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 font-medium shadow"
+          className={`inline-flex items-center justify-center gap-2 px-5 py-3 text-white rounded-lg font-medium shadow ${theme.primaryBtn}`}
         >
           <Plus size={18} />
           Create Invoice
@@ -296,13 +326,13 @@ export default function ManagerInvoices() {
           <p className="text-gray-600 text-sm">Total Invoices</p>
           <p className="text-2xl font-bold text-gray-800 mt-1">{summary.total}</p>
         </div>
-        <div className="bg-yellow-50 rounded-lg shadow p-4 border border-yellow-200">
-          <p className="text-yellow-700 text-sm">Pending Review</p>
-          <p className="text-2xl font-bold text-yellow-700 mt-1">{summary.pending}</p>
+        <div className={`rounded-lg shadow p-4 border ${isAccounting ? 'bg-indigo-50 border-indigo-200' : 'bg-yellow-50 border-yellow-200'}`}>
+          <p className={`text-sm ${isAccounting ? 'text-indigo-700' : 'text-yellow-700'}`}>Pending Review</p>
+          <p className={`text-2xl font-bold mt-1 ${isAccounting ? 'text-indigo-700' : 'text-yellow-700'}`}>{summary.pending}</p>
         </div>
-        <div className="bg-green-50 rounded-lg shadow p-4 border border-green-200">
-          <p className="text-green-600 text-sm">Approved</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{summary.approved}</p>
+        <div className={`rounded-lg shadow p-4 border ${isAccounting ? 'bg-purple-50 border-purple-200' : 'bg-green-50 border-green-200'}`}>
+          <p className={`text-sm ${isAccounting ? 'text-purple-600' : 'text-green-600'}`}>Approved</p>
+          <p className={`text-2xl font-bold mt-1 ${isAccounting ? 'text-purple-600' : 'text-green-600'}`}>{summary.approved}</p>
         </div>
         <div className="bg-red-50 rounded-lg shadow p-4 border border-red-200">
           <p className="text-red-600 text-sm">Rejected</p>
@@ -322,7 +352,7 @@ export default function ManagerInvoices() {
             placeholder="Invoice number, customer name, or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+            className={`w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none ${theme.focusRing}`}
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:w-auto lg:min-w-[360px]">
@@ -336,7 +366,7 @@ export default function ManagerInvoices() {
               value={fromDate}
               max={toDate || undefined}
               onChange={(e) => setFromDate(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+              className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none ${theme.focusRing}`}
             />
           </div>
           <div>
@@ -349,14 +379,14 @@ export default function ManagerInvoices() {
               value={toDate}
               min={fromDate || undefined}
               onChange={(e) => setToDate(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+              className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none ${theme.focusRing}`}
             />
           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-1.5 flex flex-wrap gap-1.5">
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
@@ -406,12 +436,12 @@ export default function ManagerInvoices() {
                 {pagination.paginatedItems.map((invoice) => (
                   <div
                     key={invoice._id || invoice.id}
-                    className="bg-white rounded-xl shadow-lg border-2 border-yellow-200 overflow-hidden hover:shadow-xl transition-shadow"
+                    className={`bg-white rounded-xl shadow-lg border-2 overflow-hidden hover:shadow-xl transition-shadow ${theme.pendingCardBorder}`}
                   >
-                    <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-4">
+                    <div className={`text-white p-4 ${theme.pendingCardHeader}`}>
                       <div className="flex items-center justify-between">
                         <h4 className="font-bold text-lg">{invoice.invoiceNumber}</h4>
-                        <span className="bg-white text-yellow-700 px-3 py-1 rounded-full text-xs font-medium">
+                        <span className={`bg-white px-3 py-1 rounded-full text-xs font-medium ${theme.pendingBadgeText}`}>
                           Pending
                         </span>
                       </div>
@@ -433,7 +463,7 @@ export default function ManagerInvoices() {
                       </div>
                       <div className="border-t pt-3">
                         <p className="text-sm text-gray-600">Total Amount</p>
-                        <p className="text-2xl font-bold text-amber-600">{formatMoney(invoice.total)}</p>
+                        <p className={`text-2xl font-bold ${theme.amount}`}>{formatMoney(invoice.total)}</p>
                       </div>
 
                       {invoice.createdBy && (
@@ -497,7 +527,7 @@ export default function ManagerInvoices() {
         <div className="bg-white rounded-xl shadow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-green-600 text-white">
+              <thead className={`text-white ${isAccounting ? "bg-purple-600" : "bg-green-600"}`}>
                 <tr>
                   <th className="px-4 py-3 text-left text-sm">Invoice #</th>
                   <th className="px-4 py-3 text-left text-sm">Customer</th>

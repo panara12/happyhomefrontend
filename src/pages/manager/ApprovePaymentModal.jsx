@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
 import Modal, {
   modalInputClass,
   modalLabelClass,
@@ -26,6 +27,8 @@ export default function ApprovePaymentModal({
   onConfirm,
   isSubmitting = false,
 }) {
+  const user = useSelector((state) => state.app.userInfo);
+  const isAccounting = user?.userType === 'accounting';
   const [payments, setPayments] = useState({ cash: '', gpay: '', debit: '' });
 
   const invoiceTotal = roundMoney(invoice?.total);
@@ -58,6 +61,10 @@ export default function ApprovePaymentModal({
 
   if (!invoice) return null;
 
+  const primaryBtnClass = isAccounting
+    ? `${modalPrimaryBtnClass} !bg-gradient-to-r !from-indigo-600 !to-purple-600 hover:!from-indigo-700 hover:!to-purple-700`
+    : modalPrimaryBtnClass;
+
   return (
     <Modal
       title={`Approve Invoice — ${invoice.invoiceNumber}`}
@@ -77,17 +84,25 @@ export default function ApprovePaymentModal({
             type="button"
             onClick={handleConfirm}
             disabled={!isMatched || isSubmitting}
-            className={modalPrimaryBtnClass}
+            className={primaryBtnClass}
           >
             {isSubmitting ? 'Approving...' : 'Approve Invoice'}
           </button>
         </>
       }
     >
-      <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
-        <p className="text-sm text-amber-800">Invoice Total</p>
-        <p className="text-2xl font-bold text-amber-700">{formatMoney(invoiceTotal)}</p>
-        <p className="text-xs text-amber-700 mt-1">
+      <div
+        className={`mb-4 rounded-lg px-4 py-3 border ${
+          isAccounting
+            ? 'bg-indigo-50 border-indigo-200'
+            : 'bg-amber-50 border-amber-200'
+        }`}
+      >
+        <p className={`text-sm ${isAccounting ? 'text-indigo-800' : 'text-amber-800'}`}>Invoice Total</p>
+        <p className={`text-2xl font-bold ${isAccounting ? 'text-indigo-700' : 'text-amber-700'}`}>
+          {formatMoney(invoiceTotal)}
+        </p>
+        <p className={`text-xs mt-1 ${isAccounting ? 'text-indigo-700' : 'text-amber-700'}`}>
           Split the total across Cash, GPay, and Debit. Sum must match exactly.
         </p>
       </div>
