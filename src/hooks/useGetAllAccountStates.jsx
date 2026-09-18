@@ -9,10 +9,12 @@ export function useGetAllAccountingConst() {
     });
 }
 
-export function useGetDashboardData() {
+export function useGetDashboardData({ enabled = true } = {}) {
     return useApiQuery({
         path: "/accounting/getdashboarddata",
         queryKey: ["dashboardData"],
         params: { limit: 100 },
+        enabled,
+        retry: false,
     });
 }

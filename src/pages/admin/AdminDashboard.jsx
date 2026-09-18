@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Store, Package, FileText, Users,
   ArrowLeftRight, ShoppingCart, DollarSign,
   TrendingUp, RotateCcw, Receipt, BarChart3,
-  Wrench
+  Wrench, UserPlus
 } from "lucide-react"
 
 import Layout from "../../layouts/adminLayout"
@@ -18,6 +18,7 @@ import TransferManagement from "../../pages/admin/TransferManagement"
 import PurchaseOrders from "../../pages/admin/PurchaseOrders"
 import PurchaseBills from "../../pages/admin/PurchaseBills"
 import ExpenseManagement from "../../pages/admin/ExpenseManagement"
+import LeadManagement from "../../pages/admin/LeadManagement"
 import GSTReports from "../../pages/admin/GSTReports"
 import ProfitLoss from "../../pages/admin/ProfitLoss"
 import ServicePanel from "../manager/ServicePanel"
@@ -39,6 +40,7 @@ const navigationItems = [
   { id: "purchase", label: "Purchase Orders", icon: ShoppingCart, path: "/admin/purchase" },
   { id: "purchase-bills", label: "Purchase Bills", icon: Receipt, path: "/admin/purchase-bills" },
   { id: "expenses", label: "Expenses", icon: DollarSign, path: "/admin/expenses" },
+  { id: "leads", label: "Leads", icon: UserPlus, path: "/admin/leads" },
   { id: "service", label: "Service", icon: Wrench, path: "/admin/service" },
   { id: "gst-reports", label: "GST Reports", icon: BarChart3, path: "/admin/gst-reports" },
   { id: "profit-loss", label: "Profit & Loss", icon: TrendingUp, path: "/admin/profit-loss" },
@@ -90,6 +92,7 @@ export default function AdminRouter() {
           <Route path="/purchase" element={<PurchaseOrders user={user} />} />
           <Route path="/purchase-bills" element={<PurchaseBills user={user} />} />
           <Route path="/expenses" element={<ExpenseManagement user={user} />} />
+          <Route path="/leads" element={<LeadManagement user={user} />} />
           <Route path="/service" element={<ServicePanel user={user} />} />
           <Route path="/gst-reports" element={<GSTReports user={user} />} />
           <Route path="/profit-loss" element={<ProfitLoss user={user} />} />
