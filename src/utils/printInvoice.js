@@ -1,4 +1,5 @@
 import logoImg from '../assets/logo.jpg';
+import { jsPDF } from 'jspdf';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -434,4 +435,113 @@ export function printInvoice(invoice, store) {
   setTimeout(triggerPrint, 1500);
 
   return true;
+}
+
+/**
+ * Downloads a single invoice as a PDF without opening the print dialog.
+ * @param {object} invoice
+ * @param {object} [store] optional store record (name, address, number, gstNumber)
+ */
+export function downloadInvoicePdf(invoice, store) {
+  if (!invoice || typeof window === 'undefined') return false;
+
+  try {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 16;
+    const right = pageWidth - margin;
+    const items = invoice.items || [];
+    const subtotalExcludingGst = roundUp(items.reduce((sum, item) => sum + getLineBreakdown(item).lineTotalEx, 0));
+    const itemTotal = items.reduce((sum, item) => sum + getLineBreakdown(item).lineTotalInc, 0);
+    const finalTotal = roundUp(items.length ? itemTotal : invoice.total);
+    const totalGst = Math.max(0, finalTotal - subtotalExcludingGst);
+    const storeName = store?.name || 'Happy Home';
+    const invoiceNumber = invoice.invoiceNumber || 'invoice';
+    const filename = `${invoiceNumber.replace(/[\\/:*?"<>|]/g, '_')}.pdf`;
+    let y = 18;
+
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Happy Home', margin, y);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Tax Invoice', margin, y + 7);
+    doc.text(`Invoice: ${invoiceNumber}`, right, y, { align: 'right' });
+    doc.text(`Date: ${formatDate(invoice.createdAt)}`, right, y + 7, { align: 'right' });
+
+    y += 22;
+    doc.setDrawColor(245, 158, 11);
+    doc.line(margin, y, right, y);
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Bill To', margin, y);
+    doc.text('Store Details', pageWidth / 2, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoice.customerName || '—', margin, y + 7);
+    doc.text(`Phone: ${invoice.customerPhone || '—'}`, margin, y + 14);
+    doc.text(storeName, pageWidth / 2, y + 7);
+    if (store?.address) doc.text(String(store.address), pageWidth / 2, y + 14);
+    if (store?.number) doc.text(`Mobile: ${store.number}`, pageWidth / 2, y + 21);
+
+    y += 34;
+    doc.setFillColor(28, 25, 23);
+    doc.setTextColor(255, 255, 255);
+    doc.rect(margin, y - 5, right - margin, 9, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.text('#', margin + 2, y + 1);
+    doc.text('Product', margin + 14, y + 1);
+    doc.text('Qty', 105, y + 1, { align: 'right' });
+    doc.text('Price (Rs.)', 132, y + 1, { align: 'right' });
+    doc.text('GST (Rs.)', 163, y + 1, { align: 'right' });
+    doc.text('Total (Rs.)', right - 2, y + 1, { align: 'right' });
+    doc.setTextColor(31, 41, 55);
+    doc.setFont('helvetica', 'normal');
+    y += 12;
+
+    items.forEach((item, index) => {
+      if (y > 270) {
+        doc.addPage();
+        y = 18;
+      }
+      const itemName = getItemName(item);
+      const { qty, gstAmount, lineTotalInc, unitPriceEx } = getLineBreakdown(item);
+      doc.text(String(index + 1), margin + 2, y);
+      doc.text(doc.splitTextToSize(itemName, 70), margin + 14, y);
+      doc.text(String(qty), 105, y, { align: 'right' });
+      doc.text(String(unitPriceEx), 132, y, { align: 'right' });
+      doc.text(String(gstAmount), 163, y, { align: 'right' });
+      doc.text(String(lineTotalInc), right - 2, y, { align: 'right' });
+      y += 9;
+    });
+
+    y += 1;
+    doc.line(margin, y, right, y);
+    y += 7;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Subtotal (Excl. GST) (Rs.)', 163, y, { align: 'right' });
+    doc.text(String(subtotalExcludingGst), right - 2, y, { align: 'right' });
+    y += 7;
+    doc.text('Total GST (Rs.)', 163, y, { align: 'right' });
+    doc.text(String(totalGst), right - 2, y, { align: 'right' });
+    y += 9;
+    doc.setFontSize(12);
+    doc.text('Final Total (Incl. GST) (Rs.)', 163, y, { align: 'right' });
+    doc.text(String(finalTotal), right - 2, y, { align: 'right' });
+    doc.setFontSize(10);
+
+    const payment = invoice.paymentBreakdown || {};
+    if (Number(payment.cash || 0) || Number(payment.gpay || 0) || Number(payment.debit || 0)) {
+      y += 14;
+      doc.setFontSize(10);
+      doc.text('Payment Mode', margin, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Cash: ${roundUp(payment.cash)}   GPay: ${roundUp(payment.gpay)}   Debit: ${roundUp(payment.debit)}`, margin, y + 7);
+    }
+
+    doc.save(filename);
+    return true;
+  } catch (error) {
+    console.error('Unable to generate invoice PDF', error);
+    return false;
+  }
 }

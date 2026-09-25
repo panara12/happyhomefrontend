@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Plus, Edit, Trash2 } from 'lucide-react'
 import { useAddStockCategory, useDeleteStockCategory, useUpdateStockCategory } from '../../hooks/useStockCategory'
+import { useGetAllStores } from '../../hooks/useStore'
 import { useStockCategoryContext } from '../../context/stockcategoryContext'
 import { Pagination } from '../../components/ui/Pagination'
 import { usePagination } from '../../hooks/usePagination'
@@ -15,9 +16,12 @@ const THEME = {
 
 export default function AddCategory() {
   const [name, setName] = useState('')
+  const [storeId, setStoreId] = useState('')
   const [editing, setEditing] = useState(null)
 
   const { stockCategory, stockCategoryLoading: isLoading } = useStockCategoryContext()
+  const { data: storeResponse, isLoading: storesLoading } = useGetAllStores()
+  const stores = useMemo(() => storeResponse?.stores || [], [storeResponse])
 
   // ✅ Always call hook at top level, every render — pass empty array as
   // fallback while data is still loading. Never call this conditionally:
@@ -37,30 +41,37 @@ export default function AddCategory() {
   const deleteMutation = useDeleteStockCategory()
 
   useEffect(() => {
-    if (!editing) setName('')
-    else setName(editing.name || '')
+    if (!editing) {
+      setName('')
+      setStoreId('')
+    } else {
+      setName(editing.name || '')
+      setStoreId(editing.storeId || '')
+    }
   }, [editing])
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim() || !storeId) return
     if (editing) {
-      updateMutation.mutate({id: editing._id ,name: name.trim(), categoryId: editing.categoryId })
+      updateMutation.mutate({ id: editing._id, name: name.trim(), categoryId: editing.categoryId, storeId })
       setEditing(null)
     } else {
-      addMutation.mutate({ name: name.trim() })
+      addMutation.mutate({ name: name.trim(), storeId })
     }
     setName('')
+    setStoreId('')
   }
 
   const handleEdit   = (cat) => setEditing(cat)
   const handleDelete = (cat) => {
+    if (!cat?.categoryId) return
     if (!confirm(`Delete category "${cat.name}"?`)) return
     deleteMutation.mutate(cat.categoryId)
   }
 
   // ✅ Loading state AFTER all hooks are called
-  if (isLoading) {
+  if (isLoading || storesLoading) {
     return (
       <div className={`p-6 rounded-md shadow-sm ${THEME.panel} text-white`}>
         <div className="flex items-center justify-center h-40">
@@ -87,6 +98,23 @@ export default function AddCategory() {
             onChange={(e) => setName(e.target.value)}
             placeholder="Enter category name"
           />
+
+          <label className="block text-sm text-indigo-100">Store</label>
+          <select
+            className="w-full p-2 rounded border border-black bg-white text-black outline-black"
+            value={storeId}
+            onChange={(e) => setStoreId(e.target.value)}
+            disabled={storesLoading}
+            required
+          >
+            <option value="">Select store</option>
+            {stores.map((store) => (
+              <option key={store._id || store.storeId} value={store.storeId}>
+                {store.name}
+              </option>
+            ))}
+          </select>
+
           <div className="flex gap-2">
             <button
               type="submit"
@@ -115,13 +143,14 @@ export default function AddCategory() {
                   <th className="p-3">#</th>
                   <th className="p-3">Category ID</th>
                   <th className="p-3">Name</th>
+                  <th className="p-3">Store</th>
                   <th className="p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {categories.length === 0 && (
                   <tr>
-                    <td className="p-4 text-gray-400" colSpan={4}>
+                    <td className="p-4 text-gray-400" colSpan={5}>
                       No categories found.
                     </td>
                   </tr>
@@ -131,6 +160,7 @@ export default function AddCategory() {
                     <td className="p-3">{idx + 1}</td>
                     <td className="p-3">{cat.categoryId}</td>
                     <td className="p-3">{cat.name}</td>
+                    <td className="p-3">{stores.find((store) => store.storeId === cat.storeId)?.name || cat.storeId}</td>
                     <td className="p-3">
                       <div className="flex gap-2">
                         <button

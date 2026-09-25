@@ -11,14 +11,14 @@ export default function DashboardHome() {
     console.log("dashboardData", dashboardData)
 
   const stats = user?.userType === 'admin' ? [
-    {
-      label: 'Net Profit (Month)',
-      value: '₹5.33L',
-      change: '+15.8%',
-      trend: 'up',
-      icon: TrendingUp,
-      color: 'bg-green-500'
-    },
+    // {
+    //   label: 'Net Profit (Month)',
+    //   value: '₹5.33L',
+    //   change: '+15.8%',
+    //   trend: 'up',
+    //   icon: TrendingUp,
+    //   color: 'bg-green-500'
+    // },
     {
       label: 'Sales Revenue',
       value: `₹${dashboardData?.totalSales?.toLocaleString('en-IN') || '0'}`,
@@ -266,7 +266,7 @@ export default function DashboardHome() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Activity */}
-        <div className="bg-white rounded-xl shadow-md p-6">
+        {/* <div className="bg-white rounded-xl shadow-md p-6">
           <h3 className="text-xl font-bold text-gray-800 mb-4">Recent Activity</h3>
           <div className="space-y-4">
             {recentActivity.map((activity, index) => (
@@ -289,10 +289,10 @@ export default function DashboardHome() {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
 
         {/* Quick Actions for Admin */}
-        {user.role === 'admin' && (
+        {/* {user.role === 'admin' && (
           <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -322,10 +322,10 @@ export default function DashboardHome() {
               </button>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Low Stock Alert */}
-        <div className="bg-white rounded-xl shadow-md p-6">
+        {/* <div className="bg-white rounded-xl shadow-md p-6">
           <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
             <span className="bg-red-100 text-red-600 p-2 rounded-lg">
               <Package size={20} />
@@ -354,7 +354,7 @@ export default function DashboardHome() {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
