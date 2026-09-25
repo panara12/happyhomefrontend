@@ -299,7 +299,9 @@ export default function ManagerInvoices() {
   };
 
   const resolveStore = (invoice) =>
-    stores.find((s) => String(s.storeId) === String(invoice?.storeId)) || null;
+    invoice?.store ||
+    stores.find((s) => String(s.storeId) === String(invoice?.storeId)) ||
+    null;
 
   const handlePrint = (invoice) => {
     const ok = printInvoice(invoice, resolveStore(invoice));
@@ -313,7 +315,7 @@ export default function ManagerInvoices() {
   const handleDownloadPdf = (invoice) => {
     const ok = downloadInvoicePdf(invoice, resolveStore(invoice));
     if (ok) {
-      toast.success(`Preparing PDF for ${invoice.invoiceNumber}`);
+      toast.success(`Print → Save as PDF for ${invoice.invoiceNumber}`);
     } else {
       toast.error('Unable to download this invoice. Please try again.');
     }

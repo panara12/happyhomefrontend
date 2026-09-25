@@ -9,11 +9,15 @@ export function useGetAllAccountingConst() {
     });
 }
 
-export function useGetDashboardData({ enabled = true } = {}) {
+export function useGetDashboardData({ enabled = true, period, month } = {}) {
+    const params = { limit: 100 };
+    if (period) params.period = period;
+    if (month) params.month = month;
+
     return useApiQuery({
         path: "/accounting/getdashboarddata",
-        queryKey: ["dashboardData"],
-        params: { limit: 100 },
+        queryKey: ["dashboardData", period || "all", month || "all"],
+        params,
         enabled,
         retry: false,
     });
