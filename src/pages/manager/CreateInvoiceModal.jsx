@@ -20,12 +20,6 @@ function formatMoney(value) {
 
 export default function CreateInvoiceModal({ onClose }) {
   const user = useSelector((state) => state.app.userInfo);
-  const isAccounting = user?.userType === 'accounting';
-  const primaryBtnClass = isAccounting
-    ? `${modalPrimaryBtnClass} !bg-gradient-to-r !from-indigo-600 !to-purple-600 hover:!from-indigo-700 hover:!to-purple-700`
-    : modalPrimaryBtnClass;
-  const accentText = isAccounting ? 'text-indigo-600 hover:text-indigo-700' : 'text-amber-600 hover:text-amber-700';
-  const totalText = isAccounting ? 'text-indigo-600' : 'text-amber-600';
 
   const [customerQuery, setCustomerQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -171,6 +165,9 @@ export default function CreateInvoiceModal({ onClose }) {
     const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
     const tax = 0;
     const total = Number(subtotal.toFixed(2));
+
+    // Every invoice is created as pending -- payment is collected later
+    // during approval, same flow for every role.
     submitInvoiceMutation.mutate(
       {
         customerId: selectedCustomer._id,
@@ -198,7 +195,7 @@ export default function CreateInvoiceModal({ onClose }) {
             type="button"
             onClick={handleCreate}
             disabled={submitInvoiceMutation.isPending || !selectedCustomer}
-            className={primaryBtnClass}
+            className={modalPrimaryBtnClass}
           >
             {submitInvoiceMutation.isPending ? 'Creating...' : 'Create Invoice'}
           </button>
@@ -249,7 +246,7 @@ export default function CreateInvoiceModal({ onClose }) {
           <button
             type="button"
             onClick={handleAddItem}
-            className={`flex items-center gap-1 font-medium text-sm ${accentText}`}
+            className="flex items-center gap-1 font-medium text-sm text-amber-600 hover:text-amber-700"
           >
             <Plus size={18} />
             Add Item
@@ -312,7 +309,7 @@ export default function CreateInvoiceModal({ onClose }) {
 
       <div className="flex items-center justify-between border-t pt-3">
         <span className="text-gray-800 font-semibold">Total Amount:</span>
-        <span className={`text-2xl font-bold ${totalText}`}>{formatMoney(totalAmount)}</span>
+        <span className="text-2xl font-bold text-amber-600">{formatMoney(totalAmount)}</span>
       </div>
     </Modal>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Plus, Edit, Trash2 } from 'lucide-react'
 import { useAddStockGroup, useDeleteStockGroup, useUpdateStockGroup } from '../../hooks/useStockGroup'
+import { useGetAllStores } from '../../hooks/useStore'
 import { useStockGroupContext } from '../../context/stockgroupContext'
 import { Pagination } from '../../components/ui/Pagination'
 import { usePagination } from '../../hooks/usePagination'
@@ -17,9 +18,12 @@ export default function AddBrand() {
   const [name, setName] = useState('')
   const [brandCode, setBrandCode] = useState('')
   const [gstNumber, setGstNumber] = useState('')
+  const [storeId, setStoreId] = useState('')
   const [editing, setEditing] = useState(null)
 
   const { stockGroup, stockGroupLoading: isLoading } = useStockGroupContext()
+  const { data: storeResponse, isLoading: storesLoading } = useGetAllStores()
+  const stores = useMemo(() => storeResponse?.stores || [], [storeResponse])
 
   // ✅ Always call hook at top level — pass empty array as fallback
   // See AddCategory.jsx for why this needs useMemo, not `stockGroup || []`
@@ -36,29 +40,35 @@ export default function AddBrand() {
     if (!editing) {
       setName('')
       setBrandCode('')
+      setGstNumber('')
+      setStoreId('')
     } else {
       setName(editing.name || '')
       setBrandCode(editing.brand_code || '')
+      setGstNumber(editing.gstNumber || '')
+      setStoreId(editing.storeId || '')
     }
   }, [editing])
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim() || !storeId) return
     if (editing) {
       updateMutation.mutate({
         id: editing._id,
         name: name.trim(),
         brand_code: brandCode.trim(),
-        gstNumber: gstNumber.trim()
+        gstNumber: gstNumber.trim(),
+        storeId
       })
       setEditing(null)
     } else {
-      addMutation.mutate({ name: name.trim(), brand_code: brandCode.trim(), gstNumber:gstNumber.trim() })
+      addMutation.mutate({ name: name.trim(), brand_code: brandCode.trim(), gstNumber: gstNumber.trim(), storeId })
     }
     setName('')
     setBrandCode('')
     setGstNumber('')
+    setStoreId('')
   }
 
   const handleEdit   = (brand) => setEditing(brand)
@@ -68,7 +78,7 @@ export default function AddBrand() {
   }
 
   // ✅ Loading state AFTER all hooks are called
-  if (isLoading) {
+  if (isLoading || storesLoading) {
     return (
       <div className={`p-6 rounded-md shadow-sm ${THEME.panel} text-white`}>
         <div className="flex items-center justify-center h-40">
@@ -103,6 +113,22 @@ export default function AddBrand() {
             onChange={(e) => setBrandCode(e.target.value)}
             placeholder="Enter brand code"
           />
+
+          <label className="block text-sm text-indigo-100">Store</label>
+          <select
+            className="w-full p-2 rounded border border-black bg-white text-black outline-black"
+            value={storeId}
+            onChange={(e) => setStoreId(e.target.value)}
+            disabled={storesLoading}
+            required
+          >
+            <option value="">Select store</option>
+            {stores.map((store) => (
+              <option key={store._id || store.storeId} value={store.storeId}>
+                {store.name}
+              </option>
+            ))}
+          </select>
 
           <label className="block text-sm text-indigo-100">GST Number</label>
           <input
@@ -140,6 +166,7 @@ export default function AddBrand() {
                   <th className="p-3">#</th>
                   <th className="p-3">Stock Group ID</th>
                   <th className="p-3">Name</th>
+                  <th className="p-3">Store</th>
                   <th className="p-3">Brand Code</th>
                   <th className="p-3">GST Number</th>
                   <th className="p-3">Actions</th>
@@ -148,7 +175,7 @@ export default function AddBrand() {
               <tbody>
                 {brands.length === 0 && (
                   <tr>
-                    <td className="p-4 text-gray-400" colSpan={6}>
+                    <td className="p-4 text-gray-400" colSpan={7}>
                       No brands found.
                     </td>
                   </tr>
@@ -158,6 +185,7 @@ export default function AddBrand() {
                     <td className="p-3">{(pagination.page - 1) * pagination.pageSize + idx + 1}</td>
                     <td className="p-3">{brand.stockGroupId}</td>
                     <td className="p-3">{brand.name}</td>
+                    <td className="p-3">{stores.find((store) => store.storeId === brand.storeId)?.name || brand.storeId}</td>
                     <td className="p-3">{brand.brand_code}</td>
                     <td className="p-3">{brand.gstNumber}</td>
                     <td className="p-3">

@@ -19,6 +19,10 @@ const emptyForm = {
   address: '',
   number: '',
   gstNumber: '',
+  storeEmail: '',
+  state: '',
+  code: '',
+  storePanNumber: '',
   latitude: '',
   longitude: '',
   status: 'active',
@@ -143,8 +147,8 @@ export default function StoreManagement() {
   };
 
   const handleAddStore = async () => {
-    if (!formData.name || !formData.address) {
-      toast.error('Store name and address are required');
+    if (!formData.name || !formData.address || !formData.storeEmail || !formData.state || !formData.code || !formData.storePanNumber) {
+      toast.error('Store name, address, email, state, code, and PAN are required');
       return;
     }
 
@@ -159,6 +163,10 @@ export default function StoreManagement() {
         address: formData.address.trim(),
         number: formData.number,
         gstNumber: formData.gstNumber.trim(),
+        storeEmail: formData.storeEmail.trim(),
+        state: formData.state.trim(),
+        code: formData.code.trim(),
+        storePanNumber: formData.storePanNumber.trim(),
         latitude: Number(formData.latitude),
         longitude: Number(formData.longitude),
       });
@@ -176,6 +184,10 @@ export default function StoreManagement() {
       address: store.address || '',
       number: store.number ?? '',
       gstNumber: store.gstNumber || '',
+      storeEmail: store.storeEmail || '',
+      state: store.state || '',
+      code: store.code || '',
+      storePanNumber: store.storePanNumber || '',
       latitude: store.latitude != null ? String(store.latitude) : '',
       longitude: store.longitude != null ? String(store.longitude) : '',
       status: store.status || 'active',
@@ -189,8 +201,8 @@ export default function StoreManagement() {
 
   const handleUpdateStore = () => {
     if (!editingStore?.storeId) return;
-    if (!editForm.name.trim() || !editForm.address.trim()) {
-      toast.error('Store name and address are required');
+    if (!editForm.name.trim() || !editForm.address.trim() || !editForm.storeEmail.trim() || !editForm.state.trim() || !editForm.code.trim() || !editForm.storePanNumber.trim()) {
+      toast.error('Store name, address, email, state, code, and PAN are required');
       return;
     }
 
@@ -206,6 +218,10 @@ export default function StoreManagement() {
         address: editForm.address.trim(),
         number: editForm.number,
         gstNumber: editForm.gstNumber.trim(),
+        storeEmail: editForm.storeEmail.trim(),
+        state: editForm.state.trim(),
+        code: editForm.code.trim(),
+        storePanNumber: editForm.storePanNumber.trim(),
         status: editForm.status,
         latitude: Number(editForm.latitude),
         longitude: Number(editForm.longitude),
@@ -436,6 +452,46 @@ export default function StoreManagement() {
                 placeholder="GST Number"
               />
             </div>
+            <div>
+              <label className={modalLabelClass}>Store Email</label>
+              <input
+                type="email"
+                value={formData.storeEmail}
+                onChange={(e) => setFormData({ ...formData, storeEmail: e.target.value })}
+                className={modalInputClass}
+                placeholder="store@example.com"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>State</label>
+              <input
+                type="text"
+                value={formData.state}
+                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                className={modalInputClass}
+                placeholder="State"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Code</label>
+              <input
+                type="text"
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                className={modalInputClass}
+                placeholder="Store code"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Store PAN Number</label>
+              <input
+                type="text"
+                value={formData.storePanNumber}
+                onChange={(e) => setFormData({ ...formData, storePanNumber: e.target.value })}
+                className={modalInputClass}
+                placeholder="PAN number"
+              />
+            </div>
             <LocationFields
               form={formData}
               setForm={setFormData}
@@ -501,6 +557,42 @@ export default function StoreManagement() {
                 type="text"
                 value={editForm.gstNumber}
                 onChange={(e) => setEditForm({ ...editForm, gstNumber: e.target.value })}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Store Email</label>
+              <input
+                type="email"
+                value={editForm.storeEmail}
+                onChange={(e) => setEditForm({ ...editForm, storeEmail: e.target.value })}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>State</label>
+              <input
+                type="text"
+                value={editForm.state}
+                onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Code</label>
+              <input
+                type="text"
+                value={editForm.code}
+                onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Store PAN Number</label>
+              <input
+                type="text"
+                value={editForm.storePanNumber}
+                onChange={(e) => setEditForm({ ...editForm, storePanNumber: e.target.value })}
                 className={modalInputClass}
               />
             </div>

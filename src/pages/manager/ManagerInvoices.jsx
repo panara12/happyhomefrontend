@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Search, Eye, CheckCircle, XCircle, Printer, Send, Edit2, Plus, RefreshCw
+  Search, Eye, CheckCircle, XCircle, Download, Send, Edit2, Plus, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,7 +19,7 @@ import ViewInvoiceModal from './ViewInvoiceModal';
 import CreateInvoiceModal from './CreateInvoiceModal';
 import ApprovePaymentModal from './ApprovePaymentModal';
 import { ConfirmModal } from '../admin/ConfirmModal';
-import { printInvoice } from '../../utils/printInvoice';
+import { downloadInvoicePdf, printInvoice } from '../../utils/printInvoice';
 import { useStoreContext } from '../../context/storeContext';
 
 const PAGE_SIZE = 10;
@@ -102,6 +102,22 @@ function sortByRecentDecision(a, b) {
   const aTime = new Date(a.approvedAt || a.updatedAt || a.createdAt || 0).getTime();
   const bTime = new Date(b.approvedAt || b.updatedAt || b.createdAt || 0).getTime();
   return bTime - aTime;
+}
+
+function TallySyncStatus({ tallySync }) {
+  const status = tallySync?.status || (tallySync?.synced ? 'synced' : 'pending');
+  const styles = {
+    synced: 'bg-green-100 text-green-700',
+    pending: 'bg-yellow-100 text-yellow-700',
+    failed: 'bg-red-100 text-red-700',
+  };
+  const labels = { synced: 'Synced', pending: 'Pending', failed: 'Failed' };
+
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${styles[status] || styles.pending}`}>
+      {labels[status] || 'Pending'}
+    </span>
+  );
 }
 
 function patchStoreInvoicesCache(queryClient, updatedInvoice) {
@@ -288,6 +304,15 @@ export default function ManagerInvoices() {
       toast.success(`Print ready for ${invoice.invoiceNumber}`);
     } else {
       toast.error('Unable to print this invoice. Please try again.');
+    }
+  };
+
+  const handleDownloadPdf = (invoice) => {
+    const ok = downloadInvoicePdf(invoice, resolveStore(invoice));
+    if (ok) {
+      toast.success(`Preparing PDF for ${invoice.invoiceNumber}`);
+    } else {
+      toast.error('Unable to download this invoice. Please try again.');
     }
   };
 
@@ -547,13 +572,14 @@ export default function ManagerInvoices() {
                   <th className="px-4 py-3 text-left text-sm">Phone</th>
                   <th className="px-4 py-3 text-left text-sm">Approved</th>
                   <th className="px-4 py-3 text-right text-sm">Total</th>
+                  <th className="px-4 py-3 text-center text-sm">Tally Sync</th>
                   <th className="px-4 py-3 text-center text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {pagination.paginatedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                       No approved invoices.
                     </td>
                   </tr>
@@ -565,6 +591,7 @@ export default function ManagerInvoices() {
                       <td className="px-4 py-3 text-gray-600">{invoice.customerPhone || '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{formatDate(invoice.approvedAt || invoice.createdAt)}</td>
                       <td className="px-4 py-3 text-right font-bold text-gray-800">{formatMoney(invoice.total)}</td>
+                      <td className="px-4 py-3 text-center"><TallySyncStatus tallySync={invoice.tallySync} /></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
                           <button
@@ -575,11 +602,11 @@ export default function ManagerInvoices() {
                             <Eye size={16} />
                           </button>
                           <button
-                            onClick={() => handlePrint(invoice)}
+                            onClick={() => handleDownloadPdf(invoice)}
                             className="p-2 hover:bg-purple-50 rounded-lg text-purple-600"
-                            title="Print"
+                            title="Download PDF"
                           >
-                            <Printer size={16} />
+                            <Download size={16} />
                           </button>
                           <button
                             onClick={() => handleSendPdf(invoice)}

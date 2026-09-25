@@ -11,6 +11,28 @@ import Modal, {
   modalPrimaryBtnClass,
 } from '../../components/ui/Modal';
 
+function TallySyncStatus({ tallySync }) {
+  const status = tallySync?.status || (tallySync?.synced ? 'synced' : 'not-synced');
+  const styles = {
+    synced: 'bg-green-100 text-green-700',
+    pending: 'bg-yellow-100 text-yellow-700',
+    failed: 'bg-red-100 text-red-700',
+    'not-synced': 'bg-gray-100 text-gray-600',
+  };
+  const labels = {
+    synced: 'Synced',
+    pending: 'Pending',
+    failed: 'Failed',
+    'not-synced': 'Not synced',
+  };
+
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${styles[status] || styles['not-synced']}`}>
+      {labels[status] || labels['not-synced']}
+    </span>
+  );
+}
+
 export default function InvoiceManagement({ user }) {
   const [invoices, setInvoices] = useState([
     {
@@ -164,7 +186,7 @@ export default function InvoiceManagement({ user }) {
         store: formData.store,
         items: formData.items,
         total: calculateTotal(),
-        status: user.role === 'manager' ? 'Approved' : 'Pending',
+        status: 'Pending',
         sentToWhatsApp: false,
         createdBy: user.name
       };
@@ -217,6 +239,16 @@ export default function InvoiceManagement({ user }) {
   const handlePrintInvoice = (invoice) => {
     toast.success(`Printing invoice ${invoice.id}...`);
     window.print();
+  };
+
+  const handleDownloadInvoicePdf = (invoice) => {
+    const previousTitle = document.title;
+    document.title = invoice.id || 'invoice';
+    toast.success(`Preparing PDF for ${invoice.id}...`);
+    window.print();
+    setTimeout(() => {
+      document.title = previousTitle;
+    }, 1000);
   };
 
   const handleSendToWhatsApp = (invoice) => {
@@ -416,6 +448,7 @@ export default function InvoiceManagement({ user }) {
                       <th className="px-4 py-3 text-left text-sm">Phone</th>
                       <th className="px-4 py-3 text-left text-sm">Date</th>
                       <th className="px-4 py-3 text-right text-sm">Total</th>
+                      <th className="px-4 py-3 text-center text-sm">Tally Sync</th>
                       <th className="px-4 py-3 text-center text-sm">Actions</th>
                     </tr>
                   </thead>
@@ -427,6 +460,7 @@ export default function InvoiceManagement({ user }) {
                         <td className="px-4 py-3 text-gray-600">{invoice.phone}</td>
                         <td className="px-4 py-3 text-gray-600">{invoice.date}</td>
                         <td className="px-4 py-3 text-right font-bold text-gray-800">₹{invoice.total.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-center"><TallySyncStatus tallySync={invoice.tallySync} /></td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
                             <button
@@ -440,12 +474,13 @@ export default function InvoiceManagement({ user }) {
                               <Eye size={16} />
                             </button>
                             <button
-                              onClick={() => handlePrintInvoice(invoice)}
+                              onClick={() => handleDownloadInvoicePdf(invoice)}
                               className="p-2 hover:bg-purple-50 rounded-lg text-purple-600"
-                              title="Print"
+                              title="Download PDF"
                             >
-                              <Printer size={16} />
+                              <Download size={16} />
                             </button>
+                            
                             <button
                               onClick={() => handleSendToWhatsApp(invoice)}
                               className={`p-2 rounded-lg ${
