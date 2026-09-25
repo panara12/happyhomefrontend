@@ -15,7 +15,7 @@ export function useGetAllUnits() {
     });
 }
 
-export function useAddUser() {
+export function useAddUnit() {
     return useApiMutation({
         url: "/units/addunit",
         method: "post",
@@ -23,10 +23,10 @@ export function useAddUser() {
     });
 }
 
-export function useUpdateUser() {
+export function useUpdateUnit() {
     return useApiMutation({
-        url: (variable) => `/users/updateunit/${variable.id}`,
-        method: "post",
+        url: (variable) => `/units/updateunit/${variable.id}`,
+        method: "put",
         invalidateKeys: [UNITS_QUERY_KEY],
     });
 }

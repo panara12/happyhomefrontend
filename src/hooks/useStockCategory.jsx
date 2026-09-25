@@ -28,9 +28,9 @@ export function useUpdateStockCategory() {
     });
 }
 
-export function useDeleteStockCategory(id){
+export function useDeleteStockCategory(){
     return useApiMutation({
-        url: `/stockcategory/deletestockcategory/${id}`,
+        url: (categoryId) => `/stockcategory/deletestockcategory/${categoryId}`,
         method: 'delete',
         invalidateKeys: [STOCK_CATEGORY_KEY],
     })

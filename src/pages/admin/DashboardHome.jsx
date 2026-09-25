@@ -22,159 +22,154 @@ export default function DashboardHome({ user: userProp } = {}) {
   const purchase = dashboardData?.purchaseValue?.[0];
   const salesReturn = dashboardData?.salesReturns?.[0];
 
-  const stats =
-    userType === 'admin'
-      ? [
-          {
-            label: 'Net Profit (Month)',
-            value: '₹5.33L',
-            change: '+15.8%',
-            trend: 'up',
-            icon: TrendingUp,
-            color: 'bg-green-500',
-          },
-          {
-            label: 'Sales Revenue',
-            value: `₹${money(dashboardData?.totalSales)}`,
-            change: '+12.5%',
-            trend: 'up',
-            icon: DollarSign,
-            color: 'bg-blue-500',
-          },
-          {
-            label: 'Purchase Value',
-            value: `₹${money(purchase?.totalAmount)}`,
-            change: '+8.2%',
-            trend: 'up',
-            icon: Receipt,
-            color: 'bg-purple-500',
-          },
-          {
-            label: 'GST Payable',
-            value: `₹${money(purchase?.totalGst)}`,
-            change: 'Net tax',
-            trend: 'up',
-            icon: BarChart3,
-            color: 'bg-orange-500',
-          },
-          {
-            label: 'Sales Returns',
-            value: `₹${money(salesReturn?.totalAmount)}`,
-            change: `${salesReturn?.count || 0} returns`,
-            trend: 'down',
-            icon: RotateCcw,
-            color: 'bg-red-500',
-          },
-          {
-            label: 'Total Stores',
-            value: dashboardData?.storeCount ?? 0,
-            change: 'Active',
-            trend: 'up',
-            icon: Store,
-            color: 'bg-cyan-500',
-          },
-          {
-            label: 'Total Inventory',
-            value: dashboardData?.totalStock?.items_purchased ?? 0,
-            change: '-5.2%',
-            trend: 'down',
-            icon: Package,
-            color: 'bg-indigo-500',
-          },
-          {
-            label: 'Active Users',
-            value: dashboardData?.teamCount ?? 0,
-            change: '+2 new',
-            trend: 'up',
-            icon: Users,
-            color: 'bg-pink-500',
-          },
-        ]
-      : userType === 'manager'
-        ? [
-            {
-              label: 'Store Revenue',
-              value: `₹${money(dashboardData?.totalSales)}`,
-              change: '+15.2%',
-              trend: 'up',
-              icon: DollarSign,
-              color: 'bg-green-500',
-            },
-            {
-              label: 'Store Inventory',
-              value: dashboardData?.totalStock?.items_purchased ?? 0,
-              change: '-3.1%',
-              trend: 'down',
-              icon: Package,
-              color: 'bg-purple-500',
-            },
-            {
-              label: 'Invoices (Month)',
-              value: dashboardData?.invoices ?? 0,
-              change: '+10.5%',
-              trend: 'up',
-              icon: FileText,
-              color: 'bg-orange-500',
-            },
-            {
-              label: 'Sales Team',
-              value: dashboardData?.teamCount ?? 0,
-              change: '+1 new',
-              trend: 'up',
-              icon: Users,
-              color: 'bg-pink-500',
-            },
-            {
-              label: 'Pending POs',
-              value: dashboardData?.pendingPOs ?? 0,
-              change: '+3',
-              trend: 'up',
-              icon: ShoppingCart,
-              color: 'bg-amber-500',
-            },
-            {
-              label: 'Store Transfers',
-              value: dashboardData?.storeTransfers ?? 0,
-              change: '+2',
-              trend: 'up',
-              icon: Store,
-              color: 'bg-blue-500',
-            },
-          ]
-        : [
-            {
-              label: 'My Invoices',
-              value: dashboardData?.invoices ?? 0,
-              change: '+5 today',
-              trend: 'up',
-              icon: FileText,
-              color: 'bg-orange-500',
-            },
-            {
-              label: 'Total Sales',
-              value: `₹${money(dashboardData?.totalSales)}`,
-              change: '+18.2%',
-              trend: 'up',
-              icon: DollarSign,
-              color: 'bg-green-500',
-            },
-            {
-              label: 'Store Inventory',
-              value: dashboardData?.totalStock?.items_purchased ?? 0,
-              change: '-3.1%',
-              trend: 'down',
-              icon: Package,
-              color: 'bg-purple-500',
-            },
-            {
-              label: 'Customers',
-              value: dashboardData?.customerCount ?? 0,
-              change: '+12',
-              trend: 'up',
-              icon: Users,
-              color: 'bg-pink-500',
-            },
-          ];
+  const stats = user?.userType === 'admin' ? [
+    // {
+    //   label: 'Net Profit (Month)',
+    //   value: '₹5.33L',
+    //   change: '+15.8%',
+    //   trend: 'up',
+    //   icon: TrendingUp,
+    //   color: 'bg-green-500'
+    // },
+    {
+      label: 'Sales Revenue',
+      value: `₹${dashboardData?.totalSales?.toLocaleString('en-IN') || '0'}`,
+      change: '+12.5%',
+      trend: 'up',
+      icon: DollarSign,
+      color: 'bg-blue-500'
+    },
+    {
+      label: 'Purchase Value',
+      value: `₹${dashboardData?.purchaseValue[0]?.totalAmount?.toLocaleString('en-IN') || '0'}`,
+      change: '+8.2%',
+      trend: 'up',
+      icon: Receipt,
+      color: 'bg-purple-500'
+    },
+    {
+      label: 'GST Payable',
+      value: `₹${dashboardData?.purchaseValue[0]?.totalGst?.toLocaleString('en-IN') || '0'}`,
+      change: 'Net tax',
+      trend: 'up',
+      icon: BarChart3,
+      color: 'bg-orange-500'
+    },
+    {
+      label: 'Sales Returns',
+      value: `₹${dashboardData?.salesReturns[0]?.totalAmount?.toLocaleString('en-IN') || '0'}`,
+      change: `${dashboardData?.salesReturns[0]?.count || '0'} returns`,
+      trend: 'down',
+      icon: RotateCcw,
+      color: 'bg-red-500'
+    },
+    {
+      label: 'Total Stores',
+      value: dashboardData?.storeCount ? dashboardData.storeCount : '0',
+      change: 'Active',
+      trend: 'up',
+      icon: Store,
+      color: 'bg-cyan-500'
+    },
+    {
+      label: 'Total Inventory',
+      value: dashboardData?.totalStock?.items_purchased ? dashboardData.totalStock.items_purchased : '0',
+      change: '-5.2%',
+      trend: 'down',
+      icon: Package,
+      color: 'bg-indigo-500'
+    },
+    {
+      label: 'Active Users',
+      value: dashboardData?.teamCount ? dashboardData.teamCount : '0',
+      change: '+2 new',
+      trend: 'up',
+      icon: Users,
+      color: 'bg-pink-500'
+    },
+  ] : user.userType === 'manager' ? [
+    {
+      label: 'Store Revenue',
+      value: dashboardData?.totalSales ? `₹${dashboardData.totalSales.toLocaleString('en-IN')}` : '₹0',
+      change: '+15.2%',
+      trend: 'up',
+      icon: DollarSign,
+      color: 'bg-green-500'
+    },
+    {
+      label: 'Store Inventory',
+      value: dashboardData?.totalStock?.items_purchased ? dashboardData.totalStock.items_purchased : '0',
+      change: '-3.1%',
+      trend: 'down',
+      icon: Package,
+      color: 'bg-purple-500'
+    },
+    {
+      label: 'Invoices (Month)',
+      value: dashboardData?.invoices ? dashboardData.invoices : '0',
+      change: '+10.5%',
+      trend: 'up',
+      icon: FileText,
+      color: 'bg-orange-500'
+    },
+    {
+      label: 'Sales Team',
+      value: dashboardData?.teamCount ? dashboardData.teamCount : '0',
+      change: '+1 new',
+      trend: 'up',
+      icon: Users,
+      color: 'bg-pink-500'
+    },
+    {
+      label: 'Pending POs',
+      value: dashboardData?.pendingPOs ? dashboardData.pendingPOs : '0',
+      change: '+3',
+      trend: 'up',
+      icon: ShoppingCart,
+      color: 'bg-amber-500'
+    },
+    {
+      label: 'Store Transfers',
+      value: dashboardData?.storeTransfers ? dashboardData.storeTransfers : '0',
+      change: '+2',
+      trend: 'up',
+      icon: Store,
+      color: 'bg-blue-500'
+    },
+  ] : [
+    {
+      label: 'My Invoices',
+      value: dashboardData?.invoices || '0',
+      change: '+5 today',
+      trend: 'up',
+      icon: FileText,
+      color: 'bg-orange-500'
+    },
+    {
+      label: 'Total Sales',
+      value: `₹${dashboardData?.totalSales?.toLocaleString('en-IN') || '0'}`,
+      change: '+18.2%',
+      trend: 'up',
+      icon: DollarSign,
+      color: 'bg-green-500'
+    },
+    {
+      label: 'Store Inventory',
+      value: dashboardData?.totalStock?.items_purchased || '0',
+      change: '-3.1%',
+      trend: 'down',
+      icon: Package,
+      color: 'bg-purple-500'
+    },
+    {
+      label: 'Customers',
+      value: dashboardData?.customerCount || 0,
+      change: '+12',
+      trend: 'up',
+      icon: Users,
+      color: 'bg-pink-500'
+    },
+  ];
 
   const recentActivity = [
     { action: 'Purchase bill created', store: 'Store 1 - ₹2,28,000', time: '5 mins ago', type: 'purchase-bill' },
@@ -288,7 +283,8 @@ export default function DashboardHome({ user: userProp } = {}) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-md p-6">
+        {/* Recent Activity */}
+        {/* <div className="bg-white rounded-xl shadow-md p-6">
           <h3 className="text-xl font-bold text-gray-800 mb-4">Recent Activity</h3>
           <div className="space-y-4">
             {recentActivity.map((activity, index) => (
@@ -311,9 +307,10 @@ export default function DashboardHome({ user: userProp } = {}) {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
 
-        {userType === 'admin' && (
+        {/* Quick Actions for Admin */}
+        {/* {user.role === 'admin' && (
           <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -343,9 +340,10 @@ export default function DashboardHome({ user: userProp } = {}) {
               </button>
             </div>
           </div>
-        )}
+        )} */}
 
-        <div className="bg-white rounded-xl shadow-md p-6">
+        {/* Low Stock Alert */}
+        {/* <div className="bg-white rounded-xl shadow-md p-6">
           <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
             <span className="bg-red-100 text-red-600 p-2 rounded-lg">
               <Package size={20} />
@@ -374,7 +372,7 @@ export default function DashboardHome({ user: userProp } = {}) {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

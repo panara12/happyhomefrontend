@@ -18,6 +18,7 @@ import logoImg from "../../assets/logo.jpg"
 import AddCategory from "./AddCategory"
 import AddBrand from "./addBrand"
 import { StoreContext, useStoreContext } from "../../context/storeContext"
+import AddUnit from "./addUnit"
 
 const ACCOUNTING_THEME = {
   gradientFrom: "from-indigo-900",
@@ -41,6 +42,7 @@ const navigationItems = [
   { id: "inventory", label: "Inventory Status", icon: Package, path: "/accounting/inventory" },
   { id: "category", label: "Category", icon: Package, path: "/accounting/category" },
   { id: "brand", label: "Brand", icon: Package, path: "/accounting/brand" },
+  { id: "unit", label: "Unit", icon: Package, path: "/accounting/unit" },
 ]
 
 function LayoutWrapper({ children, user }) {
@@ -87,6 +89,7 @@ export default function AccountingRouter() {
           <Route path="/transfers" element={<ViewTransfers user={user} />} />
           <Route path="/category" element={<AddCategory user={user} />} />
           <Route path="/brand" element={<AddBrand user={user} />} />
+          <Route path="/unit" element={<AddUnit user={user} />} />
           <Route path="/inventory" element={<InventoryManagement user={user} />} />
           <Route path="*" element={<Navigate to="/accounting/dashboard" replace />} />
         </Routes>
