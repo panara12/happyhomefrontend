@@ -1,14 +1,26 @@
 import { TrendingUp, TrendingDown, Package, FileText, Store, Users, DollarSign, ShoppingCart, Receipt, RotateCcw, BarChart3 } from 'lucide-react';
+import { useSelector } from 'react-redux';
 import { useLoggedUserContext } from '../../context/loggedUserContext';
 import { useGetDashboardData } from '../../hooks/useGetAllAccountStates';
 
-export default function DashboardHome() {
+function money(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString('en-IN');
+}
 
-    const { loggedUser} = useLoggedUserContext();
-    const user =  loggedUser
-    console.log(user)
-    const { data: dashboardData } = useGetDashboardData();
-    console.log("dashboardData", dashboardData)
+export default function DashboardHome({ user: userProp } = {}) {
+  const { loggedUser, loggedUserLoading } = useLoggedUserContext();
+  const reduxUser = useSelector((state) => state.app.userInfo);
+  const user = userProp || reduxUser || (loggedUser && !Array.isArray(loggedUser) ? loggedUser : null);
+  const userType = user?.userType || user?.role || '';
+
+  const { data: dashboardData } = useGetDashboardData({
+    enabled: Boolean(userType),
+  });
+
+  const purchase = dashboardData?.purchaseValue?.[0];
+  const salesReturn = dashboardData?.salesReturns?.[0];
 
   const stats = user?.userType === 'admin' ? [
     // {
@@ -175,19 +187,27 @@ export default function DashboardHome() {
     { name: 'Product C', store: 'Store 3', quantity: 8, minStock: 25 },
   ];
 
+  const displayName = user?.fullName || user?.name || user?.username || 'there';
+
+  if (loggedUserLoading && !user) {
+    return (
+      <div className="p-8 text-center text-gray-500">Loading dashboard...</div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Welcome back, {user.name}!</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Welcome back, {displayName}!</h1>
           <p className="text-gray-600 mt-1">
-            {user.role === 'admin'
+            {userType === 'admin'
               ? "Here's what's happening with your stores today"
-              : user.role === 'manager' && user.storeId
-              ? `Here's what's happening at Store ${user.storeId} today`
-              : user.role === 'manager'
-              ? "Here's what's happening at your store today"
-              : `Here's your performance overview`}
+              : userType === 'manager' && user?.storeId
+                ? `Here's what's happening at Store ${user.storeId} today`
+                : userType === 'manager'
+                  ? "Here's what's happening at your store today"
+                  : "Here's your performance overview"}
           </p>
         </div>
         <div className="text-sm text-gray-500">
@@ -195,7 +215,6 @@ export default function DashboardHome() {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
           <div key={index} className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
@@ -222,8 +241,7 @@ export default function DashboardHome() {
         ))}
       </div>
 
-      {/* Financial Summary for Admin */}
-      {user.role === 'admin' && (
+      {userType === 'admin' && (
         <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 text-white rounded-xl shadow-xl p-6">
           <h3 className="text-2xl font-bold mb-6">Monthly Financial Summary</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -280,7 +298,7 @@ export default function DashboardHome() {
                   activity.type === 'gst' ? 'bg-indigo-500' :
                   activity.type === 'user' ? 'bg-pink-500' :
                   'bg-gray-500'
-                }`}></div>
+                }`} />
                 <div className="flex-1">
                   <p className="font-medium text-gray-800">{activity.action}</p>
                   <p className="text-sm text-gray-600">{activity.store}</p>
@@ -296,27 +314,27 @@ export default function DashboardHome() {
           <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-3">
-              <button className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-left">
+              <button type="button" className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-left">
                 <Receipt className="text-blue-600 mb-2" size={24} />
                 <p className="font-medium text-gray-800 text-sm">Purchase Bill</p>
               </button>
-              <button className="p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-left">
+              <button type="button" className="p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-left">
                 <FileText className="text-green-600 mb-2" size={24} />
                 <p className="font-medium text-gray-800 text-sm">Sales Invoice</p>
               </button>
-              <button className="p-4 bg-red-50 hover:bg-red-100 rounded-lg transition-colors text-left">
+              <button type="button" className="p-4 bg-red-50 hover:bg-red-100 rounded-lg transition-colors text-left">
                 <RotateCcw className="text-red-600 mb-2" size={24} />
                 <p className="font-medium text-gray-800 text-sm">Sales Return</p>
               </button>
-              <button className="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-left">
+              <button type="button" className="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-left">
                 <BarChart3 className="text-purple-600 mb-2" size={24} />
                 <p className="font-medium text-gray-800 text-sm">GST Reports</p>
               </button>
-              <button className="p-4 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors text-left">
+              <button type="button" className="p-4 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors text-left">
                 <TrendingUp className="text-amber-600 mb-2" size={24} />
                 <p className="font-medium text-gray-800 text-sm">P&L Report</p>
               </button>
-              <button className="p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors text-left">
+              <button type="button" className="p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors text-left">
                 <DollarSign className="text-orange-600 mb-2" size={24} />
                 <p className="font-medium text-gray-800 text-sm">Expenses</p>
               </button>
@@ -349,7 +367,7 @@ export default function DashboardHome() {
                   <div
                     className="bg-red-600 h-full"
                     style={{ width: `${(item.quantity / item.minStock) * 100}%` }}
-                  ></div>
+                  />
                 </div>
               </div>
             ))}

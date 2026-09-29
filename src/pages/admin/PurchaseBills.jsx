@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Search, Download, Eye, Calendar, CheckCircle, RefreshCw } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllPurchaseBill } from '../../hooks/usePurchaseBill';
+import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 import { useSyncPendingTally } from '../../hooks/useTally';
 import Modal, {
   modalInputClass,
@@ -12,29 +13,88 @@ import Modal, {
   modalSecondaryBtnClass,
 } from '../../components/ui/Modal';
 
+const emptyForm = {
+  supplierId: '',
+  supplier: '',
+  supplierGSTIN: '',
+  billNumber: '',
+  date: new Date().toISOString().split('T')[0],
+  store: '',
+  items: [{ product: '', hsn: '', quantity: 1, rate: 0, gstRate: 18 }],
+};
+
 export default function PurchaseBills() {
   const { stores } = useStoreContext();
   const { data: purchaseBillsData, isLoading: billsLoading } = useGetAllPurchaseBill();
   const bills = purchaseBillsData?.bills ?? [];
   const syncPendingTally = useSyncPendingTally();
+  const { data: stockGroupData } = useGetAllStockGroup();
+  const brands = stockGroupData?.data ?? [];
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [viewingBill, setViewingBill] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [formData, setFormData] = useState(emptyForm);
+  const [supplierQuery, setSupplierQuery] = useState('');
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+  const supplierBoxRef = useRef(null);
 
-  // NOTE: this "Add Purchase Bill" form is still local-only and does not
-  // call any create API. It also doesn't collect brand / category / unit /
-  // barcode_text, which your PurchaseBill schema marks as required on each
-  // item -- so it can't be wired to useAddPurchaseBill as-is. Real bill
-  // creation already exists on the Accounting > Purchase Bills page.
-  const [formData, setFormData] = useState({
-    supplier: '',
-    supplierGSTIN: '',
-    billNumber: '',
-    date: new Date().toISOString().split('T')[0],
-    store: '',
-    items: [{ product: '', hsn: '', quantity: 1, rate: 0, gstRate: 18 }]
-  });
+  const supplierSuggestions = useMemo(() => {
+    const q = supplierQuery.trim().toLowerCase();
+    if (!q) return brands.slice(0, 20);
+    return brands
+      .filter(
+        (b) =>
+          b.name?.toLowerCase().includes(q) ||
+          b.brand_code?.toLowerCase().includes(q) ||
+          b.gstNumber?.toLowerCase().includes(q)
+      )
+      .slice(0, 20);
+  }, [brands, supplierQuery]);
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!supplierBoxRef.current?.contains(e.target)) {
+        setShowSupplierDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  const openAddModal = () => {
+    setFormData({
+      ...emptyForm,
+      date: new Date().toISOString().split('T')[0],
+      items: [{ product: '', hsn: '', quantity: 1, rate: 0, gstRate: 18 }],
+    });
+    setSupplierQuery('');
+    setShowSupplierDropdown(false);
+    setShowAddModal(true);
+  };
+
+  const selectSupplier = (brand) => {
+    setFormData((prev) => ({
+      ...prev,
+      supplierId: brand._id,
+      supplier: brand.name || '',
+      supplierGSTIN: brand.gstNumber || '',
+    }));
+    setSupplierQuery(brand.name || '');
+    setShowSupplierDropdown(false);
+  };
+
+  const handleSupplierInputChange = (value) => {
+    setSupplierQuery(value);
+    setShowSupplierDropdown(true);
+    // Typing clears previous selection until a brand is picked again
+    setFormData((prev) => ({
+      ...prev,
+      supplierId: '',
+      supplier: value,
+      supplierGSTIN: '',
+    }));
+  };
 
   const handleAddItem = () => {
     setFormData({
@@ -103,7 +163,7 @@ export default function PurchaseBills() {
             {syncPendingTally.isPending ? 'Syncing Tally…' : 'Sync Pending to Tally'}
           </button>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={openAddModal}
             className="flex items-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 text-white px-6 py-3 rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all shadow-lg"
           >
             <Plus size={20} />
@@ -366,24 +426,50 @@ export default function PurchaseBills() {
           }
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
-            <div>
+            <div ref={supplierBoxRef} className="relative">
               <label className={modalLabelClass}>Supplier Name</label>
               <input
                 type="text"
-                value={formData.supplier}
-                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                value={supplierQuery}
+                onChange={(e) => handleSupplierInputChange(e.target.value)}
+                onFocus={() => setShowSupplierDropdown(true)}
                 className={modalInputClass}
-                placeholder="Enter supplier name"
+                placeholder="Search brand / supplier name..."
+                autoComplete="off"
               />
+              {showSupplierDropdown && (
+                <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                  {supplierSuggestions.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-gray-500">No matching brands</p>
+                  ) : (
+                    supplierSuggestions.map((brand) => (
+                      <button
+                        key={brand._id}
+                        type="button"
+                        onClick={() => selectSupplier(brand)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 border-b border-gray-100 last:border-b-0"
+                      >
+                        <span className="font-medium text-gray-800">{brand.name}</span>
+                        {brand.brand_code ? (
+                          <span className="ml-2 text-xs text-gray-500">({brand.brand_code})</span>
+                        ) : null}
+                        {brand.gstNumber ? (
+                          <span className="block text-xs text-gray-500">GSTIN: {brand.gstNumber}</span>
+                        ) : null}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
             <div>
               <label className={modalLabelClass}>Supplier GSTIN</label>
               <input
                 type="text"
                 value={formData.supplierGSTIN}
-                onChange={(e) => setFormData({ ...formData, supplierGSTIN: e.target.value })}
-                className={modalInputClass}
-                placeholder="29AABCS1234F1Z5"
+                readOnly
+                className={`${modalInputClass} bg-gray-100`}
+                placeholder="Auto-filled from selected brand"
               />
             </div>
             <div>

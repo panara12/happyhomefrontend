@@ -10,6 +10,27 @@ import Modal, {
   modalSecondaryBtnClass,
   modalPrimaryBtnClass,
 } from '../../components/ui/Modal';
+import { downloadInvoicePdf, printInvoice } from '../../utils/printInvoice';
+
+function toPrintableInvoice(invoice) {
+  return {
+    invoiceNumber: invoice.invoiceNumber || invoice.id,
+    customerName: invoice.customerName || invoice.customer,
+    customerPhone: invoice.customerPhone || invoice.phone,
+    createdAt: invoice.createdAt || invoice.date,
+    approvedAt: invoice.approvedAt,
+    total: invoice.total,
+    items: (invoice.items || []).map((item) => ({
+      productName: item.productName || item.product || item.name,
+      quantity: item.quantity,
+      price: item.price,
+      total: item.total ?? Number(item.quantity || 0) * Number(item.price || 0),
+      gst: item.gst ?? 18,
+      hsncode: item.hsncode || item.hsn || '',
+      unit: item.unit || 'NOS',
+    })),
+  };
+}
 
 function TallySyncStatus({ tallySync }) {
   const status = tallySync?.status || (tallySync?.synced ? 'synced' : 'not-synced');
@@ -237,18 +258,15 @@ export default function InvoiceManagement({ user }) {
   };
 
   const handlePrintInvoice = (invoice) => {
-    toast.success(`Printing invoice ${invoice.id}...`);
-    window.print();
+    const ok = printInvoice(toPrintableInvoice(invoice));
+    if (ok) toast.success(`Print ready for ${invoice.invoiceNumber || invoice.id}`);
+    else toast.error('Unable to print this invoice. Please try again.');
   };
 
   const handleDownloadInvoicePdf = (invoice) => {
-    const previousTitle = document.title;
-    document.title = invoice.id || 'invoice';
-    toast.success(`Preparing PDF for ${invoice.id}...`);
-    window.print();
-    setTimeout(() => {
-      document.title = previousTitle;
-    }, 1000);
+    const ok = downloadInvoicePdf(toPrintableInvoice(invoice));
+    if (ok) toast.success(`Preparing PDF for ${invoice.invoiceNumber || invoice.id}`);
+    else toast.error('Unable to download this invoice. Please try again.');
   };
 
   const handleSendToWhatsApp = (invoice) => {
