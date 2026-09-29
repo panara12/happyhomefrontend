@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Plus, Edit, Trash2 } from 'lucide-react'
 import { useAddStockGroup, useDeleteStockGroup, useUpdateStockGroup } from '../../hooks/useStockGroup'
 import { useGetAllStores } from '../../hooks/useStore'
-import { useStockGroupContext } from '../../context/stockgroupContext'
+import { useStockGroupContext } from '../../context/stockGroupContext'
 import { Pagination } from '../../components/ui/Pagination'
 import { usePagination } from '../../hooks/usePagination'
 
