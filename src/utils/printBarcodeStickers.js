@@ -15,10 +15,25 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;');
 }
 
-function money(value) {
+/** Whole-number display like the reference sticker (1050, 50, 520…) */
+function num(value) {
   const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return '';
-  return `₹${n.toLocaleString('en-IN')}`;
+  if (!Number.isFinite(n)) return '0';
+  return String(Math.round(n));
+}
+
+function resolvePricing(product) {
+  const mrp = Number(product?.mrp) || 0;
+  const disc = Number(product?.disc) || 0;
+  let discAmt = Number(product?.dict_amt);
+  if (!Number.isFinite(discAmt) || discAmt < 0) {
+    discAmt = Number(((mrp * disc) / 100).toFixed(2));
+  }
+  let offer = Number(product?.offer_price);
+  if (!Number.isFinite(offer) || offer < 0) {
+    offer = Math.max(0, mrp - discAmt);
+  }
+  return { mrp, disc, discAmt, offer };
 }
 
 /** Build CODE128 SVG markup for a barcode value */
@@ -30,27 +45,27 @@ function buildBarcodeSvg(value) {
   try {
     JsBarcode(svg, text, {
       format: 'CODE128',
-      width: 1.1,
-      height: 48,
+      width: 1.2,
+      height: 36,
       displayValue: false,
       margin: 0,
+      marginTop: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      marginRight: 0,
       background: '#ffffff',
       lineColor: '#000000',
     });
   } catch {
-    // Invalid barcode content — show text-only sticker
     return '';
   }
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('height', '48');
-  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svg.setAttribute('width', '90%');
+  svg.setAttribute('height', '36');
+  svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
+  svg.setAttribute('style', 'display:block;margin:0;padding:0;');
   return svg.outerHTML;
 }
 
-/**
- * Expand selected products + quantities into flat sticker list.
- * @param {Array<{ product: object, quantity: number }>} selections
- */
 function expandStickers(selections) {
   const stickers = [];
   for (const { product, quantity } of selections) {
@@ -72,22 +87,45 @@ function chunkRows(stickers, cols = COLS) {
 
 function stickerHtml(product) {
   const code = product?.barcode_text || product?.sku_code || product?.product_code || '';
-  const mrp = money(product?.mrp || product?.offer_price);
-  const brand =
-    typeof product?.brand === 'object'
-      ? product.brand?.name
-      : '';
+  const { mrp, disc, discAmt, offer } = resolvePricing(product);
   const barcodeSvg = buildBarcodeSvg(code);
 
   return `
     <div class="sticker">
       <div class="sticker-inner">
-        <div class="brand">${escapeHtml(brand || 'Happy Home')}</div>
-        <div class="barcode-wrap">
-          ${barcodeSvg || `<div class="barcode-fallback">${escapeHtml(code)}</div>`}
+        <div class="header">Happy Home</div>
+
+        <div class="barcode-block">
+          <div class="barcode-wrap">
+            ${barcodeSvg || `<div class="barcode-fallback">${escapeHtml(code)}</div>`}
+          </div>
+          <div class="code">${escapeHtml(code)}</div>
         </div>
-        <div class="code">${escapeHtml(code)}</div>
-        ${mrp ? `<div class="mrp">MRP ${escapeHtml(mrp)}</div>` : ''}
+
+        <div class="price-block">
+          <table class="price-table" cellspacing="0" cellpadding="0">
+            <tr>
+              <td class="price-cell">
+                <div class="price-label">MRP</div>
+                <div class="price-value">${escapeHtml(num(mrp))}</div>
+              </td>
+              <td class="price-cell">
+                <div class="price-label">DISC</div>
+                <div class="price-value">${escapeHtml(num(disc))}</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="price-cell">
+                <div class="price-label">DISC AMT</div>
+                <div class="price-value">${escapeHtml(num(discAmt))}</div>
+              </td>
+              <td class="price-cell price-cell-offer">
+                <div class="price-label">OFFER PRICE</div>
+                <div class="price-value">${escapeHtml(num(offer))}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
       </div>
     </div>
   `;
@@ -118,6 +156,8 @@ function buildPrintHtml(stickers) {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: ${ROW_W_IN}in;
+      margin: 0;
+      padding: 0;
       background: #fff;
       color: #000;
       -webkit-print-color-adjust: exact;
@@ -145,54 +185,114 @@ function buildPrintHtml(stickers) {
     .sticker-inner {
       width: 100%;
       height: 100%;
-      padding: 0.06in 0.04in;
+      padding: 0.04in 0.04in 0.03in;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 0.02in;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .header {
+      flex: 0 0 auto;
+      font-size: 8.5pt;
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.05;
+      margin: 0;
+      padding: 0;
+    }
+    .barcode-block {
+      flex: 0 0 auto;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: space-between;
-      text-align: center;
-      font-family: Arial, Helvetica, sans-serif;
-    }
-    .brand {
-      font-size: 7pt;
-      font-weight: 700;
-      line-height: 1.1;
-      max-height: 0.28in;
-      overflow: hidden;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
+      justify-content: flex-start;
+      gap: 0;
+      margin: 0;
+      padding: 0;
+      line-height: 0;
     }
     .barcode-wrap {
-      flex: 1;
+      flex: 0 0 auto;
       width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 0.7in;
+      height: auto;
+      display: block;
+      line-height: 0;
+      font-size: 0;
+      margin: 0;
+      padding: 0;
     }
     .barcode-wrap svg {
-      max-width: 0.92in;
-      height: auto;
-      max-height: 0.85in;
+      width: 90%;
+      height: 0.4in;
+      display: block;
+      margin: 0 auto;
+      padding: 0;
     }
     .barcode-fallback {
-      font-size: 8pt;
+      font-size: 7pt;
+      line-height: 1.1;
       word-break: break-all;
-      padding: 0.05in;
+      text-align: center;
     }
     .code {
+      flex: 0 0 auto;
       font-size: 7.5pt;
       font-weight: 700;
-      line-height: 1.15;
-      max-width: 100%;
+      text-align: center;
+      line-height: 1;
+      margin: 0;
+      padding: 0;
+      max-height: 0.22in;
       overflow: hidden;
-      word-break: break-all;
+      word-break: break-word;
     }
-    .mrp {
-      font-size: 8pt;
+    .price-block {
+      flex: 0 0 auto;
+      width: 100%;
+      margin-top: 0.04in;
+    }
+    .price-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .price-table td {
+      vertical-align: top;
+      text-align: center;
+      padding: 0.03in 0.015in 0;
+    }
+    .price-table tr:first-child td {
+      width: 50%;
+    }
+    .price-table tr:last-child td:first-child {
+      width: 40%;
+    }
+    .price-table tr:last-child td.price-cell-offer {
+      width: 60%;
+    }
+    .price-label {
+      font-size: 5.5pt;
       font-weight: 700;
       line-height: 1.1;
-      margin-top: 0.02in;
+      border-bottom: 0.75pt solid #000;
+      display: block;
+      width: 100%;
+      padding: 0 0 0.6pt;
+      margin: 0 0 1.5pt;
+      white-space: nowrap;
+      overflow: visible;
+      letter-spacing: 0;
+    }
+    .price-cell-offer .price-label {
+      font-size: 5pt;
+      letter-spacing: -0.015em;
+    }
+    .price-value {
+      font-size: 8.5pt;
+      font-weight: 700;
+      line-height: 1.15;
     }
     @media screen {
       body {
@@ -262,7 +362,6 @@ function triggerFramePrint(iframe) {
     }
   };
 
-  // Wait a tick so SVG barcodes paint before print dialog
   if (iframe.contentDocument?.readyState === 'complete') {
     setTimeout(run, 150);
   } else {
