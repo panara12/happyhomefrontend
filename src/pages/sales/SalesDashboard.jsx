@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FileText, Send, Plus, Calendar, UserCheck, LogOut, Wrench } from 'lucide-react';
+import { FileText, Send, Plus, Calendar, UserCheck, LogOut, Wrench, UserPlus } from 'lucide-react';
 import { CustomerSearch } from './CustomerSearch';
 import { ItemSearch } from './ItemSearch';
 import { InvoiceItems } from './InvoiceItems';
@@ -14,6 +14,7 @@ import { useLeaveContext } from '../../context/leaveContext';
 import { useAddLeave } from '../../hooks/useLeave';
 import { toast } from 'sonner';
 import Service from './Service';
+import LeadManagement from '../admin/LeadManagement';
 
 export default function SalesmanDashboard() {
   const user = useSelector((state) => state.app.userInfo);
@@ -229,6 +230,17 @@ export default function SalesmanDashboard() {
               <Wrench className="w-5 h-5" />
               Service
             </button>
+            <button
+              onClick={() => setActiveTab('leads')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'leads'
+                  ? 'border-amber-600 text-amber-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <UserPlus className="w-5 h-5" />
+              Leads
+            </button>
           </nav>
         </div>
       </div>
@@ -347,6 +359,7 @@ export default function SalesmanDashboard() {
         )}
 
         {activeTab === 'service' && <Service />}
+        {activeTab === 'leads' && <LeadManagement user={user} />}
       </main>
     </div>
   );

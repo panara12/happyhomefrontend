@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-
 import {
   LayoutDashboard, Package, FileText, Users,
   ShoppingCart, DollarSign, ArrowLeftRight, CreditCard,
-  Wrench
+  Wrench, UserPlus
 } from "lucide-react"
 
 import Layout from "../../layouts/adminLayout"
@@ -15,6 +15,7 @@ import TransferManagement from "../admin/TransferManagement"
 import UserManagement from "../admin/UserManagement"
 import PurchaseOrders from "../admin/PurchaseOrders"
 import ExpenseManagement from "../admin/ExpenseManagement"
+import LeadManagement from "../admin/LeadManagement"
 // import StoreManagement from "../../pages/manager/StoreManagement" // imported in original but not wired to any menu item — add a route if needed
 
 import { useSelector } from "react-redux"
@@ -33,6 +34,7 @@ const navigationItems = [
   { id: "sales-team", label: "Sales Team", icon: Users, path: "/manager/sales-team" },
   { id: "purchase", label: "Purchase Orders", icon: ShoppingCart, path: "/manager/purchase" },
   { id: "expenses", label: "Expenses", icon: DollarSign, path: "/manager/expenses" },
+  { id: "leads", label: "Leads", icon: UserPlus, path: "/manager/leads" },
   { id: "service", label: "Service", icon: Wrench, path: "/manager/service" },
 ]
 
@@ -82,6 +84,7 @@ export default function ManagerDashboard() {
         <Route path="/sales-team" element={<UserManagement user={user} />} />
         <Route path="/purchase" element={<PurchaseOrders user={user} />} />
         <Route path="/expenses" element={<ExpenseManagement user={user} />} />
+        <Route path="/leads" element={<LeadManagement user={user} />} />
         <Route path="/service" element={<ServicePanel user={user} />} />
         <Route path="*" element={<Navigate to="/manager/dashboard" replace />} />
       </Routes>

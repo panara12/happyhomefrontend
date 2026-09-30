@@ -196,6 +196,7 @@ export default function ManagerInvoices() {
   };
 
   const { data, isLoading, isError, refetch } = useGetStoreInvoices({
+    status: activeTab,
     q: debouncedSearch,
     fromDate,
     toDate,
@@ -210,6 +211,7 @@ export default function ManagerInvoices() {
   const invoices = data?.invoices || [];
   const summary = data?.summary || { total: 0, pending: 0, approved: 0, rejected: 0 };
 
+  // Always filter by status so keepPreviousData from another tab cannot leak into the list
   const pendingInvoices = useMemo(
     () => invoices.filter((inv) => inv.status === 'pending'),
     [invoices]
@@ -232,10 +234,11 @@ export default function ManagerInvoices() {
   const activeInvoices = tabLists[activeTab] || pendingInvoices;
   const pagination = usePagination(activeInvoices, { pageSize: PAGE_SIZE });
 
+  // Tab badges + cards use API summary (not date-filtered), so counts stay correct across tabs
   const tabCounts = {
-    pending: pendingInvoices.length,
-    approved: approvedInvoices.length,
-    rejected: rejectedInvoices.length,
+    pending: summary.pending,
+    approved: summary.approved,
+    rejected: summary.rejected,
   };
 
   const refreshInvoiceLists = async (updatedInvoice) => {
@@ -296,7 +299,9 @@ export default function ManagerInvoices() {
   };
 
   const resolveStore = (invoice) =>
-    stores.find((s) => String(s.storeId) === String(invoice?.storeId)) || null;
+    invoice?.store ||
+    stores.find((s) => String(s.storeId) === String(invoice?.storeId)) ||
+    null;
 
   const handlePrint = (invoice) => {
     const ok = printInvoice(invoice, resolveStore(invoice));
@@ -310,7 +315,7 @@ export default function ManagerInvoices() {
   const handleDownloadPdf = (invoice) => {
     const ok = downloadInvoicePdf(invoice, resolveStore(invoice));
     if (ok) {
-      toast.success(`Preparing PDF for ${invoice.invoiceNumber}`);
+      toast.success(`Print → Save as PDF for ${invoice.invoiceNumber}`);
     } else {
       toast.error('Unable to download this invoice. Please try again.');
     }
