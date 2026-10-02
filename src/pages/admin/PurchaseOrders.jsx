@@ -3,6 +3,7 @@ import { Plus, CheckCircle, Clock, XCircle, Search, Package, Pencil, MessageCirc
 import { toast } from 'sonner';
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllProducts } from '../../hooks/useProduct';
+import { useAddSupplier, useSearchSuppliers } from '../../hooks/useSupplier';
 import {
   useAddPurchaseOrder,
   useEditPurchaseOrder,
@@ -46,6 +47,7 @@ export default function PurchaseOrders() {
   const addPurchaseOrderMutation = useAddPurchaseOrder();
   const editPurchaseOrderMutation = useEditPurchaseOrder();
   const updatePurchaseOrderMutation = useUpdatePurchaseOrder();
+  const addSupplierMutation = useAddSupplier();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
@@ -56,6 +58,10 @@ export default function PurchaseOrders() {
     [userRole, user?.storeId]
   );
   const [formData, setFormData] = useState(initialFormData);
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
+  const [selectedSupplier, setSelectedSupplier] = useState(null);
+  const { data: supplierSearchData, isLoading: suppliersLoading } = useSearchSuppliers(supplierSearchTerm);
+  const supplierSearchResults = supplierSearchData?.suppliers ?? [];
 
   const [activeSearchIndex, setActiveSearchIndex] = useState(null);
   const [itemSearchTerm, setItemSearchTerm] = useState('');
@@ -73,6 +79,8 @@ export default function PurchaseOrders() {
     setFormData(buildInitialForm(userRole, user?.storeId));
     setActiveSearchIndex(null);
     setItemSearchTerm('');
+    setSupplierSearchTerm('');
+    setSelectedSupplier(null);
   };
 
   const openCreateModal = () => {
@@ -98,6 +106,8 @@ export default function PurchaseOrders() {
     });
     setActiveSearchIndex(null);
     setItemSearchTerm('');
+    setSupplierSearchTerm('');
+    setSelectedSupplier(null);
     setShowCreateModal(true);
   };
 
@@ -162,23 +172,36 @@ export default function PurchaseOrders() {
       return;
     }
 
-    if (formData.supplierMobile.trim().length < 10) {
+    const supplierPhoneDigits = formData.supplierMobile.replace(/\D/g, '');
+    if (supplierPhoneDigits.length < 10) {
       toast.error('Supplier mobile must be at least 10 digits');
       return;
     }
 
-    const payload = {
-      storeId: formData.storeId,
-      supplierName: formData.supplierName.trim(),
-      supplierMobile: formData.supplierMobile.trim(),
-      expectedDeliveryDate: formData.expectedDeliveryDate || undefined,
-      items: formData.items.map((item) => ({
-        barcode_text: item.barcode_text,
-        quantity: item.quantity,
-      })),
-    };
-
     try {
+      const supplier =
+        selectedSupplier?.supplierName.toLowerCase() === formData.supplierName.trim().toLowerCase()
+          ? selectedSupplier
+          : (
+              await addSupplierMutation.mutateAsync({
+                supplierName: formData.supplierName.trim(),
+                supplierPhoneNumber: Number(supplierPhoneDigits),
+                supplierGstNumber: '',
+              })
+            ).supplier;
+
+      const payload = {
+        storeId: formData.storeId,
+        supplierId: supplier.supplierId,
+        supplierName: supplier.supplierName,
+        supplierMobile: formData.supplierMobile.trim() || String(supplier.supplierPhoneNumber || ''),
+        expectedDeliveryDate: formData.expectedDeliveryDate || undefined,
+        items: formData.items.map((item) => ({
+          barcode_text: item.barcode_text,
+          quantity: item.quantity,
+        })),
+      };
+
       if (editingOrder) {
         await editPurchaseOrderMutation.mutateAsync({ id: editingOrder._id, ...payload });
         toast.success('Purchase order updated successfully!');
@@ -255,7 +278,10 @@ export default function PurchaseOrders() {
     }
   };
 
-  const isSaving = addPurchaseOrderMutation.isPending || editPurchaseOrderMutation.isPending;
+  const isSaving =
+    addPurchaseOrderMutation.isPending ||
+    editPurchaseOrderMutation.isPending ||
+    addSupplierMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -471,14 +497,56 @@ export default function PurchaseOrders() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
             <div>
               <label className={modalLabelClass}>Supplier *</label>
-              <input
-                type="text"
-                value={formData.supplierName}
-                onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
-                className={modalInputClass}
-                placeholder="Enter supplier name"
-                autoComplete="off"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.supplierName}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({ ...prev, supplierName: value }));
+                    setSelectedSupplier(null);
+                    setSupplierSearchTerm(value);
+                  }}
+                  className={modalInputClass}
+                  placeholder="Search or enter supplier name"
+                  autoComplete="off"
+                />
+                {supplierSearchTerm.trim() && (
+                  <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
+                    {supplierSearchResults.map((supplier) => (
+                      <button
+                        type="button"
+                        key={supplier.supplierId}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setSelectedSupplier(supplier);
+                          setFormData((prev) => ({
+                            ...prev,
+                            supplierName: supplier.supplierName,
+                            supplierMobile:
+                              supplier.supplierPhoneNumber != null
+                                ? String(supplier.supplierPhoneNumber)
+                                : '',
+                          }));
+                          setSupplierSearchTerm('');
+                        }}
+                        className="w-full text-left p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="font-medium text-gray-800">{supplier.supplierName}</div>
+                        <div className="text-xs text-gray-500">
+                          {supplier.supplierId}
+                          {supplier.supplierPhoneNumber ? ` · ${supplier.supplierPhoneNumber}` : ''}
+                          {supplier.supplierGstNumber ? ` · GSTIN: ${supplier.supplierGstNumber}` : ''}
+                        </div>
+                      </button>
+                    ))}
+                    {suppliersLoading && <div className="p-3 text-sm text-gray-500">Searching suppliers…</div>}
+                    {!suppliersLoading && supplierSearchResults.length === 0 && (
+                      <div className="p-3 text-sm text-gray-500">No supplier found. You can enter a new supplier name.</div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <label className={modalLabelClass}>Supplier Mobile *</label>

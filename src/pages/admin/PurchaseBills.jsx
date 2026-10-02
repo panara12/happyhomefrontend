@@ -10,6 +10,7 @@ import { useSyncPendingTally } from '../../hooks/useTally';
 import { useStockCategoryContext } from '../../context/stockcategoryContext';
 import { useGetAllUnits } from '../../hooks/useUnit';
 import { useAddPurchaseBill } from '../../hooks/usePurchaseBill';
+import { useAddSupplier, useSearchSuppliers } from '../../hooks/useSupplier';
 import { useGetAllProducts } from '../../hooks/useProduct';
 import Modal, {
   modalInputClass,
@@ -36,6 +37,7 @@ const emptyItem = {
 
 const emptyForm = {
   supplierName: '',
+  supplierPhoneNumber: '',
   supplierGSTIN: '',
   billNumber: '',
   billDate: new Date().toISOString().split('T')[0],
@@ -74,12 +76,18 @@ export default function PurchaseBills() {
   const { stockCategory } = useStockCategoryContext();
   const { data: unitList, isLoading: isUnitLoading } = useGetAllUnits();
   const units = unitList?.units || [];
-  const { mutate: addPurchaseBill, isPending: isSubmitting } = useAddPurchaseBill();
+  const { mutateAsync: addPurchaseBill, isPending: isBillSubmitting } = useAddPurchaseBill();
+  const { mutateAsync: addSupplier, isPending: isSupplierSubmitting } = useAddSupplier();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [viewingBill, setViewingBill] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState(emptyForm);
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
+  const [selectedSupplier, setSelectedSupplier] = useState(null);
+  const { data: supplierSearchData, isLoading: suppliersLoading } = useSearchSuppliers(supplierSearchTerm);
+  const supplierSearchResults = supplierSearchData?.suppliers ?? [];
+  const isSubmitting = isBillSubmitting || isSupplierSubmitting;
   const [activeSearchIndex, setActiveSearchIndex] = useState(null);
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const { data: itemProductSearchData } = useGetAllProducts(itemSearchTerm);
@@ -93,6 +101,8 @@ export default function PurchaseBills() {
     });
     setActiveSearchIndex(null);
     setItemSearchTerm('');
+    setSupplierSearchTerm('');
+    setSelectedSupplier(null);
     setShowAddModal(true);
   };
 
@@ -160,7 +170,7 @@ export default function PurchaseBills() {
     return { subtotal, cgst: totalCGST, sgst: totalSGST, total: subtotal + totalCGST + totalSGST };
   }, [formData.items]);
 
-  const handleCreateBill = () => {
+  const handleCreateBill = async () => {
     const invalidItems = formData.items.filter(
       (item) => !item.barcode_text.trim() || !item.brand || !item.category || !item.hsncode.trim() || !item.unit || !item.mrp || Number(item.quantity) <= 0
     );
@@ -169,44 +179,56 @@ export default function PurchaseBills() {
       return;
     }
 
-    const payload = {
-      billNumber: formData.billNumber.trim(),
-      billDate: formData.billDate,
-      supplierName: formData.supplierName.trim(),
-      supplierGSTIN: formData.supplierGSTIN.trim(),
-      storeId: formData.storeId,
-      items: formData.items.map((item) => {
-        const priced = applyItemDiscount(item);
-        return {
-          brand: priced.brand,
-          category: priced.category,
-          barcode_text: priced.barcode_text.trim(),
-          hsncode: priced.hsncode.trim(),
-          quantity: Number(priced.quantity),
-          purchaseRate: Number(priced.purchaseRate) || 0,
-          gst: Number(priced.gst) || 0,
-          mrp: priced.mrp,
-          disc: priced.disc,
-          dict_amt: priced.dict_amt,
-          offer_price: priced.offer_price,
-          unit: priced.unit,
-        };
-      }),
-      taxableValue: billFormTotals.subtotal,
-      CGSTplusSGST: billFormTotals.cgst + billFormTotals.sgst,
-      totalAmount: billFormTotals.total,
-    };
+    try {
+      const supplier =
+        selectedSupplier?.supplierName.toLowerCase() === formData.supplierName.trim().toLowerCase()
+          ? selectedSupplier
+          : (
+              await addSupplier({
+                supplierName: formData.supplierName.trim(),
+                supplierPhoneNumber: formData.supplierPhoneNumber.trim()
+                  ? Number(formData.supplierPhoneNumber.replace(/\D/g, '')) || null
+                  : null,
+                supplierGstNumber: formData.supplierGSTIN.trim(),
+              })
+            ).supplier;
 
-    addPurchaseBill(payload, {
-      onSuccess: () => {
-        toast.success('Purchase bill created and inventory updated.');
-        setFormData(emptyForm);
-        setShowAddModal(false);
-      },
-      onError: (error) => {
-        toast.error(error?.response?.data?.message || 'Failed to create purchase bill.');
-      },
-    });
+      const payload = {
+        billNumber: formData.billNumber.trim(),
+        billDate: formData.billDate,
+        supplierId: supplier.supplierId,
+        supplierName: supplier.supplierName,
+        supplierGSTIN: formData.supplierGSTIN.trim() || supplier.supplierGstNumber || '',
+        storeId: formData.storeId,
+        items: formData.items.map((item) => {
+          const priced = applyItemDiscount(item);
+          return {
+            brand: priced.brand,
+            category: priced.category,
+            barcode_text: priced.barcode_text.trim(),
+            hsncode: priced.hsncode.trim(),
+            quantity: Number(priced.quantity),
+            purchaseRate: Number(priced.purchaseRate) || 0,
+            gst: Number(priced.gst) || 0,
+            mrp: priced.mrp,
+            disc: priced.disc,
+            dict_amt: priced.dict_amt,
+            offer_price: priced.offer_price,
+            unit: priced.unit,
+          };
+        }),
+        taxableValue: billFormTotals.subtotal,
+        CGSTplusSGST: billFormTotals.cgst + billFormTotals.sgst,
+        totalAmount: billFormTotals.total,
+      };
+
+      await addPurchaseBill(payload);
+      toast.success('Purchase bill created and inventory updated.');
+      setFormData(emptyForm);
+      setShowAddModal(false);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to create purchase bill.');
+    }
   };
 
   const getStoreName = (storeId) => stores.find(s => s.storeId === storeId)?.name || storeId;
@@ -514,12 +536,65 @@ export default function PurchaseBills() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
             <div>
               <label className={modalLabelClass}>Supplier *</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.supplierName}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({ ...prev, supplierName: value }));
+                    setSelectedSupplier(null);
+                    setSupplierSearchTerm(value);
+                  }}
+                  className={modalInputClass}
+                  placeholder="Search or enter supplier name"
+                  autoComplete="off"
+                />
+                {supplierSearchTerm.trim() && (suppliersLoading || supplierSearchResults.length > 0) && (
+                  <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
+                    {supplierSearchResults.map((supplier) => (
+                      <button
+                        type="button"
+                        key={supplier.supplierId}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setSelectedSupplier(supplier);
+                          setFormData((prev) => ({
+                            ...prev,
+                            supplierName: supplier.supplierName,
+                            supplierPhoneNumber:
+                              supplier.supplierPhoneNumber != null
+                                ? String(supplier.supplierPhoneNumber)
+                                : '',
+                            supplierGSTIN: supplier.supplierGstNumber || '',
+                          }));
+                          setSupplierSearchTerm('');
+                        }}
+                        className="w-full text-left p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="font-medium text-gray-800">{supplier.supplierName}</div>
+                        <div className="text-xs text-gray-500">
+                          {supplier.supplierId}
+                          {supplier.supplierGstNumber ? ` · GSTIN: ${supplier.supplierGstNumber}` : ''}
+                          {supplier.supplierPhoneNumber ? ` · ${supplier.supplierPhoneNumber}` : ''}
+                        </div>
+                      </button>
+                    ))}
+                    {suppliersLoading && <div className="p-3 text-sm text-gray-500">Searching suppliers…</div>}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Supplier Mobile Number</label>
               <input
-                type="text"
-                value={formData.supplierName}
-                onChange={(e) => setFormData((prev) => ({ ...prev, supplierName: e.target.value }))}
+                type="tel"
+                value={formData.supplierPhoneNumber}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, supplierPhoneNumber: e.target.value }))
+                }
                 className={modalInputClass}
-                placeholder="Enter supplier name"
+                placeholder="Enter mobile number (optional)"
                 autoComplete="off"
               />
             </div>
