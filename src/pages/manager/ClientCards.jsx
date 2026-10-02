@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, User, Phone, Mail, MapPin, Award, Building2, Users, ShoppingBag, Eye, Filter, Timer } from 'lucide-react';
+import { Search, User, Phone, Mail, MapPin, Award, Building2, Users, ShoppingBag, Eye, Filter, Timer, Cake } from 'lucide-react';
 import { Pagination } from '../../components/ui/Pagination';
 import Modal, { modalSecondaryBtnClass } from '../../components/ui/Modal';
 import { useGetAllCustomers } from '../../hooks/useCustomer';
@@ -97,6 +97,13 @@ export default function ClientCards() {
           <h2 className="text-3xl font-bold text-gray-800">Client Cards</h2>
           <p className="text-gray-600 mt-1">View and manage your client database</p>
         </div>
+        <button
+          type="button"
+          className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-3 rounded-lg hover:from-pink-600 hover:to-rose-600 transition-all shadow-lg w-fit"
+        >
+          <Cake size={20} />
+          Birthdays
+        </button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -354,6 +361,10 @@ export default function ClientCards() {
                   <div>
                     <p className="text-sm text-gray-600">Email Address</p>
                     <p className="font-medium text-gray-800">{selectedClient.email || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Date of Birth</p>
+                    <p className="font-medium text-gray-800">{formatDate(selectedClient.dateOfBirth)}</p>
                   </div>
                 </div>
                 <div>
