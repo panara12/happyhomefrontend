@@ -5,9 +5,10 @@ function formatDate(value) {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '';
-  return d
-    .toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
-    .replace(/ /g, '-');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 function escapeHtml(value) {
@@ -133,6 +134,7 @@ function buildInvoiceModel(invoice, storeArg) {
   const rows = items.map((item) => ({ item, ...getLineBreakdown(item) }));
 
   const taxableTotal = round2(rows.reduce((s, r) => s + r.taxableAmount, 0));
+  const gstTotal = round2(rows.reduce((s, r) => s + r.taxAmount, 0));
   const cgstTotal = round2(rows.reduce((s, r) => s + r.cgstAmount, 0));
   const sgstTotal = round2(rows.reduce((s, r) => s + r.sgstAmount, 0));
   const computedGross = round2(taxableTotal + cgstTotal + sgstTotal);
@@ -141,10 +143,12 @@ function buildInvoiceModel(invoice, storeArg) {
   const qtyTotal = round2(rows.reduce((s, r) => s + r.qty, 0));
 
   const store = resolveStoreDetails(invoice, storeArg);
+  const payment = invoice.paymentBreakdown || {};
 
   return {
     rows,
     taxableTotal,
+    gstTotal,
     cgstTotal,
     sgstTotal,
     roundOff,
@@ -157,43 +161,34 @@ function buildInvoiceModel(invoice, storeArg) {
     storeState: store.state,
     storeCode: store.code,
     storePan: store.storePanNumber,
+    storePhone: store.number,
     invoiceNumber: invoice.invoiceNumber || '—',
     invoiceDate: formatDate(invoice.approvedAt || invoice.createdAt),
     partyName: invoice.customerName || '—',
     partyPhone: invoice.customerPhone || '',
     amountWords: numberToIndianWords(grandTotal),
+    cash: Number(payment.cash) || 0,
+    upi: Number(payment.upi) || 0,
+    debit: Number(payment.debit) || 0,
   };
 }
 
 /**
- * Exact Tally tax-invoice HTML layout matching Happy Home sales invoice.
+ * Modern A5 Tax Invoice — same data/content as before, updated visual design only.
  */
 function buildInvoiceHtml(invoice, store, { pdf = false } = {}) {
   const m = buildInvoiceModel(invoice, store);
 
-  // Centered multi-line address like Tally invoice (not one long run-on line)
-  const addressLines = String(m.storeAddress || '')
+  const addressLine = String(m.storeAddress || '')
     .split(/,\s*/)
     .map((p) => p.trim())
-    .filter(Boolean);
-  // Keep ~2–3 visual lines
-  let addressHtml = '';
-  if (addressLines.length) {
-    if (addressLines.length <= 3) {
-      addressHtml = addressLines.map((l) => escapeHtml(l)).join('<br/>');
-    } else {
-      const mid = Math.ceil(addressLines.length / 2);
-      addressHtml = [
-        escapeHtml(addressLines.slice(0, mid).join(', ')),
-        escapeHtml(addressLines.slice(mid).join(', ')),
-      ].join('<br/>');
-    }
-  }
+    .filter(Boolean)
+    .join(', ');
 
   const itemRows = m.rows
     .map(
       (row, index) => `
-      <tr class="item-row">
+      <tr>
         <td class="c">${index + 1}</td>
         <td class="l desc">${escapeHtml(getItemName(row.item))}</td>
         <td class="c">${escapeHtml(row.hsn || '')}</td>
@@ -206,23 +201,6 @@ function buildInvoiceHtml(invoice, store, { pdf = false } = {}) {
     )
     .join('');
 
-  // Spacer rows so the items table fills like Tally (tax lines sit near bottom)
-  const spacerCount = Math.max(0, 8 - m.rows.length);
-  const spacerRows = Array.from({ length: spacerCount })
-    .map(
-      () => `
-      <tr class="spacer-row">
-        <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
-        <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
-      </tr>`
-    )
-    .join('');
-
-  const roundOffLabel =
-    m.roundOff < 0
-      ? `(-)${formatAmount(Math.abs(m.roundOff))}`
-      : formatAmount(m.roundOff);
-
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -232,239 +210,256 @@ function buildInvoiceHtml(invoice, store, { pdf = false } = {}) {
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 8px;
+      padding: 0;
       background: #fff;
-      color: #000;
+      color: #111;
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 11px;
+      font-size: 10px;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
     .sheet {
-      width: 190mm;
+      width: 148mm;
+      min-height: 210mm;
       margin: 0 auto;
-      border: none;
+      padding: 7mm 8mm 6mm;
+      background: #fff;
     }
-    .top-note {
+    .accent {
+      border: none;
+      border-top: 1.5px solid #e67e22;
+      margin: 5px 0 7px;
+    }
+    .jurisdiction {
       text-align: center;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
       text-decoration: underline;
       text-underline-offset: 2px;
-      padding: 4px 6px 5px;
       text-transform: uppercase;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.03em;
+      margin-bottom: 5px;
     }
-
-    /* Invoice No / Dated on one open row — no vertical box split */
-    .inv-meta {
+    .header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      padding: 6px 10px 4px;
-      gap: 16px;
+      gap: 12px;
     }
-    .inv-meta .left { text-align: left; }
-    .inv-meta .right { text-align: right; }
-    .inv-meta .label { font-size: 11px; }
-    .inv-meta .value { font-weight: 700; font-size: 12px; }
-    .inv-meta .ref { margin-top: 8px; font-size: 11px; min-height: 14px; }
-
-    /* Company block: fully centered, no side boxes */
-    .company {
-      text-align: center;
-      padding: 4px 16px 8px;
-    }
-    .company h1 {
-      margin: 0 0 6px;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: 0.6px;
-      text-transform: uppercase;
-    }
-    .company p {
-      margin: 2px 0;
-      line-height: 1.4;
-      font-size: 11px;
-    }
-
-    .doc-title {
-      text-align: center;
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      padding: 4px 0 6px;
-    }
-
-    .party {
-      text-align: center;
-      padding: 2px 10px 8px;
-      line-height: 1.5;
-      font-size: 11px;
-    }
-    .party .name { font-weight: 700; }
-
-    /* Single line under header before goods table */
-    .header-rule {
-      border: none;
-      border-top: 1px solid #000;
+    .brand-name {
       margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: #111;
+      line-height: 1.1;
     }
-
+    .brand-sub {
+      margin: 2px 0 0;
+      font-size: 10px;
+      color: #333;
+      font-weight: 500;
+    }
+    .meta {
+      text-align: right;
+      font-size: 10px;
+      line-height: 1.45;
+      color: #222;
+      padding-top: 2px;
+    }
+    .parties {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 6px;
+    }
+    .parties h3 {
+      margin: 0 0 3px;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #111;
+    }
+    .parties p {
+      margin: 0;
+      font-size: 9.5px;
+      line-height: 1.4;
+      color: #222;
+    }
     table.goods {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-    }
-    table.goods th, table.goods td {
-      border: 1px solid #000;
-      padding: 4px 4px;
-      vertical-align: middle;
-      font-size: 11px;
-      line-height: 1.25;
+      margin-top: 2px;
     }
     table.goods th {
+      background: #1f1f1f;
+      color: #fff;
+      font-size: 8.5px;
+      font-weight: 700;
+      padding: 4px 4px;
+      border: none;
+    }
+    table.goods th.r, table.goods td.r { text-align: right; }
+    table.goods th.c, table.goods td.c { text-align: center; }
+    table.goods th.l, table.goods td.l { text-align: left; }
+    table.goods td.desc { font-weight: 600; }
+    table.goods td {
+      padding: 4px 4px;
       font-size: 9px;
-      font-weight: 700;
-      text-align: center;
-      background: #fff;
-      line-height: 1.2;
-    }
-    table.goods .c { text-align: center; }
-    table.goods .r { text-align: right; }
-    table.goods .l { text-align: left; }
-    table.goods .desc { font-weight: 600; }
-    table.goods .spacer-row td {
-      border-top: none;
-      border-bottom: none;
-      height: 14px;
-      padding: 0;
-    }
-    table.goods .spacer-row td:first-child { border-left: 1px solid #000; }
-    table.goods .spacer-row td:last-child { border-right: 1px solid #000; }
-    table.goods tr.tax-line td {
-      border-top: none;
-      border-bottom: none;
-      font-size: 11px;
-      padding-top: 1px;
-      padding-bottom: 1px;
-    }
-    table.goods tr.tax-line td.lbl { text-align: right; font-weight: 600; padding-right: 8px; }
-    table.goods tr.total-row td {
-      border-top: 1px solid #000;
-      font-weight: 700;
+      color: #222;
+      border-bottom: 1px solid #eee;
       vertical-align: middle;
     }
-    table.goods tr.total-row td.grand {
-      font-size: 13px;
-      white-space: nowrap;
+    table.goods tbody tr:last-child td { border-bottom: none; }
+    .tax-block {
+      margin-top: 4px;
+      width: 100%;
     }
-
+    .tax-block .row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 16px;
+      font-size: 9.5px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .tax-block .row .lbl { min-width: 110px; text-align: right; }
+    .tax-block .row .val { min-width: 58px; text-align: right; }
+    .tax-block .row.total {
+      margin-top: 2px;
+      font-size: 10.5px;
+      padding-top: 3px;
+      border-top: 1px solid #ddd;
+    }
+    .summary-wrap {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .payment h3 {
+      margin: 0 0 3px;
+      font-size: 10.5px;
+      font-weight: 700;
+    }
+    .payment p {
+      margin: 0;
+      font-size: 9.5px;
+      color: #222;
+      line-height: 1.45;
+    }
+    .totals {
+      min-width: 52%;
+    }
     .words-box {
       display: flex;
       justify-content: space-between;
-      gap: 12px;
-      padding: 5px 8px;
-      border-bottom: none;
-      font-size: 11px;
+      gap: 10px;
+      margin-top: 7px;
+      font-size: 9.5px;
     }
-    .words-box .left strong.amount { display: block; margin-top: 2px; font-size: 12px; }
-    .words-box .eoe { white-space: nowrap; font-size: 10px; }
-
+    .words-box .amount {
+      display: block;
+      margin-top: 2px;
+      font-weight: 700;
+      font-size: 10px;
+    }
+    .words-box .eoe {
+      white-space: nowrap;
+      font-size: 9px;
+    }
     .pan-line {
-      padding: 5px 8px 2px;
-      font-size: 11px;
-      border-top: none;
+      margin-top: 5px;
+      font-size: 9.5px;
     }
-
     .bottom {
       display: grid;
-      grid-template-columns: 1.25fr 0.75fr;
-      border-top: none;
-      min-height: 95px;
-    }
-    .bottom .decl {
-      padding: 6px 8px;
-      border-right: none;
-      font-size: 10px;
-      line-height: 1.4;
+      grid-template-columns: 1.3fr 0.7fr;
+      gap: 8px;
+      margin-top: 6px;
+      min-height: 52px;
     }
     .bottom .decl .h {
       font-weight: 700;
       text-decoration: underline;
       text-underline-offset: 2px;
-      margin-bottom: 4px;
-      font-size: 11px;
+      margin-bottom: 3px;
+      font-size: 10px;
+    }
+    .bottom .decl {
+      font-size: 8.5px;
+      line-height: 1.35;
+      color: #222;
     }
     .bottom .sign {
-      padding: 6px 8px;
       text-align: right;
-      font-size: 11px;
+      font-size: 9.5px;
     }
     .bottom .sign .for { font-weight: 700; }
     .bottom .sign .auth {
-      margin-top: 52px;
-      font-size: 11px;
+      margin-top: 28px;
+      font-size: 9.5px;
     }
-
     .computer {
       text-align: center;
-      font-size: 10px;
+      font-size: 9px;
       text-decoration: underline;
-      text-underline-offset: 3px;
-      padding: 4px;
-      margin-bottom: 3px;
-      border-top: none;
+      text-underline-offset: 2px;
+      margin-top: 6px;
     }
 
     @media print {
       body { padding: 0; }
-      .sheet { width: auto; border: none; }
-      @page { size: A4; margin: 8mm; }
+      .sheet { width: auto; min-height: auto; padding: 0; }
+      @page { size: A5; margin: 7mm; }
     }
     ${pdf ? `
-    /* Match print layout: A4 (210mm) minus 8mm margins = 194mm */
     body { padding: 0 !important; }
-    .sheet { width: 194mm !important; margin: 0 !important; }
+    .sheet { width: 134mm !important; margin: 0 !important; min-height: auto !important; padding: 0 !important; }
     ` : ''}
   </style>
 </head>
 <body>
   <div class="sheet">
-    <div class="top-note">${m.storeState ? `Subject to Jamnagar Jurisdiction` : ''}</div>
+    ${m.storeState ? `<div class="jurisdiction">Subject to Jamnagar Jurisdiction</div>` : ''}
 
-    <div class="inv-meta">
-      <div class="left">
-        <div class="label">Invoice No. <span class="value">${escapeHtml(m.invoiceNumber)}</span></div>
+    <div class="header">
+      <div>
+        <h1 class="brand-name">Happy Home</h1>
+        <p class="brand-sub">Tax Invoice</p>
       </div>
-      <div class="right">
-        <div class="label">Dated <span class="value">${escapeHtml(m.invoiceDate)}</span></div>
+      <div class="meta">
+        <div>Invoice: ${escapeHtml(m.invoiceNumber)}</div>
+        <div>Date: ${escapeHtml(m.invoiceDate)}</div>
       </div>
     </div>
 
-    <div class="company">
-      ${m.storeName ? `<h1>${escapeHtml(m.storeName)}</h1>` : ''}
-      ${addressHtml ? `<p>${addressHtml}</p>` : ''}
-      ${m.storeGst ? `<p>GSTIN/UIN: ${escapeHtml(m.storeGst)}</p>` : ''}
-      ${m.storeState || m.storeCode ? `<p>State Name : ${escapeHtml(m.storeState)}${m.storeCode ? `, Code : ${escapeHtml(m.storeCode)}` : ''}</p>` : ''}
-      ${m.storeEmail ? `<p>E-Mail : ${escapeHtml(m.storeEmail)}</p>` : ''}
+    <hr class="accent" />
+
+    <div class="parties">
+      <div>
+        <h3>Bill To</h3>
+        <p>${escapeHtml(m.partyName)}</p>
+        ${m.partyPhone ? `<p>Phone: ${escapeHtml(m.partyPhone)}</p>` : ''}
+        ${m.storeState || m.storeCode ? `<p>State Name : ${escapeHtml(m.storeState)}${m.storeCode ? `, Code : ${escapeHtml(m.storeCode)}` : ''}</p>` : ''}
+      </div>
+      <div>
+        <h3>Store Details</h3>
+        ${m.storeName ? `<p>${escapeHtml(m.storeName)}</p>` : ''}
+        ${addressLine ? `<p>${escapeHtml(addressLine)}</p>` : ''}
+        ${m.storePhone !== '' && m.storePhone != null ? `<p>Mobile: ${escapeHtml(m.storePhone)}</p>` : ''}
+        ${m.storeGst ? `<p>GSTIN/UIN: ${escapeHtml(m.storeGst)}</p>` : ''}
+        ${m.storeState || m.storeCode ? `<p>State Name : ${escapeHtml(m.storeState)}${m.storeCode ? `, Code : ${escapeHtml(m.storeCode)}` : ''}</p>` : ''}
+        ${m.storeEmail ? `<p>E-Mail : ${escapeHtml(m.storeEmail)}</p>` : ''}
+      </div>
     </div>
-
-    <div class="doc-title">INVOICE</div>
-
-    <div class="party">
-      <div>Party : <span class="name">${escapeHtml(m.partyName)}</span></div>
-      ${m.storeState || m.storeCode ? `<div>State Name : ${escapeHtml(m.storeState)}${m.storeCode ? `, Code : ${escapeHtml(m.storeCode)}` : ''}</div>` : ''}
-    </div>
-
-    <hr class="header-rule" />
 
     <table class="goods">
       <colgroup>
-        <col style="width:5%" />
-        <col style="width:30%" />
+        <col style="width:6%" />
+        <col style="width:28%" />
         <col style="width:11%" />
-        <col style="width:12%" />
+        <col style="width:13%" />
         <col style="width:13%" />
         <col style="width:11%" />
         <col style="width:6%" />
@@ -472,55 +467,40 @@ function buildInvoiceHtml(invoice, store, { pdf = false } = {}) {
       </colgroup>
       <thead>
         <tr>
-          <th>Sl<br/>No.</th>
-          <th>Description of Goods</th>
-          <th>HSN/SAC</th>
-          <th>Quantity</th>
-          <th>Rate<br/>(Incl. of Tax)</th>
-          <th>Rate</th>
-          <th>per</th>
-          <th>Amount</th>
+          <th class="c">Sl<br/>No.</th>
+          <th class="l">Description of Goods</th>
+          <th class="c">HSN/SAC</th>
+          <th class="c">Quantity</th>
+          <th class="c">Rate<br/>(Incl. of Tax)</th>
+          <th class="c">Rate</th>
+          <th class="c">per</th>
+          <th class="c">Amount</th>
         </tr>
       </thead>
       <tbody>
         ${itemRows}
-        ${spacerRows}
-        <tr class="tax-line">
-          <td></td>
-          <td></td><td></td><td></td><td></td><td></td><td></td>
-          <td class="r">${escapeHtml(formatAmount(m.taxableTotal))}</td>
-        </tr>
-        <tr class="tax-line">
-          <td></td>
-          <td class="lbl">CGST</td>
-          <td></td><td></td><td></td><td></td><td></td>
-          <td class="r">${escapeHtml(formatAmount(m.cgstTotal))}</td>
-        </tr>
-        <tr class="tax-line">
-          <td></td>
-          <td class="lbl">SGST</td>
-          <td></td><td></td><td></td><td></td><td></td>
-          <td class="r">${escapeHtml(formatAmount(m.sgstTotal))}</td>
-        </tr>
-        <tr class="tax-line">
-          <td></td>
-          <td class="lbl">Less : ROUND OFF</td>
-          <td></td><td></td><td></td><td></td><td></td>
-          <td class="r">${escapeHtml(roundOffLabel)}</td>
-        </tr>
-        <tr class="total-row">
-          <td></td>
-          <td class="l">Total</td>
-          <td></td>
-          <td class="r">${escapeHtml(formatAmount(m.qtyTotal))} NOS</td>
-          <td></td><td></td><td></td>
-          <td class="r grand">₹ ${escapeHtml(formatAmount(m.grandTotal))}</td>
-        </tr>
       </tbody>
     </table>
 
+    <hr class="accent" />
+
+    <div class="summary-wrap">
+      <div class="payment">
+        <h3>Payment Mode</h3>
+        <p>Cash: ${escapeHtml(formatAmount(m.cash))} &nbsp;&nbsp; GPay: ${escapeHtml(formatAmount(m.upi))} &nbsp;&nbsp; Debit: ${escapeHtml(formatAmount(m.debit))}</p>
+      </div>
+      <div class="totals">
+        <div class="tax-block">
+          <div class="row"><span class="lbl">Subtotal (Excl. GST) (Rs.)</span><span class="val">${escapeHtml(formatAmount(m.taxableTotal))}</span></div>
+          <div class="row"><span class="lbl">CGST</span><span class="val">${escapeHtml(formatAmount(m.cgstTotal))}</span></div>
+          <div class="row"><span class="lbl">SGST</span><span class="val">${escapeHtml(formatAmount(m.sgstTotal))}</span></div>
+          <div class="row total"><span class="lbl">Final Total (Incl. GST) (Rs.)</span><span class="val">₹ ${escapeHtml(formatAmount(m.grandTotal))}</span></div>
+        </div>
+      </div>
+    </div>
+
     <div class="words-box">
-      <div class="left">
+      <div>
         <div>Amount Chargeable (in words)</div>
         <strong class="amount">${escapeHtml(m.amountWords)}</strong>
       </div>
@@ -561,8 +541,8 @@ function openInvoiceFrame(html, title, renderForPdf = false) {
     top: renderForPdf ? '0' : 'auto',
     right: renderForPdf ? 'auto' : '0',
     bottom: renderForPdf ? 'auto' : '0',
-    width: renderForPdf ? '794px' : '0',
-    height: renderForPdf ? '1123px' : '0',
+    width: renderForPdf ? '559px' : '0',
+    height: renderForPdf ? '794px' : '0',
     border: '0',
     opacity: renderForPdf ? '1' : '0',
     pointerEvents: 'none',
@@ -600,9 +580,6 @@ function triggerFramePrint(iframe) {
   return true;
 }
 
-/**
- * Print invoice in Tally tax-invoice format (same layout as Happy Home sales PDF).
- */
 export function printInvoice(invoice, store) {
   if (!invoice) return false;
   const html = buildInvoiceHtml(invoice, store);
@@ -610,10 +587,6 @@ export function printInvoice(invoice, store) {
   return triggerFramePrint(iframe);
 }
 
-/**
- * Download / Save-as-PDF using the exact same HTML layout as print.
- * Opens the browser print dialog so the saved PDF matches the on-screen invoice.
- */
 export function downloadInvoicePdf(invoice, store) {
   if (!invoice) return false;
   const html = buildInvoiceHtml(invoice, store);
@@ -621,236 +594,252 @@ export function downloadInvoicePdf(invoice, store) {
   return triggerFramePrint(iframe);
 }
 
-/** Exported for tests / preview if needed */
 export function getInvoiceHtml(invoice, store) {
   return buildInvoiceHtml(invoice, store);
 }
 
-/** Download a PDF rendered from the same invoice HTML used by printInvoice. */
+/** Download a PDF rendered in A5 modern Tax Invoice layout (same content as print). */
 export async function downloadInvoicePdfFile(invoice, store) {
   if (!invoice) return false;
   try {
     const m = buildInvoiceModel(invoice, store);
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+    const pdf = new jsPDF({ unit: 'mm', format: 'a5', compress: true });
     const W = pdf.internal.pageSize.getWidth();
     const H = pdf.internal.pageSize.getHeight();
-    const M = 8;
+    const M = 7;
     const R = W - M;
     const cx = W / 2;
-    let y = M + 4;
+    let y = M;
 
     const font = (style = 'normal', size = 10) => {
       pdf.setFont('helvetica', style);
       pdf.setFontSize(size);
     };
-    const center = (text, yy, style, size, underline = false) => {
-      font(style, size);
-      pdf.text(text, cx, yy, { align: 'center' });
-      if (underline) {
-        const w = pdf.getTextWidth(text);
-        pdf.setLineWidth(0.2);
-        pdf.line(cx - w / 2, yy + 0.8, cx + w / 2, yy + 0.8);
-      }
+
+    const drawAccent = (yy) => {
+      pdf.setDrawColor(230, 126, 34);
+      pdf.setLineWidth(0.45);
+      pdf.line(M, yy, R, yy);
+      pdf.setDrawColor(0, 0, 0);
+      pdf.setLineWidth(0.2);
     };
+
     const ensure = (needed) => {
       if (y + needed > H - M) {
         pdf.addPage();
-        y = M + 4;
+        y = M;
       }
     };
 
-    // Top note
+    // Jurisdiction
     if (m.storeState) {
-      center(`SUBJECT TO JAMNAGAR JURISDICTION`, y, 'bold', 9, true);
-    }
-    y += 8;
-
-    // Invoice no / date
-    font('normal', 10);
-    pdf.text('Invoice No. ', M + 2, y);
-    const w1 = pdf.getTextWidth('Invoice No. ');
-    font('bold', 11);
-    pdf.text(String(m.invoiceNumber), M + 2 + w1, y);
-
-    font('bold', 11);
-    const dateW = pdf.getTextWidth(String(m.invoiceDate));
-    pdf.text(String(m.invoiceDate), R - 2, y, { align: 'right' });
-    font('normal', 10);
-    pdf.text('Dated ', R - 2 - dateW, y, { align: 'right' });
-
-    y += 5;
-    font('normal', 10);
-    pdf.text('Ref. No.', M + 2, y);
-    y += 8;
-
-    // Company block
-    if (m.storeName) {
-      center(m.storeName.toUpperCase(), y, 'bold', 16);
+      font('bold', 8);
+      const note = 'SUBJECT TO JAMNAGAR JURISDICTION';
+      pdf.text(note, cx, y + 3, { align: 'center' });
+      const nw = pdf.getTextWidth(note);
+      pdf.setLineWidth(0.2);
+      pdf.line(cx - nw / 2, y + 3.7, cx + nw / 2, y + 3.7);
       y += 7;
     }
-    const addrParts = String(m.storeAddress || '').split(/,\s*/).map((p) => p.trim()).filter(Boolean);
-    let addrLines = addrParts;
-    if (addrParts.length > 3) {
-      const mid = Math.ceil(addrParts.length / 2);
-      addrLines = [addrParts.slice(0, mid).join(', '), addrParts.slice(mid).join(', ')];
+
+    // Header
+    font('bold', 16);
+    pdf.setTextColor(17, 17, 17);
+    pdf.text('Happy Home', M, y + 4);
+    font('normal', 9);
+    pdf.text('Tax Invoice', M, y + 8.5);
+
+    font('normal', 9);
+    pdf.text(`Invoice: ${m.invoiceNumber}`, R, y + 3.5, { align: 'right' });
+    pdf.text(`Date: ${m.invoiceDate}`, R, y + 8, { align: 'right' });
+
+    y += 12;
+    drawAccent(y);
+    y += 5;
+
+    // Bill To / Store Details
+    const leftX = M;
+    const rightX = M + (W - M * 2) / 2 + 1;
+    const colW = (W - M * 2) / 2 - 3;
+
+    font('bold', 9.5);
+    pdf.text('Bill To', leftX, y);
+    pdf.text('Store Details', rightX, y);
+    y += 4;
+
+    font('normal', 8.5);
+    let leftY = y;
+    let rightY = y;
+
+    pdf.text(String(m.partyName || '—'), leftX, leftY);
+    leftY += 3.6;
+    if (m.partyPhone) {
+      pdf.text(`Phone: ${m.partyPhone}`, leftX, leftY);
+      leftY += 3.6;
     }
-    addrLines.forEach((l) => { center(l, y, 'normal', 10); y += 4.6; });
-    if (m.storeGst) { center(`GSTIN/UIN: ${m.storeGst}`, y, 'normal', 10); y += 4.6; }
     if (m.storeState || m.storeCode) {
-      center(`State Name : ${m.storeState}${m.storeCode ? `, Code : ${m.storeCode}` : ''}`, y, 'normal', 10);
-      y += 4.6;
+      const stateLine = `State Name : ${m.storeState}${m.storeCode ? `, Code : ${m.storeCode}` : ''}`;
+      pdf.text(pdf.splitTextToSize(stateLine, colW), leftX, leftY);
+      leftY += 3.6;
     }
-    if (m.storeEmail) { center(`E-Mail : ${m.storeEmail}`, y, 'normal', 10); y += 4.6; }
 
-    y += 3;
-    center('INVOICE', y, 'bold', 14);
-    y += 7;
-
-    // Party
-    font('normal', 10);
-    const partyLabel = 'Party : ';
-    const partyW = pdf.getTextWidth(partyLabel);
-    font('bold', 10);
-    const nameW = pdf.getTextWidth(m.partyName);
-    const startX = cx - (partyW + nameW) / 2;
-    font('normal', 10);
-    pdf.text(partyLabel, startX, y);
-    font('bold', 10);
-    pdf.text(m.partyName, startX + partyW, y);
-    y += 4.6;
+    if (m.storeName) {
+      pdf.text(pdf.splitTextToSize(String(m.storeName), colW), rightX, rightY);
+      rightY += 3.6;
+    }
+    const addr = String(m.storeAddress || '').trim();
+    if (addr) {
+      const addrLines = pdf.splitTextToSize(addr, colW);
+      pdf.text(addrLines, rightX, rightY);
+      rightY += addrLines.length * 3.6;
+    }
+    if (m.storePhone !== '' && m.storePhone != null) {
+      pdf.text(`Mobile: ${m.storePhone}`, rightX, rightY);
+      rightY += 3.6;
+    }
+    if (m.storeGst) {
+      pdf.text(`GSTIN/UIN: ${m.storeGst}`, rightX, rightY);
+      rightY += 3.6;
+    }
     if (m.storeState || m.storeCode) {
-      center(`State Name : ${m.storeState}${m.storeCode ? `, Code : ${m.storeCode}` : ''}`, y, 'normal', 10);
-      y += 4.6;
+      const stateLine = `State Name : ${m.storeState}${m.storeCode ? `, Code : ${m.storeCode}` : ''}`;
+      const lines = pdf.splitTextToSize(stateLine, colW);
+      pdf.text(lines, rightX, rightY);
+      rightY += lines.length * 3.6;
     }
-    y += 2;
+    if (m.storeEmail) {
+      pdf.text(`E-Mail : ${m.storeEmail}`, rightX, rightY);
+      rightY += 3.6;
+    }
 
-    // Goods table
-    const noSide = { top: 0, bottom: 0, left: 0.2, right: 0.2 };
+    y = Math.max(leftY, rightY) + 2.5;
+
     const body = m.rows.map((row, i) => [
-      { content: String(i + 1), styles: { halign: 'center' } },
-      { content: getItemName(row.item), styles: { halign: 'left', fontStyle: 'bold' } },
-      { content: row.hsn || '', styles: { halign: 'center' } },
-      { content: `${formatAmount(row.qty)} ${row.unit}`, styles: { halign: 'right' } },
-      { content: formatAmount(row.rateInclTax), styles: { halign: 'right' } },
-      { content: formatAmount(row.rateExTax), styles: { halign: 'right' } },
-      { content: row.unit, styles: { halign: 'center' } },
-      { content: formatAmount(row.taxableAmount), styles: { halign: 'right' } },
-    ]);
-
-    const spacerHeight = Math.max(0, (8 - m.rows.length) * 5);
-    const taxRow = (label, value) => [
-      { content: '', styles: { lineWidth: noSide } },
-      { content: label, styles: { halign: 'right', fontStyle: 'bold', lineWidth: noSide } },
-      { content: '', styles: { lineWidth: noSide } },
-      { content: '', styles: { lineWidth: noSide } },
-      { content: '', styles: { lineWidth: noSide } },
-      { content: '', styles: { lineWidth: noSide } },
-      { content: '', styles: { lineWidth: noSide } },
-      { content: value, styles: { halign: 'right', lineWidth: noSide } },
-    ];
-    const roundOffLabel = m.roundOff < 0 ? `(-)${formatAmount(Math.abs(m.roundOff))}` : formatAmount(m.roundOff);
-
-    const spacerSide = { top: 0.2, bottom: 0, left: 0.2, right: 0.2 };
-    body.push([
-      ...Array(8).fill(null).map(() => ({
-        content: '',
-        styles: { lineWidth: spacerSide, minCellHeight: spacerHeight, cellPadding: 0 },
-      })),
-    ]);
-    body.push(taxRow('', formatAmount(m.taxableTotal)));
-    body.push(taxRow('CGST', formatAmount(m.cgstTotal)));
-    body.push(taxRow('SGST', formatAmount(m.sgstTotal)));
-    body.push(taxRow('Less : ROUND OFF', roundOffLabel));
-    body.push([
-      { content: '' },
-      { content: 'Total', styles: { halign: 'left', fontStyle: 'bold' } },
-      { content: '' },
-      { content: `${formatAmount(m.qtyTotal)} NOS`, styles: { halign: 'right', fontStyle: 'bold' } },
-      { content: '' },
-      { content: '' },
-      { content: '' },
-      { content: `Rs. ${formatAmount(m.grandTotal)}`, styles: { halign: 'right', fontStyle: 'bold', fontSize: 10.5 } },
+      { content: String(i + 1), styles: {halign: 'center' } },
+      { content: getItemName(row.item), styles: {halign: 'left', fontStyle: 'bold' } },
+      { content: row.hsn || '', styles: {halign: 'center' } },
+      { content: `${formatAmount(row.qty)} ${row.unit}`, styles: {halign: 'right' } },
+      { content: formatAmount(row.rateInclTax), styles: {halign: 'right' } },
+      { content: formatAmount(row.rateExTax), styles: {halign: 'right' } },
+      { content: row.unit, styles: {halign: 'center' } },
+      { content: formatAmount(row.taxableAmount), styles: {halign: 'right' } },
     ]);
 
     autoTable(pdf, {
       startY: y,
       margin: { left: M, right: M, top: M, bottom: M },
-      theme: 'grid',
+      theme: 'plain',
       head: [['Sl\nNo.', 'Description of Goods', 'HSN/SAC', 'Quantity', 'Rate\n(Incl. of Tax)', 'Rate', 'per', 'Amount']],
       body,
       styles: {
         font: 'helvetica',
-        fontSize: 9,
-        cellPadding: { top: 2, bottom: 2, left: 1.5, right: 1.5 },
-        lineColor: [0, 0, 0],
-        lineWidth: 0.2,
-        textColor: [0, 0, 0],
+        fontSize: 7,
+        cellPadding: { top: 1.3, bottom: 1.3, left: 0.8, right: 0.8 },
+        textColor: [34, 34, 34],
+        lineColor: [238, 238, 238],
+        lineWidth: { bottom: 0.15 },
         valign: 'middle',
         overflow: 'linebreak',
       },
       headStyles: {
-        fillColor: [255, 255, 255],
-        textColor: [0, 0, 0],
+        fillColor: [31, 31, 31],
+        textColor: [255, 255, 255],
         fontStyle: 'bold',
-        fontSize: 8,
+        fontSize: 6.5,
+        cellPadding: { top: 1.6, bottom: 1.6, left: 0.8, right: 0.8 },
+        lineWidth: 0,
         halign: 'center',
       },
       columnStyles: {
-        0: { cellWidth: 9.7 },
-        1: { cellWidth: 58.2 },
-        2: { cellWidth: 21.3 },
-        3: { cellWidth: 23.3 },
-        4: { cellWidth: 25.2 },
-        5: { cellWidth: 21.3 },
-        6: { cellWidth: 11.6 },
-        7: { cellWidth: 23.3 },
+        0: { cellWidth: 7 },
+        1: { cellWidth: 36 },
+        2: { cellWidth: 15 },
+        3: { cellWidth: 16 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 15 },
+        6: { cellWidth: 8 },
+        7: { cellWidth: 19 },
       },
     });
 
-    y = pdf.lastAutoTable.finalY + 6;
-
-    // Amount in words
-    ensure(50);
-    font('normal', 10);
-    pdf.text('Amount Chargeable (in words)', M + 2, y);
-    font('normal', 9);
-    pdf.text('E. & O.E', R - 2, y, { align: 'right' });
+    y = pdf.lastAutoTable.finalY + 3.5;
+    drawAccent(y);
     y += 5;
-    font('bold', 10.5);
-    pdf.text(m.amountWords, M + 2, y);
-    y += 8;
+
+    // Payment + tax totals
+    font('bold', 9.5);
+    pdf.text('Payment Mode', M, y);
+    font('normal', 8.5);
+    pdf.text(
+      `Cash: ${formatAmount(m.cash)}   GPay: ${formatAmount(m.upi)}   Debit: ${formatAmount(m.debit)}`,
+      M,
+      y + 4
+    );
+
+    font('bold', 8.5);
+    const totalRows = [
+      ['Subtotal (Excl. GST) (Rs.)', formatAmount(m.taxableTotal)],
+      ['CGST', formatAmount(m.cgstTotal)],
+      ['SGST', formatAmount(m.sgstTotal)],
+      ['Final Total (Incl. GST) (Rs.)', `Rs. ${formatAmount(m.grandTotal)}`],
+    ];
+    let ty = y;
+    totalRows.forEach(([lbl, val], idx) => {
+      if (idx === totalRows.length - 1) font('bold', 9);
+      else font('bold', 8);
+      pdf.text(lbl, R - 30, ty, { align: 'right' });
+      pdf.text(val, R, ty, { align: 'right' });
+      ty += 3.8;
+    });
+    y = Math.max(y + 10, ty) + 3;
+
+    ensure(40);
+
+    // Amount in words + E&OE
+    font('normal', 8.5);
+    pdf.text('Amount Chargeable (in words)', M, y);
+    font('normal', 8);
+    pdf.text('E. & O.E', R, y, { align: 'right' });
+    y += 4;
+    font('bold', 9);
+    const words = pdf.splitTextToSize(m.amountWords, W - M * 2 - 18);
+    pdf.text(words, M, y);
+    y += words.length * 3.6 + 2;
 
     if (m.storePan) {
-      font('normal', 10);
+      font('normal', 8.5);
       const lbl = "Company's PAN : ";
-      pdf.text(lbl, M + 2, y);
-      font('bold', 10);
-      pdf.text(m.storePan, M + 2 + pdf.getTextWidth(lbl) - 0.2, y);
-      y += 7;
+      pdf.text(lbl, M, y);
+      font('bold', 8.5);
+      pdf.text(m.storePan, M + pdf.getTextWidth(lbl), y);
+      y += 5;
     }
 
     // Declaration + signatory
-    font('bold', 10);
-    pdf.text('Declaration', M + 2, y);
+    font('bold', 9);
+    pdf.text('Declaration', M, y);
     pdf.setLineWidth(0.2);
-    pdf.line(M + 2, y + 0.8, M + 2 + pdf.getTextWidth('Declaration'), y + 0.8);
-    font('bold', 10);
-    pdf.text(`for ${m.storeName || '—'}`, R - 2, y, { align: 'right' });
+    pdf.line(M, y + 0.7, M + pdf.getTextWidth('Declaration'), y + 0.7);
+    font('bold', 9);
+    pdf.text(`for ${m.storeName || '—'}`, R, y, { align: 'right' });
 
-    font('normal', 9);
+    font('normal', 7.5);
     const decl = pdf.splitTextToSize(
       'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.',
-      110
+      (W - M * 2) * 0.62
     );
-    pdf.text(decl, M + 2, y + 5);
+    pdf.text(decl, M, y + 4);
 
-    y += 24;
-    font('normal', 10);
-    pdf.text('Authorised Signatory', R - 2, y, { align: 'right' });
+    font('normal', 8.5);
+    pdf.text('Authorised Signatory', R, y + 16, { align: 'right' });
 
-    y += 12;
-    ensure(8);
-    center('This is a Computer Generated Invoice', y, 'normal', 9, true);
+    y += 22;
+    ensure(6);
+    font('normal', 8);
+    const footer = 'This is a Computer Generated Invoice';
+    pdf.text(footer, cx, y, { align: 'center' });
+    const fw = pdf.getTextWidth(footer);
+    pdf.line(cx - fw / 2, y + 0.7, cx + fw / 2, y + 0.7);
 
     const filename = String(invoice.invoiceNumber || 'invoice').replace(/[\\/:*?"<>|]/g, '_');
     pdf.save(`${filename}.pdf`);
