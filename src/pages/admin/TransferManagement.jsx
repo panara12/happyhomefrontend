@@ -108,7 +108,7 @@ export default function TransferManagement({ user: userProp }) {
       const available = Number(storeQty?.qty || 0);
       return {
         id: p._id,
-        label: p.sku_code || p.barcode_text,
+        label: p.barcode_text || p.sku_code,
         subLabel: `Code: ${p.product_code || '-'} • Available: ${available}`,
         raw: p,
       };

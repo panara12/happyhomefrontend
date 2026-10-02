@@ -64,6 +64,10 @@ export default function PurchaseOrders() {
 
   const getStoreName = (storeId) => stores.find((s) => s.storeId === storeId)?.name || storeId;
   const getProductByBarcode = (barcode) => products.find((p) => p.barcode_text === barcode);
+  const getProductStock = (product) =>
+    formData.storeId
+      ? product.qty?.find((entry) => String(entry.storeId) === String(formData.storeId))?.qty ?? 0
+      : (product.qty || []).reduce((total, entry) => total + (Number(entry.qty) || 0), 0);
 
   const resetForm = () => {
     setFormData(buildInitialForm(userRole, user?.storeId));
@@ -561,8 +565,10 @@ export default function PurchaseOrders() {
                             >
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <div className="font-medium">{product.sku_code}</div>
-                                  <div className="text-sm text-gray-600">Barcode: {product.barcode_text}</div>
+                                  <div className="font-medium">{product.barcode_text}</div>
+                                  <div className="text-sm text-gray-600">
+                                    {formData.storeId ? 'Stock at selected store' : 'Total stock'}: {getProductStock(product)}
+                                  </div>
                                 </div>
                                 <div className="font-medium text-amber-600">₹{product.mrp || 0}</div>
                               </div>

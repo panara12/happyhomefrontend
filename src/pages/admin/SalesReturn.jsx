@@ -48,6 +48,7 @@ export default function SalesReturn() {
   const [invoiceQuery, setInvoiceQuery] = useState('');
   const [debouncedInvoiceQuery, setDebouncedInvoiceQuery] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [returnItems, setReturnItems] = useState([]);
   const [formData, setFormData] = useState(emptyForm);
 
   useEffect(() => {
@@ -93,12 +94,30 @@ export default function SalesReturn() {
     }));
   }, [invoices]);
 
+  const invoiceItems = useMemo(() => {
+    const grouped = new Map();
+    (selectedInvoice?.items || []).forEach((item) => {
+      const productId = String(item.productId?._id || item.productId);
+      const existing = grouped.get(productId) || {
+        productId,
+        productName: item.productName || item.productCode || 'Item',
+        quantity: 0,
+        total: 0,
+      };
+      existing.quantity += Number(item.quantity || 0);
+      existing.total += Number(item.total ?? Number(item.price || 0) * Number(item.quantity || 0));
+      grouped.set(productId, existing);
+    });
+    return [...grouped.values()];
+  }, [selectedInvoice]);
+
   const selectedStoreName = selectedInvoice?.storeId
     ? storeNameById.get(String(selectedInvoice.storeId)) || selectedInvoice.storeId
     : '';
 
   const resetModal = () => {
     setSelectedInvoice(null);
+    setReturnItems([]);
     setInvoiceQuery('');
     setDebouncedInvoiceQuery('');
     setFormData(emptyForm);
@@ -108,6 +127,15 @@ export default function SalesReturn() {
     const inv = opt.raw;
     setSelectedInvoice(inv);
     setInvoiceQuery(inv.invoiceNumber || '');
+    setReturnItems(
+      (inv.items || []).reduce((items, item) => {
+        const productId = String(item.productId?._id || item.productId);
+        if (!items.some((existing) => existing.productId === productId)) {
+          items.push({ productId, selected: false, quantity: '1' });
+        }
+        return items;
+      }, [])
+    );
     setFormData((prev) => ({
       ...prev,
       phone: sanitizePhone(inv.customerPhone || ''),
@@ -127,10 +155,26 @@ export default function SalesReturn() {
       toast.error('Please select a refund method');
       return;
     }
+    const selectedItems = returnItems
+      .filter((item) => item.selected && Number(item.quantity) > 0)
+      .map(({ productId, quantity }) => ({ productId, quantity: Number(quantity) }));
+    if (selectedItems.length === 0) {
+      toast.error('Please select at least one product to return');
+      return;
+    }
+    const invalidQuantity = selectedItems.find((selected) => {
+      const invoiceItem = invoiceItems.find((item) => item.productId === selected.productId);
+      return !Number.isInteger(selected.quantity) || selected.quantity > Number(invoiceItem?.quantity || 0);
+    });
+    if (invalidQuantity) {
+      toast.error('Return quantity cannot exceed the quantity on the invoice');
+      return;
+    }
 
     createReturnMutation.mutate(
       {
         invoiceId: selectedInvoice._id || selectedInvoice.id,
+        items: selectedItems,
         customerPhone: formData.phone.trim(),
         reason: formData.reason.trim(),
         refundMethod: formData.refundMethod,
@@ -275,6 +319,23 @@ export default function SalesReturn() {
                 </p>
               </div>
 
+              {ret.items?.length > 0 && (
+                <div className="mb-4 rounded-lg border border-gray-200 overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">Returned Products</div>
+                  <div className="divide-y divide-gray-100">
+                    {ret.items.map((item) => (
+                      <div
+                        key={`${ret._id || ret.id}-${item.productId}`}
+                        className="flex justify-between gap-4 px-4 py-2 text-sm"
+                      >
+                        <span className="text-gray-700">{item.productName} × {item.quantity}</span>
+                        <span className="font-medium text-gray-800">₹{Number(item.total || 0).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-gray-700">Subtotal:</span>
@@ -332,7 +393,7 @@ export default function SalesReturn() {
       {showAddModal && (
         <Modal
           title="Create Sales Return"
-          size="md"
+          size="lg"
           onClose={() => {
             setShowAddModal(false);
             resetModal();
@@ -371,6 +432,7 @@ export default function SalesReturn() {
                   setInvoiceQuery(value);
                   if (selectedInvoice && value !== selectedInvoice.invoiceNumber) {
                     setSelectedInvoice(null);
+                    setReturnItems([]);
                     setFormData((prev) => ({ ...prev, phone: '' }));
                   }
                 }}
@@ -378,6 +440,73 @@ export default function SalesReturn() {
                 options={invoiceOptions}
               />
             </div>
+
+            {selectedInvoice && (
+              <div className="sm:col-span-2">
+                <div className="mb-2">
+                  <label className={modalLabelClass}>Products to Return</label>
+                  <p className="text-xs text-gray-500">Select products and enter the quantity being returned.</p>
+                </div>
+                {invoiceItems.length === 0 ? (
+                  <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-500">
+                    No products are recorded on this invoice.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-left text-gray-600">
+                        <tr>
+                          <th className="px-3 py-2">Select</th>
+                          <th className="px-3 py-2">Product</th>
+                          <th className="px-3 py-2">Invoice Qty</th>
+                          <th className="px-3 py-2">Return Qty</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {invoiceItems.map((item) => {
+                          const selection = returnItems.find((row) => row.productId === item.productId);
+                          return (
+                            <tr key={item.productId}>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(selection?.selected)}
+                                  onChange={(e) => setReturnItems((current) => current.map((row) => (
+                                    row.productId === item.productId
+                                      ? { ...row, selected: e.target.checked, quantity: e.target.checked ? '1' : '0' }
+                                      : row
+                                  )))}
+                                  aria-label={`Select ${item.productName} for return`}
+                                />
+                              </td>
+                              <td className="px-3 py-2 font-medium text-gray-800">{item.productName}</td>
+                              <td className="px-3 py-2 text-gray-600">{item.quantity}</td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max={item.quantity}
+                                  step="1"
+                                  value={selection?.quantity ?? '0'}
+                                  disabled={!selection?.selected}
+                                  onChange={(e) => setReturnItems((current) => current.map((row) => (
+                                    row.productId === item.productId
+                                      ? { ...row, quantity: e.target.value }
+                                      : row
+                                  )))}
+                                  className="w-24 rounded-md border border-gray-300 px-2 py-1 disabled:bg-gray-100"
+                                  aria-label={`Return quantity for ${item.productName}`}
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label className={modalLabelClass}>Customer Name</label>

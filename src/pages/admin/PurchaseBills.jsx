@@ -606,7 +606,7 @@ export default function PurchaseBills() {
                             onClick={() => handleSelectProduct(index, product)}
                             className="w-full text-left p-3 hover:bg-amber-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                           >
-                            <span className="font-medium text-gray-800">{product.sku_code || product.product_name || product.barcode_text}</span>
+                            <span className="font-medium text-gray-800">{product.barcode_text || product.sku_code || product.product_name}</span>
                             <span className="block text-sm text-gray-600">Code: {product.product_code || '—'} · Barcode: {product.barcode_text || '—'}</span>
                           </button>
                         )) : (
