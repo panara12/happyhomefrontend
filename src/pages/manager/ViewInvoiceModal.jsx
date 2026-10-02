@@ -34,7 +34,7 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf 
   const payment = invoice.paymentBreakdown || {};
   const hasPaymentBreakdown =
     Number(payment.cash || 0) > 0 ||
-    Number(payment.gpay || 0) > 0 ||
+    Number(payment.upi || 0) > 0 ||
     Number(payment.debit || 0) > 0;
 
   const itemsSubtotal = (invoice.items || []).reduce(
@@ -140,8 +140,8 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf 
               <span className="font-medium text-gray-800">{formatMoney(payment.cash)}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">GPay</span>
-              <span className="font-medium text-gray-800">{formatMoney(payment.gpay)}</span>
+              <span className="text-gray-600">UPI</span>
+              <span className="font-medium text-gray-800">{formatMoney(payment.upi)}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600">Debit</span>

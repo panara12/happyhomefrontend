@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Wrench, Plus, Phone, User, Package, Building2, ShieldCheck, ShieldOff,
   IndianRupee, Calendar, FileText, CheckCircle2, Clock, AlertTriangle,
@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGetAllService, useAddService, useUpdateService } from '../../hooks/useService';
+import { useGetAllStores } from '../../hooks/useStore';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/ui/Pagination';
 import Modal, {
   modalInputClass,
   modalLabelClass,
@@ -26,6 +29,7 @@ const emptyForm = {
   followUpDate: '',
   notes: '',
   problem: '',
+  storeId: '',
 };
 
 function sendWhatsApp(phone, message) {
@@ -101,6 +105,7 @@ function normalizeService(raw) {
     problem: raw.problem || raw.Problem || '',
     notes: stripFollowUpTag(raw.notes),
     followUpDate: extractFollowUpDate(raw.notes),
+    customerReceivedDate: raw.customerReceivedDate || null,
     status: getLatestStatus(raw.status),
     registeredAt: raw.createdAt,
     completedAt: getCompletedAt(raw.status),
@@ -108,7 +113,7 @@ function normalizeService(raw) {
 }
 
 // ─── Complaint Card ───────────────────────────────────────────────────────────
-function ComplaintCard({ complaint, onView, onComplete, onFollowUp }) {
+function ComplaintCard({ complaint, onView, onComplete, onFollowUp, onReceived, onStatusChange, isReceiving, isUpdating, updatingStatus }) {
   const isOverdue = complaint.followUpDate && complaint.followUpDate < today && complaint.status !== 'completed';
   const isToday = complaint.followUpDate === today && complaint.status !== 'completed';
   const cfg = STATUS_CONFIG[complaint.status] || STATUS_CONFIG.pending;
@@ -197,9 +202,30 @@ function ComplaintCard({ complaint, onView, onComplete, onFollowUp }) {
         >
           <MessageCircle size={13} /> WhatsApp
         </button>
-        {complaint.status !== 'completed' && (
+        {complaint.status === 'pending' && (
+          <>
+            <button
+              type="button"
+              onClick={() => onStatusChange(STATUS_TO_BACKEND['in-progress'])}
+              disabled={isUpdating}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-all border border-blue-200 disabled:opacity-60"
+            >
+              <Wrench size={13} /> {updatingStatus === STATUS_TO_BACKEND['in-progress'] ? 'Updating…' : 'In Progress'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onStatusChange(STATUS_TO_BACKEND.cancelled)}
+              disabled={isUpdating}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 rounded-lg transition-all border border-red-200 disabled:opacity-60"
+            >
+              <X size={13} /> {updatingStatus === STATUS_TO_BACKEND.cancelled ? 'Updating…' : 'Cancelled'}
+            </button>
+          </>
+        )}
+        {complaint.status === 'in-progress' && (
           <button
             onClick={onComplete}
+            disabled={isUpdating}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-lg transition-all shadow-sm"
           >
             <CheckCircle2 size={13} /> Mark Complete
@@ -210,13 +236,27 @@ function ComplaintCard({ complaint, onView, onComplete, onFollowUp }) {
             <CheckCircle2 size={12} /> Completed {new Date(complaint.completedAt).toLocaleDateString('en-IN')}
           </span>
         )}
+        {complaint.status === 'completed' && !complaint.customerReceivedDate && (
+          <button
+            onClick={onReceived}
+            disabled={isUpdating}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-all border border-blue-200 disabled:opacity-60"
+          >
+            <CheckCircle2 size={13} /> {isReceiving ? 'Saving…' : 'Customer Received'}
+          </button>
+        )}
+        {complaint.customerReceivedDate && (
+          <span className="flex items-center gap-1 text-xs text-blue-700 font-medium px-2">
+            <CheckCircle2 size={12} /> Customer received {new Date(complaint.customerReceivedDate).toLocaleDateString('en-IN')}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
 // ─── Registration Form ────────────────────────────────────────────────────────
-function ComplaintForm({ onClose, onSubmit, isSubmitting }) {
+function ComplaintForm({ onClose, onSubmit, isSubmitting, isAdmin, stores, storesLoading }) {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
 
@@ -230,12 +270,13 @@ function ComplaintForm({ onClose, onSubmit, isSubmitting }) {
     if (!form.productName.trim()) e.productName = 'Required';
     if (!form.productBrand.trim()) e.productBrand = 'Required';
     if (!form.followUpDate) e.followUpDate = 'Required';
+    if (isAdmin && !form.storeId) e.storeId = 'Select a store';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const handleSubmit = () => {
-    if (validate()) onSubmit(form);
+    if (validate()) onSubmit({ ...form, storeId: isAdmin ? form.storeId : undefined });
   };
 
   return (
@@ -244,7 +285,6 @@ function ComplaintForm({ onClose, onSubmit, isSubmitting }) {
         {/* Header */}
         <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white px-5 py-4 rounded-t-2xl flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <img src={LOGO} alt="Happy Home" className="w-9 h-9 rounded-full bg-white p-0.5 object-contain" />
             <div>
               <h2 className="text-base font-bold leading-tight">Register New Complaint</h2>
               <p className="text-xs text-amber-100">Customer will receive a WhatsApp notification</p>
@@ -287,6 +327,26 @@ function ComplaintForm({ onClose, onSubmit, isSubmitting }) {
               </div>
             </div>
           </div>
+
+          {isAdmin && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Store *</label>
+              <select
+                value={form.storeId}
+                onChange={e => set('storeId', e.target.value)}
+                disabled={storesLoading}
+                className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white ${errors.storeId ? 'border-red-400' : 'border-gray-200'}`}
+              >
+                <option value="">{storesLoading ? 'Loading stores…' : 'Select a store'}</option>
+                {stores.map(store => (
+                  <option key={store.storeId} value={String(store.storeId)}>
+                    {store.name ? `${store.name} (${store.storeId})` : store.storeId}
+                  </option>
+                ))}
+              </select>
+              {errors.storeId && <p className="text-xs text-red-500 mt-1">{errors.storeId}</p>}
+            </div>
+          )}
 
           {/* Product Info */}
           <div>
@@ -579,6 +639,17 @@ function ComplaintDetail({ complaint, onClose, onComplete, isCompleting }) {
             { label: 'Brand', value: complaint.productBrand, icon: Building2 },
             { label: 'Follow-up Date', value: complaint.followUpDate || '—', icon: Calendar },
             {
+              label: 'Customer Received On',
+              value: complaint.customerReceivedDate
+                ? new Date(complaint.customerReceivedDate).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })
+                : 'Not received',
+              icon: CheckCircle2,
+            },
+            {
               label: 'Repair Charges',
               value: complaint.repairCharge && Number(complaint.repairCharge) > 0
                 ? `₹${complaint.repairCharge}`
@@ -636,15 +707,23 @@ function ComplaintDetail({ complaint, onClose, onComplete, isCompleting }) {
 // ─── Main Service Panel ───────────────────────────────────────────────────────
 export default function ServicePanel({ user }) {
   const { data: serviceData, isLoading: complaintsLoading, isError: isComplaintsError, error: complaintsError, refetch } = useGetAllService();
+  const isAdmin = user?.userType === 'admin';
+  const { data: storesData, isLoading: storesLoading } = useGetAllStores({ enabled: isAdmin });
+  const stores = storesData?.stores ?? [];
   // Raw docs come back in the actual Service schema shape — normalize once here
   // so every component below can keep using the flat field names it already had.
-  const complaints = (serviceData?.services ?? []).map(normalizeService);
+  const complaints = useMemo(
+    () => (serviceData?.services ?? []).map(normalizeService),
+    [serviceData?.services]
+  );
   const addServiceMutation = useAddService();
   const updateServiceMutation = useUpdateService();
 
   const [showForm, setShowForm] = useState(false);
   const [viewComplaint, setViewComplaint] = useState(null);
   const [completingComplaint, setCompletingComplaint] = useState(null);
+  const [receivingServiceId, setReceivingServiceId] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -657,6 +736,7 @@ export default function ServicePanel({ user }) {
       mobileNumber: Number(form.mobileNumber),
       productName: form.productName,
       productBrand: form.productBrand,
+      storeId: form.storeId,
       warranty: form.warranty,
       repairCharge: 0,
       problem: form.problem,
@@ -712,6 +792,35 @@ export default function ServicePanel({ user }) {
     }
   };
 
+  const handleStatusChange = async (complaint, status) => {
+    setUpdatingStatus({ serviceId: complaint._id, status });
+    try {
+      await updateServiceMutation.mutateAsync({ id: complaint._id, status });
+      toast.success(`Complaint ${complaint.id} status updated.`);
+      await refetch();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to update complaint status');
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  const handleCustomerReceived = async (complaint) => {
+    setReceivingServiceId(complaint._id);
+    try {
+      await updateServiceMutation.mutateAsync({
+        id: complaint._id,
+        customerReceivedDate: new Date().toISOString(),
+      });
+      toast.success(`Customer receipt recorded for ${complaint.id}.`);
+      await refetch();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to record customer receipt');
+    } finally {
+      setReceivingServiceId(null);
+    }
+  };
+
   const counts = {
     all: complaints.length,
     pending: complaints.filter(c => c.status === 'pending').length,
@@ -721,7 +830,7 @@ export default function ServicePanel({ user }) {
     'followup-overdue': complaints.filter(c => c.followUpDate && c.followUpDate < today && c.status !== 'completed').length,
   };
 
-  const filtered = complaints.filter(c => {
+  const filtered = useMemo(() => complaints.filter(c => {
     const q = searchQuery.toLowerCase();
     const matchSearch = !q ||
       c.customerName.toLowerCase().includes(q) ||
@@ -735,7 +844,8 @@ export default function ServicePanel({ user }) {
     if (filterStatus === 'followup-today') return c.followUpDate === today && c.status !== 'completed';
     if (filterStatus === 'followup-overdue') return c.followUpDate && c.followUpDate < today && c.status !== 'completed';
     return c.status === filterStatus;
-  });
+  }), [complaints, searchQuery, filterStatus]);
+  const pagination = usePagination(filtered, { pageSize: 10 });
 
   const statCards = [
     { key: 'all', label: 'Total', icon: FileText, gradient: 'from-gray-600 to-gray-700' },
@@ -855,22 +965,36 @@ export default function ServicePanel({ user }) {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4">
-          {filtered.map(c => (
-            <ComplaintCard
-              key={c.id}
-              complaint={c}
-              onView={() => setViewComplaint(c)}
-              onComplete={() => setCompletingComplaint(c)}
-              onFollowUp={() =>
-                sendWhatsApp(
-                  c.mobileNumber,
-                  `Dear ${c.customerName}, this is a follow-up regarding your service complaint *${c.id}* for *${c.productName}* (${c.productBrand}). Our team is actively working on it. We will update you shortly. Thank you for your patience! 🙏 - Happy Home`
-                )
-              }
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4">
+            {pagination.paginatedItems.map(c => (
+              <ComplaintCard
+                key={c.id}
+                complaint={c}
+                onView={() => setViewComplaint(c)}
+                onComplete={() => setCompletingComplaint(c)}
+                onReceived={() => handleCustomerReceived(c)}
+                onStatusChange={(status) => handleStatusChange(c, status)}
+                isReceiving={receivingServiceId === c._id}
+                isUpdating={updateServiceMutation.isPending}
+                updatingStatus={updatingStatus?.serviceId === c._id ? updatingStatus.status : null}
+                onFollowUp={() =>
+                  sendWhatsApp(
+                    c.mobileNumber,
+                    `Dear ${c.customerName}, this is a follow-up regarding your service complaint *${c.id}* for *${c.productName}* (${c.productBrand}). Our team is actively working on it. We will update you shortly. Thank you for your patience! 🙏 - Happy Home`
+                  )
+                }
+              />
+            ))}
+          </div>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={pagination.pageSize}
+            onPageChange={pagination.goToPage}
+          />
+        </>
       )}
 
       {/* Modals */}
@@ -879,6 +1003,9 @@ export default function ServicePanel({ user }) {
           onClose={() => setShowForm(false)}
           onSubmit={handleRegister}
           isSubmitting={addServiceMutation.isPending}
+          isAdmin={isAdmin}
+          stores={stores}
+          storesLoading={storesLoading}
         />
       )}
       {viewComplaint && (

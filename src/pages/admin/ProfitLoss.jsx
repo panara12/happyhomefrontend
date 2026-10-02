@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Calendar, DollarSign, Download } from 'lucide-react';
+import { Calendar, DollarSign } from 'lucide-react';
 import { useGetDashboardData } from '../../hooks/useGetAllAccountStates';
 
 function money(value) {
@@ -38,17 +38,32 @@ function formatLakhs(value) {
 export default function ProfitLoss() {
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
   const [viewType, setViewType] = useState('monthly');
+  const [activeTab, setActiveTab] = useState('revenue');
+  const [startDate, setStartDate] = useState(`${defaultMonth}-01`);
+  const [endDate, setEndDate] = useState(today);
 
   const { data: dashboardData, isLoading, isFetching } = useGetDashboardData({
+    enabled: activeTab === 'revenue',
     period: viewType,
     month: selectedMonth,
+  });
+  const { data: paymentData, isLoading: isPaymentLoading, isFetching: isPaymentFetching } = useGetDashboardData({
+    enabled: activeTab === 'revenueInfo' && Boolean(startDate && endDate && startDate <= endDate),
+    startDate,
+    endDate,
   });
 
   const salesRevenue = Number(dashboardData?.totalSales) || 0;
   const otherIncome = 0;
   const totalRevenue = salesRevenue + otherIncome;
+  const paymentModeTotals = paymentData?.paymentModeTotals || {};
+  const totalCollection =
+    (Number(paymentModeTotals.upi) || 0) +
+    (Number(paymentModeTotals.cash) || 0) +
+    (Number(paymentModeTotals.debit) || 0);
 
   const periodLabel = useMemo(
     () => formatPeriodLabel(viewType, selectedMonth),
@@ -62,7 +77,7 @@ export default function ProfitLoss() {
           <h2 className="text-3xl font-bold text-gray-800">Profit & Loss Statement</h2>
           <p className="text-gray-600 mt-1">Comprehensive income statement</p>
         </div>
-        <div className="flex gap-3">
+        {activeTab === 'revenue' && <div className="flex gap-3">
           <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-gray-300">
             <Calendar size={20} className="text-gray-500" />
             <input
@@ -72,18 +87,32 @@ export default function ProfitLoss() {
               className="outline-none"
             />
           </div>
-          <button
-            type="button"
-            className="flex items-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 text-white px-6 py-3 rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all shadow-lg"
-          >
-            <Download size={20} />
-            Export PDF
-          </button>
-        </div>
+        </div>}
       </div>
 
-      {/* View Type Selector */}
-      <div className="bg-white rounded-xl shadow-md p-2 inline-flex gap-2">
+      <div className="flex border-b border-gray-200" role="tablist" aria-label="Profit and loss views">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'revenue'}
+          onClick={() => setActiveTab('revenue')}
+          className={`px-5 py-3 font-medium border-b-2 ${activeTab === 'revenue' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-600 hover:text-gray-900'}`}
+        >
+          Revenue
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'revenueInfo'}
+          onClick={() => setActiveTab('revenueInfo')}
+          className={`px-5 py-3 font-medium border-b-2 ${activeTab === 'revenueInfo' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-600 hover:text-gray-900'}`}
+        >
+          Revenue Info
+        </button>
+      </div>
+
+      {activeTab === 'revenue' ? <>
+      <div className="inline-flex gap-2 border-b border-gray-200">
         <button
           type="button"
           onClick={() => setViewType('monthly')}
@@ -165,6 +194,45 @@ export default function ProfitLoss() {
           </div>
         </div>
       </div>
+      </> : <section className="space-y-5" role="tabpanel">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+          <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+            Start date
+            <span className="flex items-center gap-2 bg-white px-3 py-2 border border-gray-300 rounded">
+              <Calendar size={18} className="text-gray-500" />
+              <input type="date" value={startDate} max={endDate || undefined} onChange={(event) => setStartDate(event.target.value)} className="outline-none" />
+            </span>
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+            End date
+            <span className="flex items-center gap-2 bg-white px-3 py-2 border border-gray-300 rounded">
+              <Calendar size={18} className="text-gray-500" />
+              <input type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} className="outline-none" />
+            </span>
+          </label>
+        </div>
+        <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50 text-sm text-gray-600">
+              <tr>
+                <th scope="col" className="px-5 py-3 font-semibold">UPI</th>
+                <th scope="col" className="px-5 py-3 font-semibold">Cash</th>
+                <th scope="col" className="px-5 py-3 font-semibold">Debit</th>
+                <th scope="col" className="px-5 py-3 font-semibold">Total Collection</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-gray-200">
+                <td className="px-5 py-4 font-medium text-gray-900">{isPaymentLoading || isPaymentFetching ? '…' : `₹${money(paymentData?.paymentModeTotals?.upi)}`}</td>
+                <td className="px-5 py-4 font-medium text-gray-900">{isPaymentLoading || isPaymentFetching ? '…' : `₹${money(paymentData?.paymentModeTotals?.cash)}`}</td>
+                <td className="px-5 py-4 font-medium text-gray-900">{isPaymentLoading || isPaymentFetching ? '…' : `₹${money(paymentData?.paymentModeTotals?.debit)}`}</td>
+                <td className="px-5 py-4 font-semibold text-gray-900">{isPaymentLoading || isPaymentFetching ? '…' : `₹${money(totalCollection)}`}</td>
+              </tr>
+            </tbody>
+          </table>
+          {startDate && endDate && startDate > endDate && <p className="px-5 py-3 text-sm text-red-700">Start date must be on or before end date.</p>}
+        </div>
+      </section>}
     </div>
   );
 }

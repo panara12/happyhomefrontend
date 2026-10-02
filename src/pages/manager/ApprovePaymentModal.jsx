@@ -17,7 +17,7 @@ function roundMoney(value) {
 
 const PAYMENT_FIELDS = [
   { key: 'cash', label: 'Cash' },
-  { key: 'gpay', label: 'GPay' },
+  { key: 'upi', label: 'UPI' },
   { key: 'debit', label: 'Debit' },
 ];
 
@@ -29,14 +29,14 @@ export default function ApprovePaymentModal({
 }) {
   const user = useSelector((state) => state.app.userInfo);
   const isAccounting = user?.userType === 'accounting';
-  const [payments, setPayments] = useState({ cash: '', gpay: '', debit: '' });
+  const [payments, setPayments] = useState({ cash: '', upi: '', debit: '' });
 
   const invoiceTotal = roundMoney(invoice?.total);
   const paidTotal = useMemo(
     () =>
       roundMoney(
         (Number(payments.cash) || 0) +
-          (Number(payments.gpay) || 0) +
+          (Number(payments.upi) || 0) +
           (Number(payments.debit) || 0)
       ),
     [payments]
@@ -54,7 +54,7 @@ export default function ApprovePaymentModal({
     if (!isMatched || isSubmitting) return;
     onConfirm?.({
       cash: Number(payments.cash) || 0,
-      gpay: Number(payments.gpay) || 0,
+      upi: Number(payments.upi) || 0,
       debit: Number(payments.debit) || 0,
     });
   };
@@ -103,7 +103,7 @@ export default function ApprovePaymentModal({
           {formatMoney(invoiceTotal)}
         </p>
         <p className={`text-xs mt-1 ${isAccounting ? 'text-indigo-700' : 'text-amber-700'}`}>
-          Split the total across Cash, GPay, and Debit. Sum must match exactly.
+          Split the total across Cash, upi, and Debit. Sum must match exactly.
         </p>
       </div>
 

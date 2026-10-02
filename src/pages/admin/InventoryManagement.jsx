@@ -15,7 +15,7 @@ import { useGetAllAccountingConst } from '../../hooks/useGetAllAccountStates';
 import { useGetAllUnits } from '../../hooks/useUnit';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
-import { printBarcodeStickers, BARCODE_STICKER_SPEC } from '../../utils/printBarcodeStickers';
+import { BARCODE_STICKER_SPEC } from '../../utils/printBarcodeStickers';
 
 function buildEditForm(product, stores) {
   const qtyByStore = {};
@@ -279,7 +279,7 @@ export default function InventoryManagement({ user }) {
             className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"
           >
             <Printer size={20} />
-            Print Barcodes
+            print labels
           </button>
         </div>
       </div>
@@ -629,9 +629,9 @@ export default function InventoryManagement({ user }) {
             <div className="flex items-center gap-3">
               <Barcode className="text-purple-600" size={28} />
               <div>
-                <h3 className="text-xl font-bold text-gray-800">Print Barcode Stickers</h3>
+                <h3 className="text-xl font-bold text-gray-800">print label Stickers</h3>
                 <p className="text-sm text-gray-500">
-                  {BARCODE_STICKER_SPEC.printer} · {BARCODE_STICKER_SPEC.widthIn}" × {BARCODE_STICKER_SPEC.heightIn}" · {BARCODE_STICKER_SPEC.perRow} stickers / row
+                  {BARCODE_STICKER_SPEC.printer} · {BARCODE_STICKER_SPEC.widthMm} × {BARCODE_STICKER_SPEC.heightMm} mm · {BARCODE_STICKER_SPEC.perRow} stickers / row
                 </p>
               </div>
             </div>

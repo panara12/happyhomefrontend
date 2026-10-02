@@ -15,6 +15,7 @@ import Modal, {
 const EMPTY_ARRAY = [];
 
 const emptyForm = {
+  storeId: '',
   name: '',
   address: '',
   number: '',
@@ -147,8 +148,8 @@ export default function StoreManagement() {
   };
 
   const handleAddStore = async () => {
-    if (!formData.name || !formData.address || !formData.storeEmail || !formData.state || !formData.code || !formData.storePanNumber) {
-      toast.error('Store name, address, email, state, code, and PAN are required');
+    if (!formData.storeId.trim() || !formData.name || !formData.address || !formData.storeEmail || !formData.state || !formData.code || !formData.storePanNumber) {
+      toast.error('Store ID, name, address, email, state, code, and PAN are required');
       return;
     }
 
@@ -159,6 +160,7 @@ export default function StoreManagement() {
 
     try {
       await addStoreMutation.mutateAsync({
+        storeId: formData.storeId.trim(),
         name: formData.name.trim(),
         address: formData.address.trim(),
         number: formData.number,
@@ -180,6 +182,7 @@ export default function StoreManagement() {
   const openEdit = (store) => {
     setEditingStore(store);
     setEditForm({
+      storeId: store.storeId || '',
       name: store.name || '',
       address: store.address || '',
       number: store.number ?? '',
@@ -201,8 +204,8 @@ export default function StoreManagement() {
 
   const handleUpdateStore = () => {
     if (!editingStore?.storeId) return;
-    if (!editForm.name.trim() || !editForm.address.trim() || !editForm.storeEmail.trim() || !editForm.state.trim() || !editForm.code.trim() || !editForm.storePanNumber.trim()) {
-      toast.error('Store name, address, email, state, code, and PAN are required');
+    if (!editForm.storeId.trim() || !editForm.name.trim() || !editForm.address.trim() || !editForm.storeEmail.trim() || !editForm.state.trim() || !editForm.code.trim() || !editForm.storePanNumber.trim()) {
+      toast.error('Store ID, name, address, email, state, code, and PAN are required');
       return;
     }
 
@@ -214,6 +217,7 @@ export default function StoreManagement() {
     updateStoreMutation.mutate(
       {
         id: editingStore.storeId,
+        storeId: editForm.storeId.trim(),
         name: editForm.name.trim(),
         address: editForm.address.trim(),
         number: editForm.number,
@@ -413,6 +417,16 @@ export default function StoreManagement() {
         >
           <div className="grid grid-cols-1 gap-y-3">
             <div>
+              <label className={modalLabelClass}>Store ID</label>
+              <input
+                type="text"
+                value={formData.storeId}
+                onChange={(e) => setFormData({ ...formData, storeId: e.target.value })}
+                className={modalInputClass}
+                placeholder="e.g., hph004"
+              />
+            </div>
+            <div>
               <label className={modalLabelClass}>Store Name</label>
               <input
                 type="text"
@@ -524,6 +538,15 @@ export default function StoreManagement() {
           }
         >
           <div className="grid grid-cols-1 gap-y-3">
+            <div>
+              <label className={modalLabelClass}>Store ID</label>
+              <input
+                type="text"
+                value={editForm.storeId}
+                onChange={(e) => setEditForm({ ...editForm, storeId: e.target.value })}
+                className={modalInputClass}
+              />
+            </div>
             <div>
               <label className={modalLabelClass}>Store Name</label>
               <input

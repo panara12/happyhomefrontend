@@ -30,3 +30,12 @@ export function useUpdateUnit() {
         invalidateKeys: [UNITS_QUERY_KEY],
     });
 }
+
+export function useDeleteUnit() {
+    return useApiMutation({
+        url: (unitId) => `/units/deleteunit/${unitId}`,
+        method: "delete",
+        invalidateKeys: [UNITS_QUERY_KEY],
+        successMessage: "Unit deleted successfully",
+    });
+}
