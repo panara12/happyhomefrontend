@@ -37,7 +37,6 @@ const emptyItem = {
 const emptyForm = {
   supplierName: '',
   supplierGSTIN: '',
-  supplierId: '',
   billNumber: '',
   billDate: new Date().toISOString().split('T')[0],
   storeId: '',
@@ -95,16 +94,6 @@ export default function PurchaseBills() {
     setActiveSearchIndex(null);
     setItemSearchTerm('');
     setShowAddModal(true);
-  };
-
-  const handleSupplierChange = (supplierId) => {
-    const selectedSupplier = stockGroup.find((group) => group._id === supplierId);
-    setFormData((prev) => ({
-      ...prev,
-      supplierId,
-      supplierName: selectedSupplier?.name || '',
-      supplierGSTIN: selectedSupplier?.gstNumber || '',
-    }));
   };
 
   const handleAddItem = () => {
@@ -175,7 +164,7 @@ export default function PurchaseBills() {
     const invalidItems = formData.items.filter(
       (item) => !item.barcode_text.trim() || !item.brand || !item.category || !item.hsncode.trim() || !item.unit || !item.mrp || Number(item.quantity) <= 0
     );
-    if (!formData.supplierId || !formData.billNumber.trim() || !formData.storeId || invalidItems.length > 0) {
+    if (!formData.supplierName.trim() || !formData.billNumber.trim() || !formData.storeId || invalidItems.length > 0) {
       toast.error('Please complete the supplier, bill, store, and required item details.');
       return;
     }
@@ -183,7 +172,8 @@ export default function PurchaseBills() {
     const payload = {
       billNumber: formData.billNumber.trim(),
       billDate: formData.billDate,
-      supplierId: formData.supplierId,
+      supplierName: formData.supplierName.trim(),
+      supplierGSTIN: formData.supplierGSTIN.trim(),
       storeId: formData.storeId,
       items: formData.items.map((item) => {
         const priced = applyItemDiscount(item);
@@ -222,7 +212,7 @@ export default function PurchaseBills() {
   const getStoreName = (storeId) => stores.find(s => s.storeId === storeId)?.name || storeId;
 
   const filteredBills = useMemo(() => bills.filter(bill => {
-    const supplierName = bill.supplierId?.name || '';
+    const supplierName = bill.supplierName || '';
     return supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bill.billNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bill.billId?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -330,8 +320,8 @@ export default function PurchaseBills() {
                   </td>
                   <td className="px-4 py-3">
                     <div>
-                      <p className="font-medium text-gray-800">{bill.supplierId?.name || '—'}</p>
-                      <p className="text-xs text-gray-500">GSTIN: {bill.supplierId?.gstNumber || '—'}</p>
+                      <p className="font-medium text-gray-800">{bill.supplierName || '—'}</p>
+                      <p className="text-xs text-gray-500">GSTIN: {bill.supplierGSTIN || '—'}</p>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{bill.billNumber}</td>
@@ -409,13 +399,13 @@ export default function PurchaseBills() {
             <div>
               <p className="text-xs text-gray-500 mb-1">Supplier</p>
               <p className="font-medium text-gray-800 text-sm">
-                {viewingBill.supplierId?.name || '—'}
+                {viewingBill.supplierName || '—'}
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-1">Supplier GSTIN</p>
               <p className="font-medium text-gray-800 text-sm">
-                {viewingBill.supplierId?.gstNumber || '—'}
+                {viewingBill.supplierGSTIN || '—'}
               </p>
             </div>
             <div>
@@ -523,22 +513,25 @@ export default function PurchaseBills() {
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
             <div>
-              <label className={modalLabelClass}>Supplier / Brand *</label>
-              <select value={formData.supplierId} onChange={(e) => handleSupplierChange(e.target.value)} className={modalInputClass}>
-                <option value="">Select supplier / brand</option>
-                {stockGroup.map((supplier) => (
-                  <option value={supplier._id} key={supplier._id}>{supplier.name}</option>
-                ))}
-              </select>
+              <label className={modalLabelClass}>Supplier *</label>
+              <input
+                type="text"
+                value={formData.supplierName}
+                onChange={(e) => setFormData((prev) => ({ ...prev, supplierName: e.target.value }))}
+                className={modalInputClass}
+                placeholder="Enter supplier name"
+                autoComplete="off"
+              />
             </div>
             <div>
               <label className={modalLabelClass}>Supplier GSTIN</label>
               <input
                 type="text"
                 value={formData.supplierGSTIN}
-                readOnly
-                className={`${modalInputClass} bg-gray-100`}
-                placeholder="Auto-filled from selected brand"
+                onChange={(e) => setFormData((prev) => ({ ...prev, supplierGSTIN: e.target.value }))}
+                className={modalInputClass}
+                placeholder="Enter GSTIN (optional)"
+                autoComplete="off"
               />
             </div>
             <div>
