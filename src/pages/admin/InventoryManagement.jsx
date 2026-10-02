@@ -15,7 +15,7 @@ import { useGetAllAccountingConst } from '../../hooks/useGetAllAccountStates';
 import { useGetAllUnits } from '../../hooks/useUnit';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
-import { BARCODE_STICKER_SPEC } from '../../utils/printBarcodeStickers';
+import { BARCODE_STICKER_SPEC, printBarcodeStickers } from '../../utils/printBarcodeStickers';
 
 function buildEditForm(product, stores) {
   const qtyByStore = {};
@@ -212,7 +212,7 @@ export default function InventoryManagement({ user }) {
     }
 
     toast.success(
-      `Printing ${count} sticker(s) — ${BARCODE_STICKER_SPEC.widthIn}"×${BARCODE_STICKER_SPEC.heightIn}", 2/row (${BARCODE_STICKER_SPEC.printer})`
+      `Printing ${count} sticker(s) — ${BARCODE_STICKER_SPEC.widthMm}×${BARCODE_STICKER_SPEC.heightMm} mm, ${BARCODE_STICKER_SPEC.perRow}/row (${BARCODE_STICKER_SPEC.printer})`
     );
   };
 
