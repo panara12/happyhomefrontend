@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Plus, CheckCircle, Clock, XCircle, Search, Package, Pencil } from 'lucide-react';
+import { Plus, CheckCircle, Clock, XCircle, Search, Package, Pencil, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllProducts } from '../../hooks/useProduct';
@@ -409,6 +409,18 @@ export default function PurchaseOrders() {
                     >
                       <CheckCircle size={16} />
                       Mark as Received
+                    </button>
+                  </div>
+                )}
+
+                {order.status === 'Received' && (
+                  <div className="pt-4 border-t border-gray-200 mt-4">
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <MessageCircle size={18} />
+                      Share on WhatsApp
                     </button>
                   </div>
                 )}

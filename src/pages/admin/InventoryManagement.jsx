@@ -15,7 +15,8 @@ import { useGetAllAccountingConst } from '../../hooks/useGetAllAccountStates';
 import { useGetAllUnits } from '../../hooks/useUnit';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
-import { BARCODE_STICKER_SPEC, printBarcodeStickers } from '../../utils/printBarcodeStickers';
+import { BARCODE_STICKER_SPEC } from '../../utils/printBarcodeStickers';
+import http from '../../apiServices/http.service';
 
 function buildEditForm(product, stores) {
   const qtyByStore = {};
@@ -187,7 +188,7 @@ export default function InventoryManagement({ user }) {
     });
   };
 
-  const handlePrintBarcodes = () => {
+  const handlePrintBarcodes = async () => {
     const selectedProducts = Object.entries(barcodeQuantities).filter(([, qty]) => qty > 0);
 
     if (selectedProducts.length === 0) {
@@ -205,15 +206,27 @@ export default function InventoryManagement({ user }) {
       return;
     }
 
-    const { ok, count } = printBarcodeStickers(selections);
-    if (!ok) {
-      toast.error('Could not open print dialog');
-      return;
-    }
+    const items = selections.map(({ product, quantity }) => {
+      const mrp = Number(product.mrp) || 0;
+      const discount = Number(product.disc) || 0;
+      return {
+        barcode: product.barcode_text || '',
+        mrp,
+        disc: discount,
+        discAmt: product.dict_amt ?? (mrp * discount) / 100,
+        offer: product.offer_price ?? mrp - (mrp * discount) / 100,
+        quantity,
+      };
+    });
 
-    toast.success(
-      `Printing ${count} sticker(s) — ${BARCODE_STICKER_SPEC.widthMm}×${BARCODE_STICKER_SPEC.heightMm} mm, ${BARCODE_STICKER_SPEC.perRow}/row (${BARCODE_STICKER_SPEC.printer})`
-    );
+    try {
+      const result = await http.post('/print/labels', { items });
+      toast.success(
+        `Printing ${result.count} sticker(s) — ${BARCODE_STICKER_SPEC.widthMm}×${BARCODE_STICKER_SPEC.heightMm} mm, ${BARCODE_STICKER_SPEC.perRow}/row (${BARCODE_STICKER_SPEC.printer})`
+      );
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not print barcode stickers');
+    }
   };
 
   const selectedProductCount = useMemo(
