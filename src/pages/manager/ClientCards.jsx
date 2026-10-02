@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, User, Phone, Mail, MapPin, Award, Building2, Users, ShoppingBag, Eye, Filter } from 'lucide-react';
+import { Search, User, Phone, Mail, MapPin, Award, Building2, Users, ShoppingBag, Eye, Filter, Timer } from 'lucide-react';
 import { Pagination } from '../../components/ui/Pagination';
 import Modal, { modalSecondaryBtnClass } from '../../components/ui/Modal';
 import { useGetAllCustomers } from '../../hooks/useCustomer';
@@ -136,7 +136,7 @@ export default function ClientCards() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-amber-500">
+        {/* <div className="bg-white rounded-lg shadow p-4 border-l-4 border-amber-500">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-100 rounded-lg">
               <Award className="text-amber-600" size={24} />
@@ -146,7 +146,7 @@ export default function ClientCards() {
               <p className="text-2xl font-bold text-gray-800">{stats.totalPoints.toLocaleString('en-IN')}</p>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -245,7 +245,7 @@ export default function ClientCards() {
                     </div>
                   </div>
 
-                  <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                  {/* <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Award className="text-amber-600" size={20} />
@@ -253,7 +253,7 @@ export default function ClientCards() {
                       </div>
                       <span className="text-2xl font-bold text-amber-600">{client.loyaltyPoints || 0}</span>
                     </div>
-                  </div>
+                  </div> */}
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
@@ -365,18 +365,18 @@ export default function ClientCards() {
 
             <div>
               <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
-                <Award className="text-amber-600" size={18} />
-                Loyalty & Purchase History
+                <Timer className="text-amber-600" size={18} />
+                Purchase History
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 border-2 border-amber-200">
+                {/* <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 border-2 border-amber-200">
                   <div className="flex items-center gap-3 mb-2">
                     <Award className="text-amber-600" size={20} />
                     <p className="text-sm font-medium text-amber-800">Loyalty Points</p>
                   </div>
                   <p className="text-3xl font-bold text-amber-600">{selectedClient.loyaltyPoints || 0}</p>
                   <p className="text-xs text-amber-700 mt-1">Available for redemption</p>
-                </div>
+                </div> */}
 
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-blue-200">
                   <div className="flex items-center gap-3 mb-2">

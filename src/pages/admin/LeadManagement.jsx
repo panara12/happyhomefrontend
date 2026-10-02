@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Search, Edit2, UserPlus } from 'lucide-react';
+import { Plus, Search, Edit2, Eye, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSelector } from 'react-redux';
 import { usePagination } from '../../hooks/usePagination';
@@ -17,6 +17,10 @@ const emptyForm = {
   product_name: '',
   customer_name: '',
   phone: '',
+  quantity: '',
+  deliverydate: '',
+  final_rate: '',
+  note: '',
   storeId: '',
 };
 
@@ -31,6 +35,19 @@ function formatDate(value) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function formatLeadDate(value) {
+  if (!value) return '—';
+  const date = String(value).slice(0, 10);
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleDateString('en-IN');
+}
+
+function dateInputValue(value) {
+  if (!value) return '';
+  return String(value).slice(0, 10);
 }
 
 function userLabel(user) {
@@ -65,6 +82,7 @@ export default function LeadManagement({ user: userProp }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
+  const [viewingLead, setViewingLead] = useState(null);
   const [formData, setFormData] = useState({
     ...emptyForm,
     storeId: !isAdmin && user?.storeId ? String(user.storeId) : '',
@@ -81,6 +99,10 @@ export default function LeadManagement({ user: userProp }) {
         lead.product_name?.toLowerCase().includes(q) ||
         lead.customer_name?.toLowerCase().includes(q) ||
         lead.phone?.toLowerCase().includes(q) ||
+        lead.quantity?.toLowerCase().includes(q) ||
+        String(lead.deliverydate || lead.date || '').toLowerCase().includes(q) ||
+        String(lead.final_rate ?? '').toLowerCase().includes(q) ||
+        lead.note?.toLowerCase().includes(q) ||
         String(lead.storeId || '').toLowerCase().includes(q) ||
         getStoreName(lead.storeId).toLowerCase().includes(q)
     );
@@ -98,15 +120,23 @@ export default function LeadManagement({ user: userProp }) {
   };
 
   const openEdit = (lead) => {
+    setViewingLead(null);
     setEditingLead(lead);
     setFormData({
       product_name: lead.product_name || '',
       customer_name: lead.customer_name || '',
       phone: lead.phone || '',
+      quantity: lead.quantity || '',
+      deliverydate: dateInputValue(lead.deliverydate || lead.date),
+      final_rate: lead.final_rate ?? '',
+      note: lead.note || '',
       storeId: lead.storeId ? String(lead.storeId) : '',
     });
     setShowModal(true);
   };
+
+  const openView = (lead) => setViewingLead(lead);
+  const closeView = () => setViewingLead(null);
 
   const closeModal = () => {
     setShowModal(false);
@@ -118,8 +148,13 @@ export default function LeadManagement({ user: userProp }) {
   };
 
   const handleSubmit = () => {
-    if (!formData.product_name.trim() || !formData.customer_name.trim() || !formData.phone.trim()) {
-      toast.error('Please fill product name, customer name, and phone number.');
+    if (!formData.product_name.trim() || !formData.customer_name.trim() || !formData.phone.trim() || !formData.quantity.trim() || !formData.deliverydate) {
+      toast.error('Please fill product name, customer name, phone number, quantity, and delivery date.');
+      return;
+    }
+
+    if (formData.final_rate !== '' && (!Number.isFinite(Number(formData.final_rate)) || Number(formData.final_rate) < 0)) {
+      toast.error('Final rate must be a valid non-negative number.');
       return;
     }
 
@@ -136,6 +171,10 @@ export default function LeadManagement({ user: userProp }) {
       product_name: formData.product_name.trim(),
       customer_name: formData.customer_name.trim(),
       phone: formData.phone.trim(),
+      quantity: formData.quantity.trim(),
+      deliverydate: formData.deliverydate,
+      final_rate: formData.final_rate === '' ? undefined : Number(formData.final_rate),
+      note: formData.note.trim(),
       storeId: resolvedStoreId,
     };
 
@@ -151,13 +190,16 @@ export default function LeadManagement({ user: userProp }) {
   };
 
   useEffect(() => {
-    if (!showModal) return;
+    if (!showModal && !viewingLead) return;
     const onKey = (e) => {
-      if (e.key === 'Escape') closeModal();
+      if (e.key === 'Escape') {
+        if (viewingLead) closeView();
+        else closeModal();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [showModal]);
+  }, [showModal, viewingLead]);
 
   const isSaving = isAdding || isUpdating;
   const subtitle = isAdmin
@@ -223,42 +265,41 @@ export default function LeadManagement({ user: userProp }) {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-left text-gray-600">
                   <tr>
-                    {isAdmin && <th className="px-4 py-3 font-medium">Store</th>}
+                    <th className="px-4 py-3 font-medium">Lead No.</th>
                     <th className="px-4 py-3 font-medium">Product Name</th>
                     <th className="px-4 py-3 font-medium">Customer Name</th>
-                    <th className="px-4 py-3 font-medium">Phone</th>
-                    <th className="px-4 py-3 font-medium">Created</th>
-                    <th className="px-4 py-3 font-medium">Created By</th>
-                    <th className="px-4 py-3 font-medium">Updated</th>
-                    <th className="px-4 py-3 font-medium">Updated By</th>
+                    <th className="px-4 py-3 font-medium">Phone Number</th>
+                    <th className="px-4 py-3 font-medium">Delivery Date</th>
                     <th className="px-4 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {pagination.paginatedItems.map((lead) => (
                     <tr key={lead._id} className="hover:bg-gray-50">
-                      {isAdmin && (
-                        <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
-                          <div className="font-medium">{getStoreName(lead.storeId)}</div>
-                          <div className="text-xs text-gray-500">{lead.storeId || '—'}</div>
-                        </td>
-                      )}
+                      <td className="px-4 py-3 font-medium text-gray-700 whitespace-nowrap">{lead.leadNumber || '—'}</td>
                       <td className="px-4 py-3 font-medium text-gray-800">{lead.product_name}</td>
                       <td className="px-4 py-3 text-gray-700">{lead.customer_name}</td>
                       <td className="px-4 py-3 text-gray-700">{lead.phone}</td>
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(lead.createdAt)}</td>
-                      <td className="px-4 py-3 text-gray-600">{userLabel(lead.created_by)}</td>
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(lead.updatedAt)}</td>
-                      <td className="px-4 py-3 text-gray-600">{userLabel(lead.updated_by)}</td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatLeadDate(lead.deliverydate || lead.date)}</td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(lead)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
-                        >
-                          <Edit2 size={14} />
-                          Edit
-                        </button>
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openView(lead)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                          >
+                            <Eye size={14} />
+                            View
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(lead)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                          >
+                            <Edit2 size={14} />
+                            Edit
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -277,6 +318,69 @@ export default function LeadManagement({ user: userProp }) {
           </>
         )}
       </div>
+
+      {viewingLead && (
+        <Modal
+          title={`Lead Details${viewingLead.leadNumber ? ` · ${viewingLead.leadNumber}` : ''}`}
+          onClose={closeView}
+          size="lg"
+          footer={
+            <button type="button" onClick={closeView} className={modalSecondaryBtnClass}>
+              Close
+            </button>
+          }
+        >
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">Lead Number</dt>
+              <dd className="mt-1 text-sm text-gray-900">{viewingLead.leadNumber || '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">Product Name</dt>
+              <dd className="mt-1 text-sm text-gray-900">{viewingLead.product_name || '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">Quantity</dt>
+              <dd className="mt-1 text-sm text-gray-900">{viewingLead.quantity || '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">Customer Name</dt>
+              <dd className="mt-1 text-sm text-gray-900">{viewingLead.customer_name || '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">Phone Number</dt>
+              <dd className="mt-1 text-sm text-gray-900">{viewingLead.phone || '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">Delivery Date</dt>
+              <dd className="mt-1 text-sm text-gray-900">{formatLeadDate(viewingLead.deliverydate || viewingLead.date)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">Final Rate</dt>
+              <dd className="mt-1 text-sm text-gray-900">{viewingLead.final_rate ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">Store</dt>
+              <dd className="mt-1 text-sm text-gray-900">{getStoreName(viewingLead.storeId)}</dd>
+              <dd className="text-xs text-gray-500">{viewingLead.storeId || '—'}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-xs font-medium uppercase text-gray-500">Note</dt>
+              <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{viewingLead.note || '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">Created</dt>
+              <dd className="mt-1 text-sm text-gray-900">{formatDate(viewingLead.createdAt)}</dd>
+              <dd className="text-xs text-gray-500">by {userLabel(viewingLead.created_by)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-gray-500">Updated</dt>
+              <dd className="mt-1 text-sm text-gray-900">{formatDate(viewingLead.updatedAt)}</dd>
+              <dd className="text-xs text-gray-500">by {userLabel(viewingLead.updated_by)}</dd>
+            </div>
+          </dl>
+        </Modal>
+      )}
 
       {showModal && (
         <Modal
@@ -352,6 +456,47 @@ export default function LeadManagement({ user: userProp }) {
                 onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
                 className={modalInputClass}
                 placeholder="Enter phone number"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Quantity</label>
+              <input
+                type="text"
+                value={formData.quantity}
+                onChange={(e) => setFormData((prev) => ({ ...prev, quantity: e.target.value }))}
+                className={modalInputClass}
+                placeholder="1 kg, 1 piece, 1 NOS..."
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Delivery Date</label>
+              <input
+                type="date"
+                value={formData.deliverydate}
+                onChange={(e) => setFormData((prev) => ({ ...prev, deliverydate: e.target.value }))}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Final Rate</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.final_rate}
+                onChange={(e) => setFormData((prev) => ({ ...prev, final_rate: e.target.value }))}
+                className={modalInputClass}
+                placeholder="Enter final rate"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Note</label>
+              <textarea
+                value={formData.note}
+                onChange={(e) => setFormData((prev) => ({ ...prev, note: e.target.value }))}
+                className={modalInputClass}
+                rows={3}
+                placeholder="Add a note"
               />
             </div>
             {editingLead && (

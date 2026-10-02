@@ -1,7 +1,7 @@
 import { TrendingUp, TrendingDown, Package, FileText, Store, Users, DollarSign, ShoppingCart, Receipt, RotateCcw, BarChart3 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { useLoggedUserContext } from '../../context/loggedUserContext';
-import { useGetDashboardData } from '../../hooks/useGetAllAccountStates';
+import { useGetAdminMonthlyExpense, useGetDashboardData } from '../../hooks/useGetAllAccountStates';
 
 function money(value) {
   const n = Number(value);
@@ -17,6 +17,9 @@ export default function DashboardHome({ user: userProp } = {}) {
 
   const { data: dashboardData } = useGetDashboardData({
     enabled: Boolean(userType),
+  });
+  const { data: monthlyFinancialData, isLoading: isMonthlyFinancialLoading } = useGetAdminMonthlyExpense({
+    enabled: userType === 'admin',
   });
 
   const purchase = dashboardData?.purchaseValue?.[0];
@@ -246,37 +249,16 @@ export default function DashboardHome({ user: userProp } = {}) {
           <h3 className="text-2xl font-bold mb-6">Monthly Financial Summary</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <p className="text-sm opacity-90 mb-1">Gross Profit</p>
-              <p className="text-3xl font-bold">₹14.15L</p>
-              <p className="text-xs opacity-80 mt-1">Margin: 57.4%</p>
+              <p className="text-sm opacity-90 mb-1">Sales Revenue</p>
+              <p className="text-3xl font-bold">₹{isMonthlyFinancialLoading ? '—' : money(monthlyFinancialData?.salesRevenue)}</p>
             </div>
             <div>
-              <p className="text-sm opacity-90 mb-1">Operating Profit</p>
-              <p className="text-3xl font-bold">₹6.85L</p>
-              <p className="text-xs opacity-80 mt-1">Margin: 27.8%</p>
+              <p className="text-sm opacity-90 mb-1">GST Payable</p>
+              <p className="text-3xl font-bold">₹{isMonthlyFinancialLoading ? '—' : money(monthlyFinancialData?.gstPayable)}</p>
             </div>
             <div>
-              <p className="text-sm opacity-90 mb-1">Net Profit</p>
-              <p className="text-3xl font-bold">₹5.33L</p>
-              <p className="text-xs opacity-80 mt-1">Margin: 21.6%</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-white border-opacity-30">
-            <div>
-              <p className="text-xs opacity-80 mb-1">Total Expenses</p>
-              <p className="text-xl font-bold">₹7.48L</p>
-            </div>
-            <div>
-              <p className="text-xs opacity-80 mb-1">GST Input</p>
-              <p className="text-xl font-bold">₹1.53L</p>
-            </div>
-            <div>
-              <p className="text-xs opacity-80 mb-1">GST Output</p>
-              <p className="text-xl font-bold">₹3.06L</p>
-            </div>
-            <div>
-              <p className="text-xs opacity-80 mb-1">Tax Payable</p>
-              <p className="text-xl font-bold">₹1.53L</p>
+              <p className="text-sm opacity-90 mb-1">Total Expense</p>
+              <p className="text-3xl font-bold">₹{isMonthlyFinancialLoading ? '—' : money(monthlyFinancialData?.totalExpense)}</p>
             </div>
           </div>
         </div>

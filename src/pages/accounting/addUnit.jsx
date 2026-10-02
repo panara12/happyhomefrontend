@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Plus, Edit } from 'lucide-react'
-import { useAddUnit, useUpdateUnit, useGetAllUnits } from '../../hooks/useUnit'
+import { Plus, Edit, Trash2 } from 'lucide-react'
+import { useAddUnit, useUpdateUnit, useDeleteUnit, useGetAllUnits } from '../../hooks/useUnit'
 // import { useUnitContext } from '../../context/unitContext'
 import { useGetAllStores } from '../../hooks/useStore'
 import { Pagination } from '../../components/ui/Pagination'
@@ -39,6 +39,7 @@ export default function AddUnit() {
 
   const addMutation = useAddUnit()
   const updateMutation = useUpdateUnit()
+  const deleteMutation = useDeleteUnit()
 
   useEffect(() => {
     if (!editing) {
@@ -84,6 +85,16 @@ export default function AddUnit() {
   }
 
   const handleEdit = (unit) => setEditing(unit)
+
+  const handleDelete = (unit) => {
+    if (!window.confirm(`Delete unit "${unit.name}"?`)) return
+
+    deleteMutation.mutate(unit._id, {
+      onSuccess: () => {
+        if (editing?._id === unit._id) setEditing(null)
+      },
+    })
+  }
 
   if (unitsLoading) {
     return (
@@ -203,12 +214,24 @@ export default function AddUnit() {
                     <td className="p-3">{unit.unitId}</td>
                     <td className="p-3">{unit.name}</td>
                     <td className="p-3">
+                      <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleEdit(unit)}
                         className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded"
                       >
                         <Edit size={14} /> Edit
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(unit)}
+                        disabled={deleteMutation.isPending}
+                        className="inline-flex items-center justify-center p-2 text-red-700 hover:bg-red-50 rounded disabled:opacity-50"
+                        aria-label={`Delete ${unit.name}`}
+                        title="Delete unit"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

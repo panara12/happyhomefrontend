@@ -42,7 +42,7 @@ const navigationItems = [
   { id: "expenses", label: "Expenses", icon: DollarSign, path: "/admin/expenses" },
   { id: "leads", label: "Leads", icon: UserPlus, path: "/admin/leads" },
   { id: "service", label: "Service", icon: Wrench, path: "/admin/service" },
-  { id: "gst-reports", label: "GST Reports", icon: BarChart3, path: "/admin/gst-reports" },
+  // { id: "gst-reports", label: "GST Reports", icon: BarChart3, path: "/admin/gst-reports" },
   { id: "profit-loss", label: "Profit & Loss", icon: TrendingUp, path: "/admin/profit-loss" },
 ]
 
@@ -94,7 +94,7 @@ export default function AdminRouter() {
           <Route path="/expenses" element={<ExpenseManagement user={user} />} />
           <Route path="/leads" element={<LeadManagement user={user} />} />
           <Route path="/service" element={<ServicePanel user={user} />} />
-          <Route path="/gst-reports" element={<GSTReports user={user} />} />
+          {/* <Route path="/gst-reports" element={<GSTReports user={user} />} /> */}
           <Route path="/profit-loss" element={<ProfitLoss user={user} />} />
           <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
         </Routes>

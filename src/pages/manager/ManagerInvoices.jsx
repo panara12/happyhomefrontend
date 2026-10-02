@@ -19,7 +19,7 @@ import ViewInvoiceModal from './ViewInvoiceModal';
 import CreateInvoiceModal from './CreateInvoiceModal';
 import ApprovePaymentModal from './ApprovePaymentModal';
 import { ConfirmModal } from '../admin/ConfirmModal';
-import { downloadInvoicePdf, printInvoice } from '../../utils/printInvoice';
+import { downloadInvoicePdfFile, printInvoice } from '../../utils/printInvoice';
 import { useStoreContext } from '../../context/storeContext';
 
 const PAGE_SIZE = 10;
@@ -312,10 +312,10 @@ export default function ManagerInvoices() {
     }
   };
 
-  const handleDownloadPdf = (invoice) => {
-    const ok = downloadInvoicePdf(invoice, resolveStore(invoice));
+  const handleDownloadPdf = async (invoice) => {
+    const ok = await downloadInvoicePdfFile(invoice, resolveStore(invoice));
     if (ok) {
-      toast.success(`Print → Save as PDF for ${invoice.invoiceNumber}`);
+      toast.success(`PDF downloaded - ${invoice.invoiceNumber}`);
     } else {
       toast.error('Unable to download this invoice. Please try again.');
     }

@@ -1,11 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, Search, Download, Eye, Calendar, CheckCircle, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllPurchaseBill } from '../../hooks/usePurchaseBill';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 import { useSyncPendingTally } from '../../hooks/useTally';
+import { useStockCategoryContext } from '../../context/stockcategoryContext';
+import { useGetAllUnits } from '../../hooks/useUnit';
+import { useAddPurchaseBill } from '../../hooks/usePurchaseBill';
+import { useGetAllProducts } from '../../hooks/useProduct';
 import Modal, {
   modalInputClass,
   modalLabelClass,
@@ -13,15 +18,52 @@ import Modal, {
   modalSecondaryBtnClass,
 } from '../../components/ui/Modal';
 
-const emptyForm = {
-  supplierId: '',
-  supplier: '',
-  supplierGSTIN: '',
-  billNumber: '',
-  date: new Date().toISOString().split('T')[0],
-  store: '',
-  items: [{ product: '', hsn: '', quantity: 1, rate: 0, gstRate: 18 }],
+const emptyItem = {
+  brand: '',
+  category: '',
+  barcode_text: '',
+  hsncode: '',
+  quantity: 1,
+  purchaseRate: 0,
+  gst: 18,
+  mrp: 0,
+  disc: 0,
+  dict_amt: 0,
+  offer_price: 0,
+  discType: 'percent',
+  unit: '',
 };
+
+const emptyForm = {
+  supplierName: '',
+  supplierGSTIN: '',
+  supplierId: '',
+  billNumber: '',
+  billDate: new Date().toISOString().split('T')[0],
+  storeId: '',
+  items: [{ ...emptyItem }],
+};
+
+function roundUpMoney(value) {
+  return Math.ceil(Number(value) || 0);
+}
+
+function applyItemDiscount(item) {
+  const mrp = roundUpMoney(item.mrp);
+  const discType = item.discType === 'value' ? 'value' : 'percent';
+
+  if (discType === 'value') {
+    const dict_amt = Math.min(roundUpMoney(item.dict_amt), mrp);
+    const offer_price = Math.max(0, mrp - dict_amt);
+    const disc = mrp > 0 ? Number(((dict_amt / mrp) * 100).toFixed(2)) : 0;
+    return { ...item, mrp, discType, disc, dict_amt, offer_price };
+  }
+
+  const disc = Math.min(Math.max(Number(item.disc) || 0, 0), 100);
+  const dict_amt = Math.min(roundUpMoney((mrp * disc) / 100), mrp);
+  const offer_price = Math.max(0, mrp - dict_amt);
+  return { ...item, mrp, discType, disc, dict_amt, offer_price };
+}
 
 export default function PurchaseBills() {
   const { stores } = useStoreContext();
@@ -29,104 +71,153 @@ export default function PurchaseBills() {
   const bills = purchaseBillsData?.bills ?? [];
   const syncPendingTally = useSyncPendingTally();
   const { data: stockGroupData } = useGetAllStockGroup();
-  const brands = stockGroupData?.data ?? [];
+  const stockGroup = stockGroupData?.data ?? [];
+  const { stockCategory } = useStockCategoryContext();
+  const { data: unitList, isLoading: isUnitLoading } = useGetAllUnits();
+  const units = unitList?.units || [];
+  const { mutate: addPurchaseBill, isPending: isSubmitting } = useAddPurchaseBill();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [viewingBill, setViewingBill] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState(emptyForm);
-  const [supplierQuery, setSupplierQuery] = useState('');
-  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
-  const supplierBoxRef = useRef(null);
-
-  const supplierSuggestions = useMemo(() => {
-    const q = supplierQuery.trim().toLowerCase();
-    if (!q) return brands.slice(0, 20);
-    return brands
-      .filter(
-        (b) =>
-          b.name?.toLowerCase().includes(q) ||
-          b.brand_code?.toLowerCase().includes(q) ||
-          b.gstNumber?.toLowerCase().includes(q)
-      )
-      .slice(0, 20);
-  }, [brands, supplierQuery]);
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (!supplierBoxRef.current?.contains(e.target)) {
-        setShowSupplierDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
+  const [activeSearchIndex, setActiveSearchIndex] = useState(null);
+  const [itemSearchTerm, setItemSearchTerm] = useState('');
+  const { data: itemProductSearchData } = useGetAllProducts(itemSearchTerm);
+  const itemSearchResults = itemSearchTerm ? (itemProductSearchData?.products || []) : [];
 
   const openAddModal = () => {
     setFormData({
       ...emptyForm,
-      date: new Date().toISOString().split('T')[0],
-      items: [{ product: '', hsn: '', quantity: 1, rate: 0, gstRate: 18 }],
+      billDate: new Date().toISOString().split('T')[0],
+      items: [{ ...emptyItem }],
     });
-    setSupplierQuery('');
-    setShowSupplierDropdown(false);
+    setActiveSearchIndex(null);
+    setItemSearchTerm('');
     setShowAddModal(true);
   };
 
-  const selectSupplier = (brand) => {
+  const handleSupplierChange = (supplierId) => {
+    const selectedSupplier = stockGroup.find((group) => group._id === supplierId);
     setFormData((prev) => ({
       ...prev,
-      supplierId: brand._id,
-      supplier: brand.name || '',
-      supplierGSTIN: brand.gstNumber || '',
-    }));
-    setSupplierQuery(brand.name || '');
-    setShowSupplierDropdown(false);
-  };
-
-  const handleSupplierInputChange = (value) => {
-    setSupplierQuery(value);
-    setShowSupplierDropdown(true);
-    // Typing clears previous selection until a brand is picked again
-    setFormData((prev) => ({
-      ...prev,
-      supplierId: '',
-      supplier: value,
-      supplierGSTIN: '',
+      supplierId,
+      supplierName: selectedSupplier?.name || '',
+      supplierGSTIN: selectedSupplier?.gstNumber || '',
     }));
   };
 
   const handleAddItem = () => {
-    setFormData({
-      ...formData,
-      items: [...formData.items, { product: '', hsn: '', quantity: 1, rate: 0, gstRate: 18 }]
-    });
+    setFormData((prev) => ({ ...prev, items: [...prev.items, { ...emptyItem }] }));
   };
 
   const handleRemoveItem = (index) => {
-    setFormData({
-      ...formData,
-      items: formData.items.filter((_, i) => i !== index)
-    });
+    setFormData((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
+    if (activeSearchIndex === index) {
+      setActiveSearchIndex(null);
+      setItemSearchTerm('');
+    }
   };
 
   const handleItemChange = (index, field, value) => {
-    const newItems = [...formData.items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setFormData({ ...formData, items: newItems });
+    setFormData((prev) => {
+      const items = [...prev.items];
+      let nextItem = { ...items[index], [field]: value };
+      if (field === 'mrp' || field === 'disc' || field === 'dict_amt' || field === 'discType') {
+        nextItem = applyItemDiscount(nextItem);
+      }
+      items[index] = nextItem;
+      return { ...prev, items };
+    });
+  };
+
+  const handleItemSearchChange = (index, value) => {
+    setActiveSearchIndex(index);
+    setItemSearchTerm(value);
+  };
+
+  const handleSelectProduct = (index, product) => {
+    setFormData((prev) => {
+      const items = [...prev.items];
+      items[index] = applyItemDiscount({
+        ...items[index],
+        brand: product.brand || items[index].brand,
+        category: product.category || items[index].category,
+        barcode_text: product.barcode_text || items[index].barcode_text,
+        hsncode: product.hsncode || items[index].hsncode,
+        unit: product.unit || items[index].unit,
+        gst: product.gst ?? items[index].gst,
+        mrp: product.mrp ?? items[index].mrp,
+        disc: product.disc ?? items[index].disc,
+        dict_amt: product.dict_amt ?? items[index].dict_amt,
+        offer_price: product.offer_price ?? items[index].offer_price,
+        discType: 'percent',
+      });
+      return { ...prev, items };
+    });
+    setActiveSearchIndex(null);
+    setItemSearchTerm('');
   };
 
   const billFormTotals = useMemo(() => {
     let subtotal = 0, totalCGST = 0, totalSGST = 0;
     formData.items.forEach(item => {
-      const taxableValue = (item.quantity || 0) * (item.rate || 0);
-      const gstAmount = (taxableValue * (item.gstRate || 0)) / 100;
+      const taxableValue = (item.quantity || 0) * (item.purchaseRate || 0);
+      const gstAmount = (taxableValue * (item.gst || 0)) / 100;
       subtotal += taxableValue;
       totalCGST += gstAmount / 2;
       totalSGST += gstAmount / 2;
     });
     return { subtotal, cgst: totalCGST, sgst: totalSGST, total: subtotal + totalCGST + totalSGST };
   }, [formData.items]);
+
+  const handleCreateBill = () => {
+    const invalidItems = formData.items.filter(
+      (item) => !item.barcode_text.trim() || !item.brand || !item.category || !item.hsncode.trim() || !item.unit || !item.mrp || Number(item.quantity) <= 0
+    );
+    if (!formData.supplierId || !formData.billNumber.trim() || !formData.storeId || invalidItems.length > 0) {
+      toast.error('Please complete the supplier, bill, store, and required item details.');
+      return;
+    }
+
+    const payload = {
+      billNumber: formData.billNumber.trim(),
+      billDate: formData.billDate,
+      supplierId: formData.supplierId,
+      storeId: formData.storeId,
+      items: formData.items.map((item) => {
+        const priced = applyItemDiscount(item);
+        return {
+          brand: priced.brand,
+          category: priced.category,
+          barcode_text: priced.barcode_text.trim(),
+          hsncode: priced.hsncode.trim(),
+          quantity: Number(priced.quantity),
+          purchaseRate: Number(priced.purchaseRate) || 0,
+          gst: Number(priced.gst) || 0,
+          mrp: priced.mrp,
+          disc: priced.disc,
+          dict_amt: priced.dict_amt,
+          offer_price: priced.offer_price,
+          unit: priced.unit,
+        };
+      }),
+      taxableValue: billFormTotals.subtotal,
+      CGSTplusSGST: billFormTotals.cgst + billFormTotals.sgst,
+      totalAmount: billFormTotals.total,
+    };
+
+    addPurchaseBill(payload, {
+      onSuccess: () => {
+        toast.success('Purchase bill created and inventory updated.');
+        setFormData(emptyForm);
+        setShowAddModal(false);
+      },
+      onError: (error) => {
+        toast.error(error?.response?.data?.message || 'Failed to create purchase bill.');
+      },
+    });
+  };
 
   const getStoreName = (storeId) => stores.find(s => s.storeId === storeId)?.name || storeId;
 
@@ -408,59 +499,37 @@ export default function PurchaseBills() {
         </Modal>
       )}
 
-      {/* Add Bill Modal -- still local-only, see note near formData above */}
+      {/* Add Bill Modal */}
       {showAddModal && (
         <Modal
-          title="Add Purchase Bill"
+          title="Add Purchase Bill with Pricing"
           onClose={() => setShowAddModal(false)}
-          size="lg"
+          size="xl"
           footer={
             <>
               <button type="button" onClick={() => setShowAddModal(false)} className={modalSecondaryBtnClass}>
                 Cancel
               </button>
-              <button type="button" onClick={() => setShowAddModal(false)} className={modalPrimaryBtnClass}>
-                Create Purchase Bill
+              <button
+                type="button"
+                onClick={handleCreateBill}
+                disabled={isSubmitting}
+                className={`${modalPrimaryBtnClass} disabled:opacity-60`}
+              >
+                {isSubmitting ? 'Creating…' : 'Create Purchase Bill'}
               </button>
             </>
           }
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
-            <div ref={supplierBoxRef} className="relative">
-              <label className={modalLabelClass}>Supplier Name</label>
-              <input
-                type="text"
-                value={supplierQuery}
-                onChange={(e) => handleSupplierInputChange(e.target.value)}
-                onFocus={() => setShowSupplierDropdown(true)}
-                className={modalInputClass}
-                placeholder="Search brand / supplier name..."
-                autoComplete="off"
-              />
-              {showSupplierDropdown && (
-                <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-                  {supplierSuggestions.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-gray-500">No matching brands</p>
-                  ) : (
-                    supplierSuggestions.map((brand) => (
-                      <button
-                        key={brand._id}
-                        type="button"
-                        onClick={() => selectSupplier(brand)}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 border-b border-gray-100 last:border-b-0"
-                      >
-                        <span className="font-medium text-gray-800">{brand.name}</span>
-                        {brand.brand_code ? (
-                          <span className="ml-2 text-xs text-gray-500">({brand.brand_code})</span>
-                        ) : null}
-                        {brand.gstNumber ? (
-                          <span className="block text-xs text-gray-500">GSTIN: {brand.gstNumber}</span>
-                        ) : null}
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
+            <div>
+              <label className={modalLabelClass}>Supplier / Brand *</label>
+              <select value={formData.supplierId} onChange={(e) => handleSupplierChange(e.target.value)} className={modalInputClass}>
+                <option value="">Select supplier / brand</option>
+                {stockGroup.map((supplier) => (
+                  <option value={supplier._id} key={supplier._id}>{supplier.name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={modalLabelClass}>Supplier GSTIN</label>
@@ -486,16 +555,16 @@ export default function PurchaseBills() {
               <label className={modalLabelClass}>Bill Date</label>
               <input
                 type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                value={formData.billDate}
+                onChange={(e) => setFormData((prev) => ({ ...prev, billDate: e.target.value }))}
                 className={modalInputClass}
               />
             </div>
             <div className="sm:col-span-2">
               <label className={modalLabelClass}>Store</label>
               <select
-                value={formData.store}
-                onChange={(e) => setFormData({ ...formData, store: e.target.value })}
+                value={formData.storeId}
+                onChange={(e) => setFormData((prev) => ({ ...prev, storeId: e.target.value }))}
                 className={modalInputClass}
               >
                 <option value="">Select Store</option>
@@ -521,71 +590,115 @@ export default function PurchaseBills() {
 
             <div className="space-y-3">
               {formData.items.map((item, index) => (
-                <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 bg-gray-50 rounded-lg">
-                  <div className="col-span-12 sm:col-span-3">
-                    <label className="block text-xs text-gray-600 mb-1">Product</label>
-                    <input
-                      type="text"
-                      value={item.product}
-                      onChange={(e) => handleItemChange(index, 'product', e.target.value)}
-                      className={modalInputClass}
-                      placeholder="Product name"
-                    />
-                  </div>
-                  <div className="col-span-6 sm:col-span-2">
-                    <label className="block text-xs text-gray-600 mb-1">HSN Code</label>
-                    <input
-                      type="text"
-                      value={item.hsn}
-                      onChange={(e) => handleItemChange(index, 'hsn', e.target.value)}
-                      className={modalInputClass}
-                      placeholder="HSN"
-                    />
-                  </div>
-                  <div className="col-span-3 sm:col-span-1">
-                    <label className="block text-xs text-gray-600 mb-1">Qty</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
-                      className={modalInputClass}
-                    />
-                  </div>
-                  <div className="col-span-3 sm:col-span-2">
-                    <label className="block text-xs text-gray-600 mb-1">Rate</label>
-                    <input
-                      type="number"
-                      value={item.rate}
-                      onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value))}
-                      className={modalInputClass}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="col-span-6 sm:col-span-2">
-                    <label className="block text-xs text-gray-600 mb-1">GST %</label>
-                    <select
-                      value={item.gstRate}
-                      onChange={(e) => handleItemChange(index, 'gstRate', parseFloat(e.target.value))}
-                      className={modalInputClass}
-                    >
-                      <option value="0">0%</option>
-                      <option value="5">5%</option>
-                      <option value="12">12%</option>
-                      <option value="18">18%</option>
-                      <option value="28">28%</option>
-                    </select>
-                  </div>
-                  <div className="col-span-6 sm:col-span-2">
-                    {formData.items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(index)}
-                        className="w-full px-3 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm"
-                      >
-                        Remove
-                      </button>
+                <div key={index} className="p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
+                  <div className="relative mb-3">
+                    <label className="block text-xs text-gray-600 mb-1">Search Existing Product (optional)</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={activeSearchIndex === index ? itemSearchTerm : ''}
+                        onChange={(e) => handleItemSearchChange(index, e.target.value)}
+                        onFocus={() => setActiveSearchIndex(index)}
+                        placeholder="Search by name, code, or barcode..."
+                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white"
+                      />
+                    </div>
+                    {activeSearchIndex === index && itemSearchTerm.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
+                        {itemSearchResults.length > 0 ? itemSearchResults.map((product) => (
+                          <button
+                            key={product._id}
+                            type="button"
+                            onClick={() => handleSelectProduct(index, product)}
+                            className="w-full text-left p-3 hover:bg-amber-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <span className="font-medium text-gray-800">{product.sku_code || product.product_name || product.barcode_text}</span>
+                            <span className="block text-sm text-gray-600">Code: {product.product_code || '—'} · Barcode: {product.barcode_text || '—'}</span>
+                          </button>
+                        )) : (
+                          <div className="p-3 text-sm text-gray-500">No matching product found. Enter the item details below.</div>
+                        )}
+                      </div>
                     )}
+                  </div>
+
+                  <div className="grid grid-cols-12 gap-3 mb-3">
+                    <div className="col-span-12 md:col-span-3">
+                      <label className="block text-xs text-gray-600 mb-1">Barcode / Product Text *</label>
+                      <input type="text" value={item.barcode_text} onChange={(e) => handleItemChange(index, 'barcode_text', e.target.value)} className={modalInputClass} placeholder="Barcode text" />
+                    </div>
+                    <div className="col-span-6 sm:col-span-2">
+                      <label className="block text-xs text-gray-600 mb-1">HSN Code *</label>
+                      <input type="text" value={item.hsncode} onChange={(e) => handleItemChange(index, 'hsncode', e.target.value)} className={modalInputClass} placeholder="HSN" />
+                    </div>
+                    <div className="col-span-6 sm:col-span-2">
+                      <label className="block text-xs text-gray-600 mb-1">Stock Group *</label>
+                      <select value={item.brand} onChange={(e) => handleItemChange(index, 'brand', e.target.value)} className={modalInputClass}>
+                        <option value="">Select group</option>
+                        {stockGroup.map((group) => <option value={group._id} key={group._id}>{group.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-6 sm:col-span-2">
+                      <label className="block text-xs text-gray-600 mb-1">Stock Category *</label>
+                      <select value={item.category} onChange={(e) => handleItemChange(index, 'category', e.target.value)} className={modalInputClass}>
+                        <option value="">Select category</option>
+                        {stockCategory.map((category) => <option value={category.categoryId} key={category.categoryId}>{category.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-6 sm:col-span-2">
+                      <label className="block text-xs text-gray-600 mb-1">Unit *</label>
+                      <select value={item.unit} onChange={(e) => handleItemChange(index, 'unit', e.target.value)} className={modalInputClass}>
+                        <option value="">Select unit</option>
+                        {!isUnitLoading && units.map((unit) => <option value={unit._id} key={unit._id}>{unit.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-6 md:col-span-1">
+                      <label className="block text-xs text-gray-600 mb-1">Qty *</label>
+                      <input type="number" min="1" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value, 10) || 0)} className={modalInputClass} />
+                    </div>
+                    <div className="col-span-6 sm:col-span-2">
+                      <label className="block text-xs text-gray-600 mb-1">Purchase Rate *</label>
+                      <input type="number" min="0" value={item.purchaseRate} onChange={(e) => handleItemChange(index, 'purchaseRate', parseFloat(e.target.value) || 0)} className={modalInputClass} placeholder="0" />
+                    </div>
+                    <div className="col-span-6 sm:col-span-2">
+                      <label className="block text-xs text-gray-600 mb-1">GST %</label>
+                      <select value={item.gst} onChange={(e) => handleItemChange(index, 'gst', parseFloat(e.target.value))} className={modalInputClass}>
+                        <option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18">18%</option><option value="28">28%</option>
+                      </select>
+                    </div>
+                    <div className="col-span-12 sm:col-span-2">
+                      {formData.items.length > 1 && (
+                        <button type="button" onClick={() => handleRemoveItem(index)} className="w-full px-3 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm">
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-12 gap-3 pt-3 border-t border-gray-300">
+                    <div className="col-span-12 md:col-span-3">
+                      <label className="block text-xs font-medium text-amber-700 mb-1">MRP *</label>
+                      <input type="number" min="0" value={item.mrp} onChange={(e) => handleItemChange(index, 'mrp', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border-2 border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-amber-50" placeholder="0" />
+                    </div>
+                    <div className="col-span-6 md:col-span-2">
+                      <label className="block text-xs font-medium text-purple-700 mb-1">Disc Type</label>
+                      <select value={item.discType || 'percent'} onChange={(e) => handleItemChange(index, 'discType', e.target.value)} className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-purple-50">
+                        <option value="percent">%</option><option value="value">Value (₹)</option>
+                      </select>
+                    </div>
+                    <div className="col-span-6 md:col-span-3">
+                      <label className="block text-xs font-medium text-purple-700 mb-1">{item.discType === 'value' ? 'Discount Value (₹)' : 'Discount %'}</label>
+                      {item.discType === 'value' ? (
+                        <input type="number" min="0" value={item.dict_amt ?? 0} onChange={(e) => handleItemChange(index, 'dict_amt', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-purple-50" placeholder="0" />
+                      ) : (
+                        <input type="number" min="0" max="100" value={item.disc ?? 0} onChange={(e) => handleItemChange(index, 'disc', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-purple-50" placeholder="0" />
+                      )}
+                    </div>
+                    <div className="col-span-12 md:col-span-4">
+                      <label className="block text-xs font-medium text-green-700 mb-1">Final Selling Price</label>
+                      <input type="number" value={item.offer_price ?? 0} readOnly className="w-full px-3 py-2 border-2 border-green-300 rounded-lg bg-green-50 font-bold text-green-700" />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -598,12 +711,8 @@ export default function PurchaseBills() {
               <span className="font-bold text-gray-800">₹{billFormTotals.subtotal.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-700">CGST:</span>
-              <span className="font-medium text-gray-800">₹{billFormTotals.cgst.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-700">SGST:</span>
-              <span className="font-medium text-gray-800">₹{billFormTotals.sgst.toLocaleString()}</span>
+              <span className="text-gray-700">CGST + SGST:</span>
+              <span className="font-medium text-gray-800">₹{(billFormTotals.cgst + billFormTotals.sgst).toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center pt-2 border-t border-gray-200">
               <span className="text-base font-bold text-gray-800">Total Amount:</span>
