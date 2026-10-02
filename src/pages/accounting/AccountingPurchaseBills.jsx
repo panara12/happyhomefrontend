@@ -57,9 +57,8 @@ function applyItemDiscount(item) {
 }
 
 const initialFormData = {
-    supplierName: '',      // display-only, not sent to backend
-    supplierGSTIN: '',    // display-only, not sent to backend
-    supplierId: '',
+    supplierName: '',
+    supplierGSTIN: '',
     billNumber: '',
     billDate: new Date().toISOString().split('T')[0],
     storeId: '',
@@ -104,16 +103,6 @@ export default function AccountingPurchaseBills() {
             setActiveSearchIndex(null);
             setItemSearchTerm('');
         }
-    };
-
-    const handleSupplierChange = (supplierId) => {
-      const selectedBrand = stockGroup.find(sg => sg._id === supplierId);
-      setFormData({
-          ...formData,
-          supplierId,
-          supplierName: selectedBrand?.name || '',       // for display only
-          supplierGSTIN: selectedBrand?.gstNumber || ''   // for display only
-      });
     };
 
     const handleItemChange = (index, field, value) => {
@@ -175,7 +164,7 @@ export default function AccountingPurchaseBills() {
         const invalidItems = formData.items.filter(
             item => !item.barcode_text || !item.brand || !item.category || !item.unit || !item.mrp
         );
-        if (!formData.supplierId || !formData.billNumber || !formData.storeId || invalidItems.length > 0) {
+        if (!formData.supplierName?.trim() || !formData.billNumber || !formData.storeId || invalidItems.length > 0) {
             toast.error('Please fill all required fields for supplier, store, and every item!');
             return;
         }
@@ -185,7 +174,8 @@ export default function AccountingPurchaseBills() {
         const payload = {
             billNumber: formData.billNumber,
             billDate: formData.billDate,
-            supplierId: formData.supplierId,
+            supplierName: formData.supplierName.trim(),
+            supplierGSTIN: (formData.supplierGSTIN || '').trim(),
             storeId: formData.storeId,
            items: formData.items.map(item => {
                 const priced = applyItemDiscount(item);
@@ -229,7 +219,7 @@ export default function AccountingPurchaseBills() {
     const filteredBills = useMemo(() => bills.filter(bill => {
         const q = searchTerm.toLowerCase();
         return (
-            bill.supplierId?.name?.toLowerCase().includes(q) ||
+            bill.supplierName?.toLowerCase().includes(q) ||
             bill.supplierName?.toLowerCase().includes(q) ||
             bill.billNumber?.toLowerCase().includes(q) ||
             bill.billId?.toLowerCase().includes(q)
@@ -355,7 +345,8 @@ export default function AccountingPurchaseBills() {
                                     </td>
                                     <td className="px-4 py-3">
                                         <div>
-                                            <p className="font-medium text-gray-800">{bill.supplierId?.name}</p>
+                                            <p className="font-medium text-gray-800">{bill.supplierName || '—'}</p>
+                                            <p className="text-xs text-gray-500">GSTIN: {bill.supplierGSTIN || '—'}</p>
                                             <p className="text-xs text-gray-500">{bill.billNumber}</p>
                                         </div>
                                     </td>
@@ -436,13 +427,13 @@ export default function AccountingPurchaseBills() {
                         <div>
                             <p className="text-xs text-gray-500 mb-1">Supplier</p>
                             <p className="font-medium text-gray-800 text-sm">
-                                {viewingBill.supplierId?.name || viewingBill.supplierName || '—'}
+                                {viewingBill.supplierName || '—'}
                             </p>
                         </div>
                         <div>
                             <p className="text-xs text-gray-500 mb-1">Supplier GSTIN</p>
                             <p className="font-medium text-gray-800 text-sm">
-                                {viewingBill.supplierId?.gstNumber || viewingBill.supplierGSTIN || '—'}
+                                {viewingBill.supplierGSTIN || '—'}
                             </p>
                         </div>
                         <div>
@@ -551,26 +542,25 @@ export default function AccountingPurchaseBills() {
                 >
 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
       <div>
-    <label className={modalLabelClass}>Supplier / Brand</label>
-    <select
-        value={formData.supplierId}
-        onChange={(e) => handleSupplierChange(e.target.value)}
+    <label className={modalLabelClass}>Supplier *</label>
+    <input
+        type="text"
+        value={formData.supplierName}
+        onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
         className={modalInputClass}
-    >
-        <option value="">select supplier / brand</option>
-        {stockGroup.map((sg) => (
-            <option value={sg._id} key={sg._id}>{sg.name}</option>
-        ))}
-    </select>
+        placeholder="Enter supplier name"
+        autoComplete="off"
+    />
 </div>
 <div>
     <label className={modalLabelClass}>Supplier GSTIN</label>
     <input
         type="text"
         value={formData.supplierGSTIN}
-        readOnly
-        className={`${modalInputClass} bg-gray-100`}
-        placeholder="Auto-filled from selected supplier"
+        onChange={(e) => setFormData({ ...formData, supplierGSTIN: e.target.value })}
+        className={modalInputClass}
+        placeholder="Enter GSTIN (optional)"
+        autoComplete="off"
     />
 </div>
                             <div>
