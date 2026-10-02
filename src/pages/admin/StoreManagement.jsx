@@ -204,8 +204,8 @@ export default function StoreManagement() {
 
   const handleUpdateStore = () => {
     if (!editingStore?.storeId) return;
-    if (!editForm.storeId.trim() || !editForm.name.trim() || !editForm.address.trim() || !editForm.storeEmail.trim() || !editForm.state.trim() || !editForm.code.trim() || !editForm.storePanNumber.trim()) {
-      toast.error('Store ID, name, address, email, state, code, and PAN are required');
+    if (!editForm.name.trim() || !editForm.address.trim() || !editForm.storeEmail.trim() || !editForm.state.trim() || !editForm.code.trim() || !editForm.storePanNumber.trim()) {
+      toast.error('Name, address, email, state, code, and PAN are required');
       return;
     }
 
@@ -217,7 +217,6 @@ export default function StoreManagement() {
     updateStoreMutation.mutate(
       {
         id: editingStore.storeId,
-        storeId: editForm.storeId.trim(),
         name: editForm.name.trim(),
         address: editForm.address.trim(),
         number: editForm.number,
@@ -543,9 +542,12 @@ export default function StoreManagement() {
               <input
                 type="text"
                 value={editForm.storeId}
-                onChange={(e) => setEditForm({ ...editForm, storeId: e.target.value })}
-                className={modalInputClass}
+                readOnly
+                disabled
+                className={`${modalInputClass} bg-gray-100 text-gray-600 cursor-not-allowed`}
+                title="Store ID cannot be changed"
               />
+              <p className="mt-1 text-xs text-gray-500">Store ID cannot be changed after creation</p>
             </div>
             <div>
               <label className={modalLabelClass}>Store Name</label>

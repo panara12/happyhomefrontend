@@ -8,11 +8,34 @@ import Modal, {
   modalPrimaryBtnClass,
 } from '../../components/ui/Modal';
 
+const emptyCustomer = {
+  name: '',
+  phone: '',
+  email: '',
+  address: '',
+  dateOfBirth: '',
+  clientType: 'Regular',
+};
+
+function toDateInputValue(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().split('T')[0];
+}
+
+function formatDisplayDate(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-IN');
+}
+
 export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
-  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '', address: '', clientType: 'Regular' });
+  const [newCustomer, setNewCustomer] = useState(emptyCustomer);
 
   const { data: searchData } = useSearchCustomers(searchTerm);
   const searchResults = searchData?.customers || [];
@@ -31,25 +54,42 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
 
   const handleCreateCustomer = () => {
     if (newCustomer.name && newCustomer.phone) {
-      addCustomerMutation.mutate(newCustomer, {
+      const payload = {
+        ...newCustomer,
+        dateOfBirth: newCustomer.dateOfBirth || null,
+      };
+      addCustomerMutation.mutate(payload, {
         onSuccess: (data) => {
           onSelectCustomer(data.customer);
-          setNewCustomer({ name: '', phone: '', email: '', address: '', clientType: 'Regular' });
+          setNewCustomer(emptyCustomer);
           setShowNewCustomerForm(false);
-        }
+        },
       });
     }
   };
 
   const handleEditCustomer = () => {
     if (editingCustomer && editingCustomer.name && editingCustomer.phone) {
-      updateCustomerMutation.mutate(editingCustomer, {
-        onSuccess: (data) => {
-          onSelectCustomer(data.customer);
-          setEditingCustomer(null);
+      updateCustomerMutation.mutate(
+        {
+          ...editingCustomer,
+          dateOfBirth: editingCustomer.dateOfBirth || null,
+        },
+        {
+          onSuccess: (data) => {
+            onSelectCustomer(data.customer);
+            setEditingCustomer(null);
+          },
         }
-      });
+      );
     }
+  };
+
+  const openEdit = (customer) => {
+    setEditingCustomer({
+      ...customer,
+      dateOfBirth: toDateInputValue(customer.dateOfBirth),
+    });
   };
 
   return (
@@ -73,7 +113,9 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
                   className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                 >
                   <div className="font-medium">{customer.name}</div>
-                  <div className="text-sm text-gray-600">{customer.phone} • {customer.clientType}</div>
+                  <div className="text-sm text-gray-600">
+                    {customer.phone} • {customer.clientType}
+                  </div>
                 </div>
               ))}
             </div>
@@ -103,6 +145,11 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
               {selectedCustomer.email && (
                 <div className="text-sm text-gray-600 break-all">Email: {selectedCustomer.email}</div>
               )}
+              {selectedCustomer.dateOfBirth && (
+                <div className="text-sm text-gray-600">
+                  Date of Birth: {formatDisplayDate(selectedCustomer.dateOfBirth)}
+                </div>
+              )}
               {selectedCustomer.address && (
                 <div className="text-sm text-gray-600">Address: {selectedCustomer.address}</div>
               )}
@@ -110,7 +157,7 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
             <div className="flex gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setEditingCustomer(selectedCustomer)}
+                onClick={() => openEdit(selectedCustomer)}
                 className="text-amber-600 hover:text-amber-700 p-2 border border-amber-200 rounded-lg bg-white"
                 title="Edit Customer"
               >
@@ -153,6 +200,15 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
               onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
             />
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Date of Birth (Optional)</label>
+              <input
+                type="date"
+                value={newCustomer.dateOfBirth}
+                onChange={(e) => setNewCustomer({ ...newCustomer, dateOfBirth: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              />
+            </div>
             <div>
               <select
                 value={newCustomer.clientType}
@@ -247,6 +303,17 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
               />
             </div>
             <div>
+              <label className={modalLabelClass}>Date of Birth</label>
+              <input
+                type="date"
+                value={editingCustomer.dateOfBirth || ''}
+                onChange={(e) =>
+                  setEditingCustomer({ ...editingCustomer, dateOfBirth: e.target.value })
+                }
+                className={modalInputClass}
+              />
+            </div>
+            <div>
               <label className={modalLabelClass}>Address</label>
               <textarea
                 value={editingCustomer.address || ''}
@@ -259,7 +326,9 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
               <label className={modalLabelClass}>Client Type *</label>
               <select
                 value={editingCustomer.clientType}
-                onChange={(e) => setEditingCustomer({ ...editingCustomer, clientType: e.target.value })}
+                onChange={(e) =>
+                  setEditingCustomer({ ...editingCustomer, clientType: e.target.value })
+                }
                 className={modalInputClass}
               >
                 <option value="Regular">Regular</option>
