@@ -66,11 +66,7 @@ export function printBarcodeStickers(selections) {
 
     const rows = [];
     for (let index = 0; index < stickers.length; index += BARCODE_STICKER_SPEC.perRow) {
-      rows.push(
-        `<div class="page"><section class="row">${stickers
-          .slice(index, index + BARCODE_STICKER_SPEC.perRow)
-          .join('')}</section></div>`
-      );
+      rows.push(`<section class="row">${stickers.slice(index, index + BARCODE_STICKER_SPEC.perRow).join('')}</section>`);
     }
 
     printWindow.onload = () => {
@@ -79,29 +75,10 @@ export function printBarcodeStickers(selections) {
     };
     printWindow.document.write(`<!doctype html>
       <html><head><title>Barcode Stickers</title><style>
-        @page { size: 18mm 120mm; margin: 0; }
+        @page { size: 120mm 18mm; margin: 0; }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; }
-        .row {
-          position: absolute;
-          top: 0;
-          left: 18mm;                 /* shift back into view after rotation */
-          width: 120mm;
-          height: 18mm;
-          display: flex;
-          align-items: stretch;
-          gap: 3mm;
-          padding-left: 7.5mm;
-          transform-origin: top left;
-          transform: rotate(90deg);
-        }
-        .page {
-          width: 18mm;
-          height: 120mm;
-          position: relative;
-          overflow: hidden;
-          page-break-after: always;
-        }
+        .row { width: 120mm; height: 18mm; display: flex; align-items: stretch; gap: 3mm; padding-left: 7.5mm; page-break-after: always; }
         .sticker { width: 51mm; height: 18mm; flex: none; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: space-around; padding: 0.3mm 1mm; font: 5pt Arial, sans-serif; }
         .brand { font-size: 6pt; line-height: 1; }
         .sticker svg { width: 42mm; height: 5mm; }
