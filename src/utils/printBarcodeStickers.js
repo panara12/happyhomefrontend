@@ -40,12 +40,13 @@ function createSticker(product) {
   const discount = Number(product.disc) || 0;
   const discountAmount = Number(product.disc_amt ?? (mrp * discount) / 100) || 0;
   const offerPrice = Number(product.offer_price ?? mrp - discountAmount) || 0;
-  const barcode = String(product.barcode_text || '');
+  const barcodeValue = String(product.sku_code || '');
+  const productText = String(product.barcode_text || '');
 
   return `<article class="sticker">
     <strong class="brand">Happy Home</strong>
-    ${createBarcodeSvg(barcode)}
-    ${barcode ? `<span class="code">${escapeHtml(barcode)}</span>` : ''}
+    ${createBarcodeSvg(barcodeValue)}
+    ${productText ? `<span class="code">${escapeHtml(productText)}</span>` : ''}
     <div class="prices"><span>MRP:${formatStickerAmount(mrp)}</span><span>DISC:${formatStickerAmount(discount)}</span></div>
     <div class="prices"><span>DISC AMT:${formatStickerAmount(discountAmount)}</span><span>OFFER:${formatStickerAmount(offerPrice)}</span></div>
   </article>`;
