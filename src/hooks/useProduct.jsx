@@ -12,6 +12,15 @@ export function useGetAllProducts(query = '') {
     });
 }
 
+export function useAddProduct() {
+    return useApiMutation({
+        url: "/products/addproduct",
+        method: "post",
+        invalidateKeys: [PRODUCTS_QUERY_KEY],
+        successMessage: "Product added successfully",
+    });
+}
+
 export function useUpdateProduct() {
     return useApiMutation({
         url: (variables) => `/products/updateproduct/${variables.id}`,

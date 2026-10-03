@@ -10,7 +10,7 @@ import Modal, {
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 import { useStockCategoryContext } from '../../context/stockcategoryContext';
-import { useGetAllProducts, useUpdateProduct } from '../../hooks/useProduct';
+import { useAddProduct, useGetAllProducts, useUpdateProduct } from '../../hooks/useProduct';
 import { useGetAllAccountingConst } from '../../hooks/useGetAllAccountStates';
 import { useGetAllUnits } from '../../hooks/useUnit';
 import { usePagination } from '../../hooks/usePagination';
@@ -37,6 +37,17 @@ function buildEditForm(product, stores) {
   };
 }
 
+function calculateProductPricing(mrpValue, discountValue, discountType) {
+  const mrp = Math.max(0, Number(mrpValue) || 0);
+  const discount = Math.max(0, Number(discountValue) || 0);
+  const dict_amt = discountType === 'value'
+    ? Math.min(discount, mrp)
+    : Math.min((mrp * Math.min(discount, 100)) / 100, mrp);
+  const disc = mrp > 0 ? Number(((dict_amt / mrp) * 100).toFixed(2)) : 0;
+
+  return { disc, dict_amt, offer_price: Math.max(0, mrp - dict_amt) };
+}
+
 export default function InventoryManagement({ user }) {
   const role = user?.userType || user?.role || '';
   const storeId = user?.storeId;
@@ -44,15 +55,18 @@ export default function InventoryManagement({ user }) {
   const { data: stockGroupData } = useGetAllStockGroup();
   const stockGroup = stockGroupData?.data ?? [];
   const { stockCategory } = useStockCategoryContext();
-  const { data: unitsData } = useGetAllUnits();
+  const { data: unitsData, isLoading: isUnitLoading } = useGetAllUnits();
   const units = unitsData?.units || unitsData?.data || [];
 
   const { data: productsData, isLoading: productsLoading } = useGetAllProducts();
   const { data: accounting } = useGetAllAccountingConst();
+  const addProductMutation = useAddProduct();
   const updateProductMutation = useUpdateProduct();
   const products = productsData?.products ?? [];
 
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [newProduct, setNewProduct] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,6 +90,71 @@ export default function InventoryManagement({ user }) {
     setBarcodeSearch('');
     setBarcodeQuantities({});
     setShowBarcodeModal(true);
+  };
+
+  const openAddProductModal = () => {
+    setNewProduct({
+      barcode_text: '',
+      brand: '',
+      category: '',
+      unit: '',
+      hsncode: '',
+      mrp: '',
+      gst: '0',
+      discount: '0',
+      discType: 'percent',
+      quantity: '0',
+      storeId: role === 'admin' ? '' : (storeId || ''),
+    });
+    setShowAddProductModal(true);
+  };
+
+  const closeAddProductModal = () => {
+    setShowAddProductModal(false);
+    setNewProduct(null);
+  };
+
+  const handleCreateProduct = () => {
+    if (!newProduct) return;
+    const targetStoreId = role === 'admin' ? newProduct.storeId : storeId;
+    const mrp = Number(newProduct.mrp);
+    if (
+      !newProduct.barcode_text.trim() ||
+      !newProduct.brand ||
+      !newProduct.category ||
+      !newProduct.unit ||
+      !targetStoreId ||
+      newProduct.mrp === '' ||
+      !Number.isFinite(mrp) ||
+      mrp < 0
+    ) {
+      toast.error('Please complete the product name, brand, category, unit, store, and a valid MRP.');
+      return;
+    }
+
+    const { disc, dict_amt, offer_price } = calculateProductPricing(
+      mrp,
+      newProduct.discount,
+      newProduct.discType
+    );
+
+    addProductMutation.mutate(
+      {
+        barcode_text: newProduct.barcode_text.trim(),
+        brand: newProduct.brand,
+        category: newProduct.category,
+        unit: newProduct.unit,
+        hsncode: newProduct.hsncode.trim(),
+        mrp,
+        gst: Number(newProduct.gst) || 0,
+        disc,
+        dict_amt,
+        offer_price,
+        storeId: targetStoreId,
+        qty: [{ storeId: targetStoreId, qty: Math.max(0, Number(newProduct.quantity) || 0) }],
+      },
+      { onSuccess: closeAddProductModal }
+    );
   };
 
   const closeBarcodeModal = () => {
@@ -273,7 +352,7 @@ export default function InventoryManagement({ user }) {
               : 'View inventory across all stores'}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={openBarcodeModal}
             className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"
@@ -281,6 +360,16 @@ export default function InventoryManagement({ user }) {
             <Printer size={20} />
             print labels
           </button>
+          {['admin', 'manager', 'accounting'].includes(role) && (
+            <button
+              type="button"
+              onClick={openAddProductModal}
+              className="flex items-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 text-white px-6 py-3 rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all shadow-lg"
+            >
+              <Plus size={20} />
+              Add Product
+            </button>
+          )}
         </div>
       </div>
 
@@ -474,6 +563,172 @@ export default function InventoryManagement({ user }) {
           onPageChange={inventoryPagination.goToPage}
         />
       </div>
+
+      {showAddProductModal && newProduct && (
+        <Modal
+          title="Add Product"
+          size="lg"
+          onClose={closeAddProductModal}
+          footer={
+            <>
+              <button type="button" onClick={closeAddProductModal} className={modalSecondaryBtnClass}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateProduct}
+                disabled={addProductMutation.isPending}
+                className={`${modalPrimaryBtnClass} disabled:opacity-60`}
+              >
+                {addProductMutation.isPending ? 'Saving...' : 'Add Product'}
+              </button>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+            <div className="sm:col-span-2">
+              <label className={modalLabelClass}>Product Name / Barcode *</label>
+              <input
+                type="text"
+                value={newProduct.barcode_text}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, barcode_text: e.target.value }))}
+                className={modalInputClass}
+                placeholder="Enter product name or barcode"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Brand *</label>
+              <select
+                value={newProduct.brand}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, brand: e.target.value }))}
+                className={modalInputClass}
+              >
+                <option value="">Select brand</option>
+                {stockGroup.map((group) => (
+                  <option key={group._id} value={group._id}>{group.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Category *</label>
+              <select
+                value={newProduct.category}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, category: e.target.value }))}
+                className={modalInputClass}
+              >
+                <option value="">Select category</option>
+                {stockCategory.map((category) => (
+                  <option key={category.categoryId} value={category.categoryId}>{category.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Unit *</label>
+              <select
+                value={newProduct.unit}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, unit: e.target.value }))}
+                className={modalInputClass}
+              >
+                <option value="">Select unit</option>
+                {!isUnitLoading && units.map((unit) => (
+                  <option key={unit._id || unit.unitId} value={unit._id || unit.unitId}>
+                    {unit.name || unit.unitId}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {role === 'admin' && (
+              <div>
+                <label className={modalLabelClass}>Store *</label>
+                <select
+                  value={newProduct.storeId}
+                  onChange={(e) => setNewProduct((prev) => ({ ...prev, storeId: e.target.value }))}
+                  className={modalInputClass}
+                >
+                  <option value="">Select Store</option>
+                  {stores.map((store) => (
+                    <option value={store.storeId} key={store.storeId}>{store.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className={modalLabelClass}>HSN Code</label>
+              <input
+                type="text"
+                value={newProduct.hsncode}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, hsncode: e.target.value }))}
+                className={modalInputClass}
+                placeholder="Enter HSN code"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>MRP (₹) *</label>
+              <input
+                type="number"
+                min="0"
+                value={newProduct.mrp}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, mrp: e.target.value }))}
+                className={modalInputClass}
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>GST (%)</label>
+              <select
+                value={newProduct.gst}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, gst: e.target.value }))}
+                className={modalInputClass}
+              >
+                {[0, 5, 12, 18, 28].map((rate) => <option key={rate} value={rate}>{rate}%</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Discount</label>
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2">
+                <select
+                  value={newProduct.discType}
+                  onChange={(e) => setNewProduct((prev) => ({ ...prev, discType: e.target.value }))}
+                  className={`${modalInputClass} min-w-0`}
+                  aria-label="Discount type"
+                >
+                  <option value="percent">%</option>
+                  <option value="value">Value (₹)</option>
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  max={newProduct.discType === 'percent' ? 100 : undefined}
+                  value={newProduct.discount}
+                  onChange={(e) => setNewProduct((prev) => ({ ...prev, discount: e.target.value }))}
+                  className={`${modalInputClass} min-w-0`}
+                  placeholder={newProduct.discType === 'percent' ? 'Discount %' : 'Discount amount'}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Offer Price (₹)</label>
+              <input
+                type="number"
+                value={calculateProductPricing(newProduct.mrp, newProduct.discount, newProduct.discType).offer_price}
+                readOnly
+                className={`${modalInputClass} bg-gray-50`}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Initial Stock Quantity</label>
+              <input
+                type="number"
+                min="0"
+                value={newProduct.quantity}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, quantity: e.target.value }))}
+                className={modalInputClass}
+                placeholder="0"
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {editingProduct && editForm && (
         <Modal
