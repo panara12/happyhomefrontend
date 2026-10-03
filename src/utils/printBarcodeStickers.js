@@ -78,7 +78,7 @@ export function printBarcodeStickers(selections) {
         @page { size: 126mm 26mm; margin: 0; }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; }
-        .row { width: 126mm; height: 26mm; display: flex; align-items: stretch; gap: 3mm; padding-left: 7.5mm; page-break-after: always; }
+        .row { width: 126mm; height: 26mm; display: flex; align-items: stretch; gap: 10mm; padding-left: 7.5mm; page-break-after: always; }
         .sticker { width: 50mm; height: 26mm; flex: none; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: space-around; padding: 0.3mm 1mm; font: 5pt Arial, sans-serif; font-weight: bold; }
         .brand { font-size: 7pt; line-height: 1; }
         .sticker svg { width: 42mm; height: 5mm; }
