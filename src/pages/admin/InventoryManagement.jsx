@@ -10,7 +10,7 @@ import Modal, {
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 import { useStockCategoryContext } from '../../context/stockcategoryContext';
-import { useAddProduct, useGetAllProducts, useUpdateProduct } from '../../hooks/useProduct';
+import { useAddProduct, useDeleteProduct, useGetAllProducts, useUpdateProduct } from '../../hooks/useProduct';
 import { useGetAllAccountingConst } from '../../hooks/useGetAllAccountStates';
 import { useGetAllUnits } from '../../hooks/useUnit';
 import { usePagination } from '../../hooks/usePagination';
@@ -61,6 +61,7 @@ export default function InventoryManagement({ user }) {
   const { data: productsData, isLoading: productsLoading } = useGetAllProducts();
   const { data: accounting } = useGetAllAccountingConst();
   const addProductMutation = useAddProduct();
+  const deleteProductMutation = useDeleteProduct();
   const updateProductMutation = useUpdateProduct();
   const products = productsData?.products ?? [];
 
@@ -69,10 +70,12 @@ export default function InventoryManagement({ user }) {
   const [newProduct, setNewProduct] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
   const [editForm, setEditForm] = useState(null);
+  const [deletingProduct, setDeletingProduct] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
   const [barcodeQuantities, setBarcodeQuantities] = useState({});
   const [barcodeSearch, setBarcodeSearch] = useState('');
+  const [barcodeStoreId, setBarcodeStoreId] = useState('');
 
   const editableStores = useMemo(() => {
     if (role === 'manager' && storeId) {
@@ -89,6 +92,7 @@ export default function InventoryManagement({ user }) {
   const openBarcodeModal = () => {
     setBarcodeSearch('');
     setBarcodeQuantities({});
+    setBarcodeStoreId(storeId || '');
     setShowBarcodeModal(true);
   };
 
@@ -171,6 +175,13 @@ export default function InventoryManagement({ user }) {
   const closeEdit = () => {
     setEditingProduct(null);
     setEditForm(null);
+  };
+
+  const handleDeleteProduct = () => {
+    if (!deletingProduct?._id) return;
+    deleteProductMutation.mutate(deletingProduct._id, {
+      onSuccess: () => setDeletingProduct(null),
+    });
   };
 
   const handleEditField = (field, value) => {
@@ -267,6 +278,12 @@ export default function InventoryManagement({ user }) {
   };
 
   const handlePrintBarcodes = () => {
+    const selectedStore = stores.find((store) => String(store.storeId) === String(barcodeStoreId));
+    if (!selectedStore) {
+      toast.error('Please select a store before printing');
+      return;
+    }
+
     const selectedProducts = Object.entries(barcodeQuantities).filter(([, qty]) => qty > 0);
 
     if (selectedProducts.length === 0) {
@@ -284,7 +301,7 @@ export default function InventoryManagement({ user }) {
       return;
     }
 
-    const { ok, count } = printBarcodeStickers(selections);
+    const { ok, count } = printBarcodeStickers(selections, selectedStore.name);
     if (!ok) {
       toast.error('Could not open print dialog');
       return;
@@ -541,8 +558,10 @@ export default function InventoryManagement({ user }) {
                         {role === 'admin' && (
                           <button
                             type="button"
+                            onClick={() => setDeletingProduct(item)}
                             className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
                             title="Delete product"
+                            aria-label={`Delete ${item.barcode_text || 'product'}`}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -727,6 +746,44 @@ export default function InventoryManagement({ user }) {
               />
             </div>
           </div>
+        </Modal>
+      )}
+
+      {deletingProduct && (
+        <Modal
+          title="Delete Product"
+          size="sm"
+          onClose={() => {
+            if (!deleteProductMutation.isPending) setDeletingProduct(null);
+          }}
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => setDeletingProduct(null)}
+                disabled={deleteProductMutation.isPending}
+                className={modalSecondaryBtnClass}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteProduct}
+                disabled={deleteProductMutation.isPending}
+                className="w-full sm:w-48 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium text-center shrink-0 disabled:opacity-60"
+              >
+                {deleteProductMutation.isPending ? 'Deleting...' : 'Delete Product'}
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm text-gray-600">
+            Are you sure you want to delete{' '}
+            <span className="font-semibold text-gray-800">
+              {deletingProduct.barcode_text || deletingProduct.sku_code}
+            </span>
+            ? This action cannot be undone.
+          </p>
         </Modal>
       )}
 
@@ -918,6 +975,20 @@ export default function InventoryManagement({ user }) {
             </>
           }
         >
+          <div className="mb-4">
+            <label className={modalLabelClass}>Store *</label>
+            <select
+              value={barcodeStoreId}
+              onChange={(e) => setBarcodeStoreId(e.target.value)}
+              className={modalInputClass}
+            >
+              <option value="">Select Store</option>
+              {stores.map((store) => (
+                <option value={store.storeId} key={store.storeId}>{store.name}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4 text-sm">
               <span className="text-purple-800">

@@ -35,7 +35,7 @@ function createBarcodeSvg(value) {
   return svg.outerHTML;
 }
 
-function createSticker(product) {
+function createSticker(product, storeName) {
   const mrp = Number(product.mrp) || 0;
   const discount = Number(product.disc) || 0;
   const discountAmount = Number(product.disc_amt ?? (mrp * discount) / 100) || 0;
@@ -44,7 +44,7 @@ function createSticker(product) {
   const productText = String(product.barcode_text || '');
 
   return `<article class="sticker">
-    <strong class="brand">Happy Home</strong>
+    <strong class="brand">${escapeHtml(storeName)}</strong>
     ${createBarcodeSvg(barcodeValue)}
     ${productText ? `<span class="code">${escapeHtml(productText)}</span>` : ''}
     <div class="prices"><span>MRP:${formatStickerAmount(mrp)}</span><span>DISC:${formatStickerAmount(discount)}</span></div>
@@ -52,13 +52,13 @@ function createSticker(product) {
   </article>`;
 }
 
-export function printBarcodeStickers(selections) {
+export function printBarcodeStickers(selections, storeName = 'Happy Home') {
   const printWindow = window.open('', '_blank', 'width=900,height=700');
   if (!printWindow) return { ok: false, count: 0 };
 
   try {
     const stickers = selections.flatMap(({ product, quantity }) =>
-      Array.from({ length: Math.max(0, Math.floor(Number(quantity) || 0)) }, () => createSticker(product))
+      Array.from({ length: Math.max(0, Math.floor(Number(quantity) || 0)) }, () => createSticker(product, storeName))
     );
     if (stickers.length === 0) {
       printWindow.close();
@@ -80,7 +80,7 @@ export function printBarcodeStickers(selections) {
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; }
         .row { width: 126mm; height: 26mm; display: flex; align-items: stretch; gap: 10mm; padding-left: 7.5mm; page-break-after: always; }
-        .sticker { width: 50mm; height: 26mm; flex: none; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: space-around; padding: 0.3mm 1mm; font: 5pt Arial, sans-serif; font-weight: bold; }
+        .sticker { width: 50mm; height: 26mm; flex: none; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 0.5mm; padding: 0 1mm 0.3mm; font: 5pt Arial, sans-serif; font-weight: bold; }
         .brand { font-size: 7pt; line-height: 1; }
         .sticker svg { width: 42mm; height: 5mm; }
         .code { font-size: 10pt; line-height: 1; }

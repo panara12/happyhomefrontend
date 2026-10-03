@@ -29,3 +29,12 @@ export function useUpdateProduct() {
         successMessage: "Product updated successfully",
     });
 }
+
+export function useDeleteProduct() {
+    return useApiMutation({
+        url: (id) => `/products/deleteproduct/${id}`,
+        method: "delete",
+        invalidateKeys: [PRODUCTS_QUERY_KEY],
+        successMessage: "Product deleted successfully",
+    });
+}
