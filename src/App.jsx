@@ -21,6 +21,7 @@ export default function App() {
       <LoggedUserContext.Provider value={useLoggedUserContext}>
         <Routes>
           {/* Public routes */}
+          <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 

@@ -2,8 +2,8 @@ import JsBarcode from 'jsbarcode';
 
 export const BARCODE_STICKER_SPEC = {
   printer: 'TSC TA220',
-  widthMm: 51,
-  heightMm: 18,
+  widthMm: 50,
+  heightMm: 26,
   perRow: 2,
   dpi: 203,
 };
@@ -75,15 +75,15 @@ export function printBarcodeStickers(selections) {
     };
     printWindow.document.write(`<!doctype html>
       <html><head><title>Barcode Stickers</title><style>
-        @page { size: 120mm 18mm; margin: 0; }
+        @page { size: 126mm 26mm; margin: 0; }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; }
-        .row { width: 120mm; height: 18mm; display: flex; align-items: stretch; gap: 3mm; padding-left: 7.5mm; page-break-after: always; }
-        .sticker { width: 51mm; height: 18mm; flex: none; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: space-around; padding: 0.3mm 1mm; font: 5pt Arial, sans-serif; }
-        .brand { font-size: 6pt; line-height: 1; }
+        .row { width: 126mm; height: 26mm; display: flex; align-items: stretch; gap: 3mm; padding-left: 7.5mm; page-break-after: always; }
+        .sticker { width: 50mm; height: 26mm; flex: none; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: space-around; padding: 0.3mm 1mm; font: 5pt Arial, sans-serif; font-weight: bold; }
+        .brand { font-size: 7pt; line-height: 1; }
         .sticker svg { width: 42mm; height: 5mm; }
-        .code { font-size: 5pt; line-height: 1; }
-        .prices { width: 100%; display: flex; justify-content: space-between; font-size: 4.5pt; line-height: 1; white-space: nowrap; }
+        .code { font-size: 7pt; line-height: 1; }
+        .prices { width: 100%; display: flex; justify-content: space-between; font-size: 6pt; line-height: 1; white-space: nowrap; }
         @media screen { body { background: #eee; } .row { background: white; margin: 8px auto; } }
       </style></head><body>${rows.join('')}</body></html>`);
     printWindow.document.close();
