@@ -82,8 +82,8 @@ export function printBarcodeStickers(selections) {
         .sticker { width: 50mm; height: 26mm; flex: none; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: space-around; padding: 0.3mm 1mm; font: 5pt Arial, sans-serif; font-weight: bold; }
         .brand { font-size: 7pt; line-height: 1; }
         .sticker svg { width: 42mm; height: 5mm; }
-        .code { font-size: 7pt; line-height: 1; }
-        .prices { width: 100%; display: flex; justify-content: space-between; font-size: 6pt; line-height: 1; white-space: nowrap; }
+        .code { font-size: 10pt; line-height: 1; }
+        .prices { width: 100%; display: flex; justify-content: space-between; font-size: 8pt; line-height: 1; white-space: nowrap; }
         @media screen { body { background: #eee; } .row { background: white; margin: 8px auto; } }
       </style></head><body>${rows.join('')}</body></html>`);
     printWindow.document.close();
