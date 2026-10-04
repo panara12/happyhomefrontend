@@ -30,9 +30,11 @@ function buildEditForm(product, stores) {
     unit: product.unit || '',
     hsncode: product.hsncode || '',
     mrp: product.mrp ?? 0,
-    offer_price: product.offer_price ?? product.mrp ?? 0,
+    oldOfferPrice: product.offer_price ?? product.mrp ?? 0,
+    offer_price: null,
     gst: product.gst ?? 0,
-    disc: product.disc ?? 0,
+    discount: product.disc ?? 0,
+    discType: 'percent',
     qtyByStore,
   };
 }
@@ -107,6 +109,7 @@ export default function InventoryManagement({ user }) {
       gst: '0',
       discount: '0',
       discType: 'percent',
+      offer_price: null,
       quantity: '0',
       storeId: role === 'admin' ? '' : (storeId || ''),
     });
@@ -141,6 +144,13 @@ export default function InventoryManagement({ user }) {
       newProduct.discount,
       newProduct.discType
     );
+    const enteredOfferPrice = newProduct.offer_price === null || newProduct.offer_price === ''
+      ? offer_price
+      : Number(newProduct.offer_price);
+    if (!Number.isFinite(enteredOfferPrice) || enteredOfferPrice < 0) {
+      toast.error('Please enter a valid offer price.');
+      return;
+    }
 
     addProductMutation.mutate(
       {
@@ -153,7 +163,7 @@ export default function InventoryManagement({ user }) {
         gst: Number(newProduct.gst) || 0,
         disc,
         dict_amt,
-        offer_price,
+        offer_price: enteredOfferPrice,
         storeId: targetStoreId,
         qty: [{ storeId: targetStoreId, qty: Math.max(0, Number(newProduct.quantity) || 0) }],
       },
@@ -185,7 +195,11 @@ export default function InventoryManagement({ user }) {
   };
 
   const handleEditField = (field, value) => {
-    setEditForm((prev) => ({ ...prev, [field]: value }));
+    setEditForm((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(field === 'mrp' || field === 'discount' || field === 'discType' ? { offer_price: null } : {}),
+    }));
   };
 
   const handleEditQty = (sid, value) => {
@@ -206,9 +220,15 @@ export default function InventoryManagement({ user }) {
     }
 
     const mrp = Number(editForm.mrp) || 0;
-    const disc = Number(editForm.disc) || 0;
-    const offer_price = Number(editForm.offer_price) || Math.max(0, mrp - (mrp * disc) / 100);
-    const dict_amt = Number(((mrp * disc) / 100).toFixed(2));
+    const pricing = calculateProductPricing(mrp, editForm.discount, editForm.discType);
+    const { disc, dict_amt } = pricing;
+    const offer_price = editForm.offer_price === null || editForm.offer_price === ''
+      ? pricing.offer_price
+      : Number(editForm.offer_price);
+    if (!Number.isFinite(offer_price) || offer_price < 0) {
+      toast.error('Please enter a valid offer price.');
+      return;
+    }
 
     const qty = editableStores.map((store) => ({
       storeId: store.storeId,
@@ -687,7 +707,7 @@ export default function InventoryManagement({ user }) {
                 type="number"
                 min="0"
                 value={newProduct.mrp}
-                onChange={(e) => setNewProduct((prev) => ({ ...prev, mrp: e.target.value }))}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, mrp: e.target.value, offer_price: null }))}
                 className={modalInputClass}
                 placeholder="0"
               />
@@ -707,7 +727,7 @@ export default function InventoryManagement({ user }) {
               <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2">
                 <select
                   value={newProduct.discType}
-                  onChange={(e) => setNewProduct((prev) => ({ ...prev, discType: e.target.value }))}
+                  onChange={(e) => setNewProduct((prev) => ({ ...prev, discType: e.target.value, offer_price: null }))}
                   className={`${modalInputClass} min-w-0`}
                   aria-label="Discount type"
                 >
@@ -719,7 +739,7 @@ export default function InventoryManagement({ user }) {
                   min="0"
                   max={newProduct.discType === 'percent' ? 100 : undefined}
                   value={newProduct.discount}
-                  onChange={(e) => setNewProduct((prev) => ({ ...prev, discount: e.target.value }))}
+                  onChange={(e) => setNewProduct((prev) => ({ ...prev, discount: e.target.value, offer_price: null }))}
                   className={`${modalInputClass} min-w-0`}
                   placeholder={newProduct.discType === 'percent' ? 'Discount %' : 'Discount amount'}
                 />
@@ -729,9 +749,11 @@ export default function InventoryManagement({ user }) {
               <label className={modalLabelClass}>Offer Price (₹)</label>
               <input
                 type="number"
-                value={calculateProductPricing(newProduct.mrp, newProduct.discount, newProduct.discType).offer_price}
-                readOnly
-                className={`${modalInputClass} bg-gray-50`}
+                min="0"
+                step="0.01"
+                value={newProduct.offer_price ?? calculateProductPricing(newProduct.mrp, newProduct.discount, newProduct.discType).offer_price}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, offer_price: e.target.value }))}
+                className={modalInputClass}
               />
             </div>
             <div>
@@ -879,11 +901,14 @@ export default function InventoryManagement({ user }) {
               />
             </div>
             <div>
-              <label className={modalLabelClass}>Offer Price (₹)</label>
+              <label className={modalLabelClass}>
+                Offer Price (₹) <span className="font-normal text-gray-500">Old: ₹{editForm.oldOfferPrice}</span>
+              </label>
               <input
                 type="number"
                 min="0"
-                value={editForm.offer_price}
+                step="0.01"
+                value={editForm.offer_price ?? calculateProductPricing(editForm.mrp, editForm.discount, editForm.discType).offer_price}
                 onChange={(e) => handleEditField('offer_price', e.target.value)}
                 className={modalInputClass}
               />
@@ -899,14 +924,27 @@ export default function InventoryManagement({ user }) {
               />
             </div>
             <div>
-              <label className={modalLabelClass}>Discount (%)</label>
-              <input
-                type="number"
-                min="0"
-                value={editForm.disc}
-                onChange={(e) => handleEditField('disc', e.target.value)}
-                className={modalInputClass}
-              />
+              <label className={modalLabelClass}>Discount</label>
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2">
+                <select
+                  value={editForm.discType}
+                  onChange={(e) => handleEditField('discType', e.target.value)}
+                  className={`${modalInputClass} min-w-0`}
+                  aria-label="Discount type"
+                >
+                  <option value="percent">%</option>
+                  <option value="value">Value (₹)</option>
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  max={editForm.discType === 'percent' ? 100 : undefined}
+                  value={editForm.discount}
+                  onChange={(e) => handleEditField('discount', e.target.value)}
+                  className={`${modalInputClass} min-w-0`}
+                  placeholder={editForm.discType === 'percent' ? 'Discount %' : 'Discount amount'}
+                />
+              </div>
             </div>
 
             <div className="sm:col-span-2 pt-2 border-t border-gray-100">
