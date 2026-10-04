@@ -134,11 +134,11 @@ export function printBarcodeStickers(selections, storeName = "Happy Home") {
   align-items: center;
   justify-content: flex-start;
   gap: 0.3mm;
-  padding: 0.5mm 1mm 1.5mm;
+  padding: 0mm 1mm 1.5mm;
   font: bold 5pt Arial, sans-serif;
 }
         .brand {
-  font-size: 6pt;
+  font-size: 7pt;
   line-height: 1;
 }
         .code {
