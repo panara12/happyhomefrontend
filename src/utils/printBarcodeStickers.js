@@ -143,6 +143,7 @@ export function printBarcodeStickers(selections, storeName = "Happy Home") {
 }
         .code {
   width: 100%;
+  padding-bottom: 0.5mm;
   font-size: 8pt;
   font-weight: bold;
   line-height: 1.05;
