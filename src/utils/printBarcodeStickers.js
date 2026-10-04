@@ -28,7 +28,7 @@ function formatStickerAmount(value) {
 
 const DOT_MM = 25.4 / BARCODE_STICKER_SPEC.dpi;   // 0.125 mm per dot
 const MAX_BARCODE_MM = 40;                         // 50mm sticker, ~5mm quiet zone each side
-const BARCODE_HEIGHT_MM = 9;
+const BARCODE_HEIGHT_MM = 7;
 
 function createBarcodeSvg(value) {
     if (!value) return "";
@@ -124,37 +124,42 @@ export function printBarcodeStickers(selections, storeName = "Happy Home") {
           padding-left: 7.5mm; 
           page-break-after: always; 
           }
-        .sticker { 
-          width: 50mm; 
-          height: 26mm; 
-          flex: none; 
-          overflow: hidden; 
-          display: flex; 
-          flex-direction: column; 
-          align-items: center; 
-          justify-content: flex-start; 
-          gap: 0.4mm; 
-          padding: 0.5mm 0.3mm 1mm; 
-          font: 5pt Arial, 
-          sans-serif; 
-          font-weight: bold; 
-        }
-        .brand { 
-          font-size: 7pt; 
-          line-height: 1; 
-        }
-        .code { 
-          font-size: 10pt; 
-          line-height: 1; 
-        }
-        .prices { 
-          width: 100%; 
-          display: flex; 
-          justify-content: space-between;
-          font-size: 8pt; 
-          line-height: 1; 
-          white-space: nowrap; 
-        }
+        .sticker {
+  width: 50mm;
+  height: 26mm;
+  flex: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.3mm;
+  padding: 0.5mm 1mm 1.5mm;
+  font: bold 5pt Arial, sans-serif;
+}
+        .brand {
+  font-size: 6pt;
+  line-height: 1;
+}
+        .code {
+  width: 100%;
+  font-size: 8pt;
+  font-weight: bold;
+  line-height: 1.05;
+  text-align: left;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+        .prices {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-size: 7pt;
+  line-height: 1.05;
+  white-space: nowrap;
+}
         @media screen { body { background: #eee; } 
         .row { background: white; margin: 8px auto; } }
       </style></head><body>${rows.join("")}</body></html>`);
