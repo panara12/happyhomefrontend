@@ -26,16 +26,38 @@ function formatStickerAmount(value) {
     return String(Math.round(Number(value) || 0));
 }
 
+const DOT_MM = 25.4 / BARCODE_STICKER_SPEC.dpi;   // 0.125 mm per dot
+const MAX_BARCODE_MM = 40;                         // 50mm sticker, ~5mm quiet zone each side
+const BARCODE_HEIGHT_MM = 9;
+
 function createBarcodeSvg(value) {
     if (!value) return "";
+
+    // measure total modules at 1px per module
+    const probe = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    JsBarcode(probe, value, { format: "CODE128", displayValue: false, margin: 0, width: 1, height: 1 });
+    const modules = parseFloat(probe.getAttribute("width"));
+
+    // 3 dots per module if it fits, else 2, else 1 (always whole dots)
+    const maxDots = Math.floor(MAX_BARCODE_MM / DOT_MM);           // 320 dots
+    const moduleDots = Math.max(1, Math.min(3, Math.floor(maxDots / modules)));
+    if (moduleDots < 2) console.warn(`SKU "${value}" is too long for a reliable scan`);
+
+    const heightDots = Math.round(BARCODE_HEIGHT_MM / DOT_MM);     // 72 dots
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     JsBarcode(svg, value, {
         format: "CODE128",
         displayValue: false,
         margin: 0,
-        width: 1,
-        height: 30,
+        width: moduleDots,
+        height: heightDots,
     });
+
+    const w = modules * moduleDots;
+    svg.setAttribute("viewBox", `0 0 ${w} ${heightDots}`);
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("shape-rendering", "crispEdges");
+    svg.setAttribute("style", `width:${(w * DOT_MM).toFixed(3)}mm;height:${BARCODE_HEIGHT_MM}mm;display:block;flex:none`);
     return svg.outerHTML;
 }
 
@@ -111,8 +133,8 @@ export function printBarcodeStickers(selections, storeName = "Happy Home") {
           flex-direction: column; 
           align-items: center; 
           justify-content: flex-start; 
-          gap: 0.5mm; 
-          padding: 0 0.3mm 0.3mm; 
+          gap: 0.4mm; 
+          padding: 0.5mm 0.3mm 1mm; 
           font: 5pt Arial, 
           sans-serif; 
           font-weight: bold; 
@@ -120,10 +142,6 @@ export function printBarcodeStickers(selections, storeName = "Happy Home") {
         .brand { 
           font-size: 7pt; 
           line-height: 1; 
-        }
-        .sticker svg { 
-          width: 42mm; 
-          height: 5mm; 
         }
         .code { 
           font-size: 10pt; 
