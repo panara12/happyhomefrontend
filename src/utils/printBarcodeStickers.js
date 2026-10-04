@@ -116,7 +116,6 @@ export function printBarcodeStickers(selections, storeName = "Happy Home") {
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; }
         .row { 
-        background-color: gray;
           width: 126mm; 
           height: 26mm; 
           display: flex; 
@@ -126,7 +125,6 @@ export function printBarcodeStickers(selections, storeName = "Happy Home") {
           page-break-after: always; 
           }
         .sticker {
-        background-color: green;
   width: 50mm;
   height: 26mm;
   flex: none;
@@ -140,12 +138,10 @@ export function printBarcodeStickers(selections, storeName = "Happy Home") {
   font: bold 5pt Arial, sans-serif;
 }
         .brand {
-        background-color: red;
   font-size: 8pt;
   line-height: 1;
 }
         .code {
-        background-color: yellow;
   width: 100%;
   padding-bottom: 0.5mm;
   font-size: 9pt;
@@ -158,7 +154,6 @@ export function printBarcodeStickers(selections, storeName = "Happy Home") {
   overflow: hidden;
 }
         .prices {
-        background-color: pink;
   width: 100%;
   display: flex;
   justify-content: space-between;
