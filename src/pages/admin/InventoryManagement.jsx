@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Package, Search, Filter, Printer, Barcode, Minus, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Package, Search, Printer, Barcode, Minus, Plus, Edit2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import Modal, {
   modalInputClass,
@@ -75,6 +75,7 @@ export default function InventoryManagement({ user }) {
   const [deletingProduct, setDeletingProduct] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
+  const [filterBrand, setFilterBrand] = useState('All');
   const [barcodeQuantities, setBarcodeQuantities] = useState({});
   const [barcodeSearch, setBarcodeSearch] = useState('');
   const [barcodeStoreId, setBarcodeStoreId] = useState('');
@@ -362,9 +363,11 @@ export default function InventoryManagement({ user }) {
       item.barcode_text?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.sku_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.product_code?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
-    return matchesSearch && matchesCategory;
-  }), [products, searchTerm, filterCategory]);
+    const matchesCategory = filterCategory === 'All' || String(item.category) === filterCategory;
+    const brandId = item.brand?._id || item.brand;
+    const matchesBrand = filterBrand === 'All' || String(brandId) === filterBrand;
+    return matchesSearch && matchesCategory && matchesBrand;
+  }), [products, searchTerm, filterCategory, filterBrand]);
 
   const inventoryPagination = usePagination(displayInventory);
 
@@ -441,30 +444,58 @@ export default function InventoryManagement({ user }) {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search by barcode, SKU, or product code..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Filter size={20} className="text-gray-500" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,17rem)_minmax(12rem,17rem)_auto] items-end gap-4">
+        <label className="min-w-0 sm:col-span-2 lg:col-span-1">
+          <span className="block text-sm font-medium text-gray-700 mb-1">Search</span>
+          <span className="relative block">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="Search by barcode, SKU, or product code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+            />
+          </span>
+        </label>
+        <label className="min-w-0">
+          <span className="block text-sm font-medium text-gray-700 mb-1">Category</span>
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
           >
-            <option value="All">All</option>
+            <option value="All">All categories</option>
             {stockCategory.map(cat => (
               <option key={cat.categoryId} value={cat.categoryId}>{cat.name}</option>
             ))}
           </select>
-        </div>
+        </label>
+        <label className="min-w-0">
+          <span className="block text-sm font-medium text-gray-700 mb-1">Brand</span>
+          <select
+            value={filterBrand}
+            onChange={(e) => setFilterBrand(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+          >
+            <option value="All">All brands</option>
+            {stockGroup.map((brand) => (
+              <option key={brand._id} value={brand._id}>{brand.name}</option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={() => {
+            setSearchTerm('');
+            setFilterCategory('All');
+            setFilterBrand('All');
+          }}
+          disabled={!searchTerm && filterCategory === 'All' && filterBrand === 'All'}
+          className="sm:col-span-2 lg:col-span-1 h-[50px] px-4 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Clear filters
+        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
