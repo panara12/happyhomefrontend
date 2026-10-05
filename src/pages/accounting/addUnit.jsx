@@ -162,8 +162,8 @@ export default function AddUnit() {
           >
             <option value="">Select company</option>
             {storeList.map((store) => (
-              <option key={store._id} value={store.name}>
-                {store.name}
+              <option key={store._id} value={store.tallyCompanyName || store.name}>
+                {store.tallyCompanyName || store.name}
               </option>
             ))}
           </select>

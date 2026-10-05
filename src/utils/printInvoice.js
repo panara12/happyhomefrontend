@@ -176,8 +176,9 @@ function buildInvoiceModel(invoice, storeArg) {
 /**
  * Modern A5 Tax Invoice — same data/content as before, updated visual design only.
  */
-function buildInvoiceHtml(invoice, store, { pdf = false } = {}) {
+function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscape' } = {}) {
   const m = buildInvoiceModel(invoice, store);
+  const isLandscape = orientation === 'landscape';
 
   const addressLine = String(m.storeAddress || '')
     .split(/,\s*/)
@@ -219,8 +220,8 @@ function buildInvoiceHtml(invoice, store, { pdf = false } = {}) {
       print-color-adjust: exact;
     }
     .sheet {
-      width: 148mm;
-      min-height: 210mm;
+      width: ${isLandscape ? '210mm' : '148mm'};
+      min-height: ${isLandscape ? '148mm' : '210mm'};
       margin: 0 auto;
       padding: 7mm 8mm 6mm;
       background: #fff;
@@ -411,11 +412,11 @@ function buildInvoiceHtml(invoice, store, { pdf = false } = {}) {
     @media print {
       body { padding: 0; }
       .sheet { width: auto; min-height: auto; padding: 0; }
-      @page { size: A5; margin: 7mm; }
+      @page { size: A5 ${orientation}; margin: 7mm; }
     }
     ${pdf ? `
     body { padding: 0 !important; }
-    .sheet { width: 134mm !important; margin: 0 !important; min-height: auto !important; padding: 0 !important; }
+    .sheet { width: ${isLandscape ? '196mm' : '134mm'} !important; margin: 0 !important; min-height: auto !important; padding: 0 !important; }
     ` : ''}
   </style>
 </head>
@@ -526,7 +527,7 @@ function buildInvoiceHtml(invoice, store, { pdf = false } = {}) {
 </html>`;
 }
 
-function openInvoiceFrame(html, title, renderForPdf = false) {
+function openInvoiceFrame(html, title, renderForPdf = false, orientation = 'landscape') {
   if (typeof document === 'undefined') return null;
 
   const existing = document.getElementById('invoice-print-frame');
@@ -541,8 +542,8 @@ function openInvoiceFrame(html, title, renderForPdf = false) {
     top: renderForPdf ? '0' : 'auto',
     right: renderForPdf ? 'auto' : '0',
     bottom: renderForPdf ? 'auto' : '0',
-    width: renderForPdf ? '559px' : '0',
-    height: renderForPdf ? '794px' : '0',
+    width: renderForPdf ? (orientation === 'landscape' ? '794px' : '559px') : '0',
+    height: renderForPdf ? (orientation === 'landscape' ? '559px' : '794px') : '0',
     border: '0',
     opacity: renderForPdf ? '1' : '0',
     pointerEvents: 'none',
@@ -580,10 +581,10 @@ function triggerFramePrint(iframe) {
   return true;
 }
 
-export function printInvoice(invoice, store) {
+export function printInvoice(invoice, store, orientation = 'landscape') {
   if (!invoice) return false;
-  const html = buildInvoiceHtml(invoice, store);
-  const iframe = openInvoiceFrame(html, `Print ${invoice.invoiceNumber || 'invoice'}`);
+  const html = buildInvoiceHtml(invoice, store, { orientation });
+  const iframe = openInvoiceFrame(html, `Print ${invoice.invoiceNumber || 'invoice'}`, false, orientation);
   return triggerFramePrint(iframe);
 }
 
@@ -598,12 +599,12 @@ export function getInvoiceHtml(invoice, store) {
   return buildInvoiceHtml(invoice, store);
 }
 
-/** Download a PDF rendered in A5 modern Tax Invoice layout (same content as print). */
-export async function downloadInvoicePdfFile(invoice, store) {
+/** Download a PDF rendered in landscape A5 modern Tax Invoice layout (same content as print). */
+export async function downloadInvoicePdfFile(invoice, store, orientation = 'landscape') {
   if (!invoice) return false;
   try {
     const m = buildInvoiceModel(invoice, store);
-    const pdf = new jsPDF({ unit: 'mm', format: 'a5', compress: true });
+    const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a5', compress: true });
     const W = pdf.internal.pageSize.getWidth();
     const H = pdf.internal.pageSize.getHeight();
     const M = 7;

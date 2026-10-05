@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Plus, Edit, Trash2 } from 'lucide-react'
-import { useAddStockCategory, useDeleteStockCategory, useUpdateStockCategory } from '../../hooks/useStockCategory'
+import { Plus, Edit, Trash2, RefreshCw } from 'lucide-react'
+import { useAddStockCategory, useDeleteStockCategory, useUpdateStockCategory, useSyncStockCategories } from '../../hooks/useStockCategory'
 import { useGetAllStores } from '../../hooks/useStore'
 import { useStockCategoryContext } from '../../context/stockcategoryContext'
 import { Pagination } from '../../components/ui/Pagination'
@@ -39,6 +39,7 @@ export default function AddCategory() {
   const addMutation    = useAddStockCategory()
   const updateMutation = useUpdateStockCategory()
   const deleteMutation = useDeleteStockCategory()
+  const syncMutation = useSyncStockCategories()
 
   useEffect(() => {
     if (!editing) {
@@ -84,8 +85,12 @@ export default function AddCategory() {
   return (
     <div className={`p-6 rounded-md shadow-sm ${THEME.panel} text-white`}>
       <div className={`bg-gradient-to-r ${THEME.gradientFrom} ${THEME.gradientTo} p-4 rounded-md mb-4`}>
-        <h2 className="text-2xl font-semibold">Categories</h2>
-        <p className="text-sm text-indigo-200">Manage stock categories for Accounting</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-2xl font-semibold">Categories</h2><p className="text-sm text-indigo-200">Manage stock categories for Accounting</p></div>
+          <button type="button" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending} className="inline-flex items-center gap-2 px-3 py-2 bg-white text-indigo-900 rounded shadow disabled:opacity-60">
+            <RefreshCw size={16} className={syncMutation.isPending ? 'animate-spin' : ''} />{syncMutation.isPending ? 'Syncing…' : 'Sync to Tally'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -144,13 +149,14 @@ export default function AddCategory() {
                   <th className="p-3">Category ID</th>
                   <th className="p-3">Name</th>
                   <th className="p-3">Store</th>
+                  <th className="p-3">Tally Sync</th>
                   <th className="p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {categories.length === 0 && (
                   <tr>
-                    <td className="p-4 text-gray-400" colSpan={5}>
+                    <td className="p-4 text-gray-400" colSpan={6}>
                       No categories found.
                     </td>
                   </tr>
@@ -161,6 +167,7 @@ export default function AddCategory() {
                     <td className="p-3">{cat.categoryId}</td>
                     <td className="p-3">{cat.name}</td>
                     <td className="p-3">{stores.find((store) => store.storeId === cat.storeId)?.name || cat.storeId}</td>
+                    <td className="p-3"><span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${cat.tallySync?.status === 'synced' ? 'bg-green-100 text-green-800' : cat.tallySync?.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{cat.tallySync?.status || 'pending'}{cat.tallySync?.error ? <span title={cat.tallySync.error} className="ml-1">ⓘ</span> : null}</span></td>
                     <td className="p-3">
                       <div className="flex gap-2">
                         <button

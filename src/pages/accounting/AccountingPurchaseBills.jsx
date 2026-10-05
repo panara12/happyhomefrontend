@@ -16,11 +16,13 @@ import { useGetAllUnits } from '../../hooks/useUnit';
 import { useAddPurchaseBill, useGetAllPurchaseBill } from '../../hooks/usePurchaseBill';
 import { useGetAllProducts } from '../../hooks/useProduct';
 import { useSyncPendingTally } from '../../hooks/useTally';
+import { useAddSupplier, useSearchSuppliers } from '../../hooks/useSupplier';
 
 const emptyItem = {
   brand: '',
   category: '',
   barcode_text: '',
+  alias: '',
   hsncode: '',
   quantity: 1,
   purchaseRate: 0,
@@ -58,6 +60,7 @@ function applyItemDiscount(item) {
 
 const initialFormData = {
     supplierName: '',
+    supplierPhoneNumber: '',
     supplierGSTIN: '',
     billNumber: '',
     billDate: new Date().toISOString().split('T')[0],
@@ -77,13 +80,18 @@ export default function AccountingPurchaseBills() {
     const { data: purchaseBillsData, isLoading: billsLoading } = useGetAllPurchaseBill();
     const bills = purchaseBillsData?.bills ?? [];
 
-    const { mutate: addPurchaseBill, isPending: isSubmitting } = useAddPurchaseBill(); // swap isPending -> isLoading if on an older react-query
+    const { mutateAsync: addPurchaseBill, isPending: isBillSubmitting } = useAddPurchaseBill();
+    const { mutateAsync: addSupplier, isPending: isSupplierSubmitting } = useAddSupplier();
+    const isSubmitting = isBillSubmitting || isSupplierSubmitting;
     const syncPendingTally = useSyncPendingTally();
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [viewingBill, setViewingBill] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [formData, setFormData] = useState(initialFormData);
+    const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
+    const { data: supplierSearchData, isLoading: suppliersLoading } = useSearchSuppliers(supplierSearchTerm);
+    const supplierSearchResults = supplierSearchData?.suppliers ?? [];
 
     // ---- Existing-product search (bound into each item row) ----
     // Only one row's dropdown is "active" at a time, so we only need a single
@@ -132,6 +140,7 @@ export default function AccountingPurchaseBills() {
             brand: product.brand || newItems[index].brand,
             category: product.category || newItems[index].category,
             barcode_text: product.barcode_text || newItems[index].barcode_text,
+            alias: product.alias ?? newItems[index].alias,
             hsncode: product.hsncode || newItems[index].hsncode,
             unit: product.unit || newItems[index].unit,
             gst: product.gst ?? newItems[index].gst,
@@ -160,7 +169,7 @@ export default function AccountingPurchaseBills() {
 
     const billFormTotals = useMemo(calculateBillTotal, [formData.items]);
 
-    const handleCreateBill = () => {
+    const handleCreateBill = async () => {
         const invalidItems = formData.items.filter(
             item => !item.barcode_text || !item.brand || !item.category || !item.unit || !item.mrp
         );
@@ -170,12 +179,20 @@ export default function AccountingPurchaseBills() {
         }
 
         const totals = calculateBillTotal();
+        try {
+        const supplierResult = await addSupplier({
+            supplierName: formData.supplierName.trim(),
+            supplierPhoneNumber: formData.supplierPhoneNumber.trim() ? Number(formData.supplierPhoneNumber.replace(/\D/g, '')) || null : null,
+            supplierGstNumber: formData.supplierGSTIN.trim(),
+        });
+        const supplier = supplierResult.supplier;
 
         const payload = {
             billNumber: formData.billNumber,
             billDate: formData.billDate,
-            supplierName: formData.supplierName.trim(),
-            supplierGSTIN: (formData.supplierGSTIN || '').trim(),
+            supplierId: supplier.supplierId,
+            supplierName: supplier.supplierName,
+            supplierGSTIN: formData.supplierGSTIN.trim() || supplier.supplierGstNumber || '',
             storeId: formData.storeId,
            items: formData.items.map(item => {
                 const priced = applyItemDiscount(item);
@@ -183,6 +200,7 @@ export default function AccountingPurchaseBills() {
                     brand: priced.brand,
                     category: priced.category,
                     barcode_text: priced.barcode_text,
+                    alias: priced.alias?.trim() || '',
                     hsncode: priced.hsncode,
                     quantity: priced.quantity,
                     purchaseRate: priced.purchaseRate,
@@ -199,7 +217,7 @@ export default function AccountingPurchaseBills() {
             totalAmount: totals.total
         };
 
-        addPurchaseBill(payload, {
+        await addPurchaseBill(payload, {
             onSuccess: () => {
                 toast.success(
                     <div>
@@ -208,12 +226,13 @@ export default function AccountingPurchaseBills() {
                     </div>
                 );
                 setFormData(initialFormData);
+                setSupplierSearchTerm('');
                 setShowAddModal(false);
-            },
-            onError: (err) => {
-                toast.error(err?.response?.data?.message || 'Failed to create purchase bill');
             }
         });
+        } catch (err) {
+            toast.error(err?.response?.data?.message || err?.message || 'Failed to create purchase bill');
+        }
     };
 
     const filteredBills = useMemo(() => bills.filter(bill => {
@@ -259,7 +278,7 @@ export default function AccountingPurchaseBills() {
                         {syncPendingTally.isPending ? 'Syncing Tally…' : 'Sync Pending to Tally'}
                     </button>
                     <button
-                        onClick={() => setShowAddModal(true)}
+                        onClick={() => { setFormData({ ...initialFormData, billDate: new Date().toISOString().split('T')[0], items: [{ ...emptyItem }] }); setSupplierSearchTerm(''); setShowAddModal(true); }}
                         className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg"
                     >
                         <Plus size={20} />
@@ -542,27 +561,26 @@ export default function AccountingPurchaseBills() {
                 >
 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
       <div>
-    <label className={modalLabelClass}>Supplier *</label>
-    <input
-        type="text"
-        value={formData.supplierName}
-        onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
-        className={modalInputClass}
-        placeholder="Enter supplier name"
-        autoComplete="off"
-    />
-</div>
-<div>
-    <label className={modalLabelClass}>Supplier GSTIN</label>
-    <input
-        type="text"
-        value={formData.supplierGSTIN}
-        onChange={(e) => setFormData({ ...formData, supplierGSTIN: e.target.value })}
-        className={modalInputClass}
-        placeholder="Enter GSTIN (optional)"
-        autoComplete="off"
-    />
-</div>
+        <label className={modalLabelClass}>Supplier *</label>
+        <div className="relative">
+          <input type="text" value={formData.supplierName} onChange={e => {
+            const value = e.target.value;
+            setFormData(prev => ({ ...prev, supplierName: value }));
+            setSupplierSearchTerm(value);
+          }} className={modalInputClass} placeholder="Search or enter supplier name" autoComplete="off" />
+          {supplierSearchTerm.trim() && (suppliersLoading || supplierSearchResults.length > 0) && <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
+            {supplierSearchResults.map(supplier => <button type="button" key={supplier.supplierId} onMouseDown={event => event.preventDefault()} onClick={() => {
+              setFormData(prev => ({ ...prev, supplierName: supplier.supplierName, supplierPhoneNumber: supplier.supplierPhoneNumber != null ? String(supplier.supplierPhoneNumber) : '', supplierGSTIN: supplier.supplierGstNumber || '' }));
+              setSupplierSearchTerm('');
+            }} className="w-full text-left p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
+              <div className="font-medium text-gray-800">{supplier.supplierName}</div><div className="text-xs text-gray-500">{supplier.supplierId}{supplier.supplierGstNumber ? ` · GSTIN: ${supplier.supplierGstNumber}` : ''}{supplier.supplierPhoneNumber ? ` · ${supplier.supplierPhoneNumber}` : ''}</div>
+            </button>)}
+            {suppliersLoading && <div className="p-3 text-sm text-gray-500">Searching suppliers…</div>}
+          </div>}
+        </div>
+      </div>
+      <div><label className={modalLabelClass}>Supplier Mobile Number</label><input type="tel" value={formData.supplierPhoneNumber} onChange={e => setFormData(prev => ({ ...prev, supplierPhoneNumber: e.target.value }))} className={modalInputClass} placeholder="Enter mobile number (optional)" autoComplete="off" /></div>
+      <div><label className={modalLabelClass}>Supplier GSTIN</label><input type="text" value={formData.supplierGSTIN} onChange={e => setFormData(prev => ({ ...prev, supplierGSTIN: e.target.value }))} className={modalInputClass} placeholder="Enter GSTIN (optional)" autoComplete="off" /></div>
                             <div>
                                 <label className={modalLabelClass}>Bill Number</label>
                                 <input
@@ -669,6 +687,16 @@ export default function AccountingPurchaseBills() {
                                                     onChange={(e) => handleItemChange(index, 'barcode_text', e.target.value)}
                                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                                                     placeholder="Barcode text"
+                                                />
+                                            </div>
+                                            <div className="col-span-12 md:col-span-3">
+                                                <label className="block text-xs text-gray-600 mb-1">Alias</label>
+                                                <input
+                                                    type="text"
+                                                    value={item.alias}
+                                                    onChange={(e) => handleItemChange(index, 'alias', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    placeholder="Optional product alias"
                                                 />
                                             </div>
                                             <div className="col-span-6 sm:col-span-2">

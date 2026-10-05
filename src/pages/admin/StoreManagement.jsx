@@ -17,6 +17,7 @@ const EMPTY_ARRAY = [];
 const emptyForm = {
   storeId: '',
   name: '',
+  tallyCompanyName: '',
   address: '',
   number: '',
   gstNumber: '',
@@ -148,8 +149,8 @@ export default function StoreManagement() {
   };
 
   const handleAddStore = async () => {
-    if (!formData.storeId.trim() || !formData.name || !formData.address || !formData.storeEmail || !formData.state || !formData.code || !formData.storePanNumber) {
-      toast.error('Store ID, name, address, email, state, code, and PAN are required');
+    if (!formData.storeId.trim() || !formData.name || !formData.tallyCompanyName.trim() || !formData.address || !formData.storeEmail || !formData.state || !formData.code || !formData.storePanNumber) {
+      toast.error('Store ID, name, Tally company name, address, email, state, code, and PAN are required');
       return;
     }
 
@@ -162,6 +163,7 @@ export default function StoreManagement() {
       await addStoreMutation.mutateAsync({
         storeId: formData.storeId.trim(),
         name: formData.name.trim(),
+        tallyCompanyName: formData.tallyCompanyName.trim(),
         address: formData.address.trim(),
         number: formData.number,
         gstNumber: formData.gstNumber.trim(),
@@ -184,6 +186,7 @@ export default function StoreManagement() {
     setEditForm({
       storeId: store.storeId || '',
       name: store.name || '',
+      tallyCompanyName: store.tallyCompanyName || '',
       address: store.address || '',
       number: store.number ?? '',
       gstNumber: store.gstNumber || '',
@@ -204,8 +207,8 @@ export default function StoreManagement() {
 
   const handleUpdateStore = () => {
     if (!editingStore?.storeId) return;
-    if (!editForm.name.trim() || !editForm.address.trim() || !editForm.storeEmail.trim() || !editForm.state.trim() || !editForm.code.trim() || !editForm.storePanNumber.trim()) {
-      toast.error('Name, address, email, state, code, and PAN are required');
+    if (!editForm.name.trim() || !editForm.tallyCompanyName.trim() || !editForm.address.trim() || !editForm.storeEmail.trim() || !editForm.state.trim() || !editForm.code.trim() || !editForm.storePanNumber.trim()) {
+      toast.error('Name, Tally company name, address, email, state, code, and PAN are required');
       return;
     }
 
@@ -218,6 +221,7 @@ export default function StoreManagement() {
       {
         id: editingStore.storeId,
         name: editForm.name.trim(),
+        tallyCompanyName: editForm.tallyCompanyName.trim(),
         address: editForm.address.trim(),
         number: editForm.number,
         gstNumber: editForm.gstNumber.trim(),
@@ -244,6 +248,7 @@ export default function StoreManagement() {
   const filteredStores = useMemo(() => stores.filter((store) => {
     const matchesSearch =
       store.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      store.tallyCompanyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       store.address?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStore = role === 'admin' || (userStoreId && store.storeId === userStoreId);
     return matchesSearch && matchesStore;
@@ -436,6 +441,16 @@ export default function StoreManagement() {
               />
             </div>
             <div>
+              <label className={modalLabelClass}>Tally Company Name</label>
+              <input
+                type="text"
+                value={formData.tallyCompanyName}
+                onChange={(e) => setFormData({ ...formData, tallyCompanyName: e.target.value })}
+                className={modalInputClass}
+                placeholder="Required: exact company name in Tally"
+              />
+            </div>
+            <div>
               <label className={modalLabelClass}>Address</label>
               <input
                 type="text"
@@ -556,6 +571,16 @@ export default function StoreManagement() {
                 value={editForm.name}
                 onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                 className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>Tally Company Name</label>
+              <input
+                type="text"
+                value={editForm.tallyCompanyName}
+                onChange={(e) => setEditForm({ ...editForm, tallyCompanyName: e.target.value })}
+                className={modalInputClass}
+                placeholder="Exact company name in Tally"
               />
             </div>
             <div>

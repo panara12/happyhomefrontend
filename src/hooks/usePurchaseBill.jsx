@@ -8,6 +8,7 @@ export function useAddPurchaseBill() {
         url: "/purchasebill/addpurchasebill",
         method: "post",
         invalidateKeys: [PURCHASE_BILL_KEY],
+        showErrorToast: false,
     });
 }
 

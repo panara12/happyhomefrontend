@@ -11,8 +11,9 @@ import Modal, {
 } from '../../components/ui/Modal';
 import { useSearchCustomers } from '../../hooks/useCustomer';
 import { useGetAllStores } from '../../hooks/useStore';
-import { useGetAllProducts } from '../../hooks/useProduct';
+import { useGetAllProducts, useGetProductBySku } from '../../hooks/useProduct';
 import { useSubmitInvoice } from '../../hooks/useInvoice';
+import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 
 function formatMoney(value) {
   return `₹${Number(value || 0).toLocaleString('en-IN')}`;
@@ -36,6 +37,7 @@ export default function CreateInvoiceModal({ onClose }) {
   const activeProductQuery = items[activeProductRow]?.productQuery || '';
   const { data: productsData } = useGetAllProducts(activeProductQuery);
   const submitInvoiceMutation = useSubmitInvoice();
+  const getProductBySku = useGetProductBySku();
 
   const stores = storesData?.stores || [];
   const products = productsData?.products || [];
@@ -112,6 +114,7 @@ export default function CreateInvoiceModal({ onClose }) {
       next[index] = {
         ...next[index],
         productId: opt.id,
+        sku_code: opt.raw?.sku_code,
         productQuery: opt.label,
         // offer_price / mrp from purchase bill are stored without GST in price
         price: opt.raw?.offer_price || opt.raw?.mrp || 0,
@@ -180,6 +183,42 @@ export default function CreateInvoiceModal({ onClose }) {
       }
     );
   };
+
+  const handleScan = async (sku) => {
+  try {
+    const response = await getProductBySku.mutateAsync(sku);
+    const product = response.product;
+
+    setItems((prev) => {
+      const index = prev.findIndex((i) => i.sku_code === product.sku_code);
+      if (index >= 0) {
+        // same product scanned again: quantity + 1
+        return prev.map((i, n) => (n === index ? { ...i, quantity: i.quantity + 1 } : i));
+      }
+      const emptyIndex = prev.findIndex((item) => !item.productId);
+      const scannedItem = {
+        productId: product._id,
+        sku_code: product.sku_code,
+        productQuery: product.barcode_text || product.name,
+        name: product.barcode_text || product.name,
+        price: Number(product.offer_price ?? product.mrp) || 0,
+        mrp: Number(product.mrp) || 0,
+        gst: Number(product.gst ?? 0),
+        quantity: 1,
+      };
+      if (emptyIndex >= 0) return prev.map((item, n) => n === emptyIndex ? scannedItem : item);
+      return [
+        ...prev,
+        scannedItem,
+      ];
+    });
+    toast.success(`${product.barcode_text || product.name} added`);
+  } catch {
+    toast.error(`Product not found for SKU: ${sku}`);
+  }
+};
+
+useBarcodeScanner(handleScan, { enabled: !submitInvoiceMutation.isPending });
 
   return (
     <Modal

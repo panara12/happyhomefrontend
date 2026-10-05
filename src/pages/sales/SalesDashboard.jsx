@@ -10,6 +10,8 @@ import logoImg from "../../assets/logo.jpg";
 import { useSelector } from 'react-redux';
 import { useLogout } from '../../hooks/useAuth';
 import { useSubmitInvoice, useGetMyInvoices } from '../../hooks/useInvoice';
+import { useGetProductBySku } from '../../hooks/useProduct';
+import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { useLeaveContext } from '../../context/leaveContext';
 import { useAddLeave } from '../../hooks/useLeave';
 import { toast } from 'sonner';
@@ -20,6 +22,7 @@ export default function SalesmanDashboard() {
   const user = useSelector((state) => state.app.userInfo);
   const { mutate: logout } = useLogout();
   const { mutate: submitInvoice, isPending: isSubmittingInvoice } = useSubmitInvoice();
+  const getProductBySku = useGetProductBySku();
   const { leaves: leaveRequests } = useLeaveContext();
   const addLeaveMutation = useAddLeave();
 
@@ -35,6 +38,38 @@ export default function SalesmanDashboard() {
     const total = quantity * price;
     setInvoiceItems([...invoiceItems, { item, quantity, price, total }]);
   };
+
+  const handleScan = async (sku) => {
+    try {
+      const response = await getProductBySku.mutateAsync(sku);
+      const product = response.product;
+      const item = {
+        _id: product._id,
+        code: product.product_code || product.sku_code,
+        sku_code: product.sku_code,
+        name: product.sku_code,
+        barcode: product.barcode_text,
+        price: Number(product.offer_price ?? product.mrp) || 0,
+        mrp: Number(product.mrp) || 0,
+        gst: Number(product.gst ?? 0),
+      };
+
+      setInvoiceItems((previous) => {
+        const existingIndex = previous.findIndex((invoiceItem) => String(invoiceItem.item._id || invoiceItem.item.id) === String(product._id));
+        if (existingIndex >= 0) {
+          return previous.map((invoiceItem, index) => index === existingIndex
+            ? { ...invoiceItem, quantity: invoiceItem.quantity + 1, total: (invoiceItem.quantity + 1) * invoiceItem.price }
+            : invoiceItem);
+        }
+        return [...previous, { item, quantity: 1, price: item.price, total: item.price }];
+      });
+      toast.success(`${product.barcode_text || product.sku_code} added to invoice`);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || `Product not found for SKU: ${sku}`);
+    }
+  };
+
+  useBarcodeScanner(handleScan, { enabled: activeTab === 'create' && Boolean(selectedCustomer) && !isSubmittingInvoice });
 
   const handleRemoveItem = (index) => {
     setInvoiceItems(invoiceItems.filter((_, i) => i !== index));

@@ -23,6 +23,7 @@ const emptyItem = {
   brand: '',
   category: '',
   barcode_text: '',
+  alias: '',
   hsncode: '',
   quantity: 1,
   purchaseRate: 0,
@@ -143,6 +144,7 @@ export default function PurchaseBills() {
         brand: product.brand || items[index].brand,
         category: product.category || items[index].category,
         barcode_text: product.barcode_text || items[index].barcode_text,
+        alias: product.alias ?? items[index].alias,
         hsncode: product.hsncode || items[index].hsncode,
         unit: product.unit || items[index].unit,
         gst: product.gst ?? items[index].gst,
@@ -206,6 +208,7 @@ export default function PurchaseBills() {
             brand: priced.brand,
             category: priced.category,
             barcode_text: priced.barcode_text.trim(),
+            alias: priced.alias?.trim() || '',
             hsncode: priced.hsncode.trim(),
             quantity: Number(priced.quantity),
             purchaseRate: Number(priced.purchaseRate) || 0,
@@ -695,6 +698,10 @@ export default function PurchaseBills() {
                     <div className="col-span-12 md:col-span-3">
                       <label className="block text-xs text-gray-600 mb-1">Barcode / Product Text *</label>
                       <input type="text" value={item.barcode_text} onChange={(e) => handleItemChange(index, 'barcode_text', e.target.value)} className={modalInputClass} placeholder="Barcode text" />
+                    </div>
+                    <div className="col-span-12 md:col-span-3">
+                      <label className="block text-xs text-gray-600 mb-1">Alias</label>
+                      <input type="text" value={item.alias} onChange={(e) => handleItemChange(index, 'alias', e.target.value)} className={modalInputClass} placeholder="Optional product alias" />
                     </div>
                     <div className="col-span-6 sm:col-span-2">
                       <label className="block text-xs text-gray-600 mb-1">HSN Code *</label>

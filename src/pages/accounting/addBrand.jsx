@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Plus, Edit, Trash2 } from 'lucide-react'
-import { useAddStockGroup, useDeleteStockGroup, useUpdateStockGroup } from '../../hooks/useStockGroup'
+import { Plus, Edit, Trash2, RefreshCw } from 'lucide-react'
+import { useAddStockGroup, useDeleteStockGroup, useUpdateStockGroup, useSyncStockGroups } from '../../hooks/useStockGroup'
 import { useGetAllStores } from '../../hooks/useStore'
 import { useStockGroupContext } from '../../context/stockGroupContext'
 import { Pagination } from '../../components/ui/Pagination'
@@ -17,7 +17,6 @@ const THEME = {
 export default function AddBrand() {
   const [name, setName] = useState('')
   const [brandCode, setBrandCode] = useState('')
-  const [gstNumber, setGstNumber] = useState('')
   const [storeId, setStoreId] = useState('')
   const [editing, setEditing] = useState(null)
 
@@ -35,17 +34,16 @@ export default function AddBrand() {
   const addMutation    = useAddStockGroup()
   const updateMutation = useUpdateStockGroup()
   const deleteMutation = useDeleteStockGroup()
+  const syncMutation = useSyncStockGroups()
 
   useEffect(() => {
     if (!editing) {
       setName('')
       setBrandCode('')
-      setGstNumber('')
       setStoreId('')
     } else {
       setName(editing.name || '')
       setBrandCode(editing.brand_code || '')
-      setGstNumber(editing.gstNumber || '')
       setStoreId(editing.storeId || '')
     }
   }, [editing])
@@ -58,16 +56,14 @@ export default function AddBrand() {
         id: editing._id,
         name: name.trim(),
         brand_code: brandCode.trim(),
-        gstNumber: gstNumber.trim(),
         storeId
       })
       setEditing(null)
     } else {
-      addMutation.mutate({ name: name.trim(), brand_code: brandCode.trim(), gstNumber: gstNumber.trim(), storeId })
+      addMutation.mutate({ name: name.trim(), brand_code: brandCode.trim(), storeId })
     }
     setName('')
     setBrandCode('')
-    setGstNumber('')
     setStoreId('')
   }
 
@@ -91,8 +87,12 @@ export default function AddBrand() {
   return (
     <div className={`p-6 rounded-md shadow-sm ${THEME.panel} text-white`}>
       <div className={`bg-gradient-to-r ${THEME.gradientFrom} ${THEME.gradientTo} p-4 rounded-md mb-4`}>
-        <h2 className="text-2xl font-semibold">Brands</h2>
-        <p className="text-sm text-indigo-200">Manage stock brands (stock groups) for Accounting</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-2xl font-semibold">Brands</h2><p className="text-sm text-indigo-200">Manage stock brands (stock groups) for Accounting</p></div>
+          <button type="button" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending} className="inline-flex items-center gap-2 px-3 py-2 bg-white text-indigo-900 rounded shadow disabled:opacity-60">
+            <RefreshCw size={16} className={syncMutation.isPending ? 'animate-spin' : ''} />{syncMutation.isPending ? 'Syncing…' : 'Sync to Tally'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -130,14 +130,6 @@ export default function AddBrand() {
             ))}
           </select>
 
-          <label className="block text-sm text-indigo-100">GST Number</label>
-          <input
-            className="w-full p-2 rounded border border-indigo-700 bg-indigo-900 text-white"
-            value={gstNumber}
-            onChange={(e) => setGstNumber(e.target.value)}
-            placeholder="Enter brand code"
-          />
-
           <div className="flex gap-2">
             <button
               type="submit"
@@ -168,7 +160,7 @@ export default function AddBrand() {
                   <th className="p-3">Name</th>
                   <th className="p-3">Store</th>
                   <th className="p-3">Brand Code</th>
-                  <th className="p-3">GST Number</th>
+                  <th className="p-3">Tally Sync</th>
                   <th className="p-3">Actions</th>
                 </tr>
               </thead>
@@ -187,7 +179,7 @@ export default function AddBrand() {
                     <td className="p-3">{brand.name}</td>
                     <td className="p-3">{stores.find((store) => store.storeId === brand.storeId)?.name || brand.storeId}</td>
                     <td className="p-3">{brand.brand_code}</td>
-                    <td className="p-3">{brand.gstNumber}</td>
+                    <td className="p-3"><span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${brand.tallySync?.status === 'synced' ? 'bg-green-100 text-green-800' : brand.tallySync?.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{brand.tallySync?.status || 'pending'}{brand.tallySync?.error ? <span title={brand.tallySync.error} className="ml-1">ⓘ</span> : null}</span></td>
                     <td className="p-3">
                       <div className="flex gap-2">
                         <button

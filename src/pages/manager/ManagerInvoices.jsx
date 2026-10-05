@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Search, Eye, CheckCircle, XCircle, Download, Send, Edit2, Plus, RefreshCw
+  Search, Eye, CheckCircle, XCircle, Download, Send, Edit2, Plus, RefreshCw, ArrowLeftRight, ArrowUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -166,6 +166,7 @@ export default function ManagerInvoices() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [printOrientation, setPrintOrientation] = useState('landscape');
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [approvingInvoice, setApprovingInvoice] = useState(null);
   const [rejectingInvoice, setRejectingInvoice] = useState(null);
@@ -304,7 +305,7 @@ export default function ManagerInvoices() {
     null;
 
   const handlePrint = (invoice) => {
-    const ok = printInvoice(invoice, resolveStore(invoice));
+    const ok = printInvoice(invoice, resolveStore(invoice), printOrientation);
     if (ok) {
       toast.success(`Print ready for ${invoice.invoiceNumber}`);
     } else {
@@ -313,7 +314,7 @@ export default function ManagerInvoices() {
   };
 
   const handleDownloadPdf = async (invoice) => {
-    const ok = await downloadInvoicePdfFile(invoice, resolveStore(invoice));
+    const ok = await downloadInvoicePdfFile(invoice, resolveStore(invoice), printOrientation);
     if (ok) {
       toast.success(`PDF downloaded - ${invoice.invoiceNumber}`);
     } else {
@@ -322,7 +323,7 @@ export default function ManagerInvoices() {
   };
 
   const handleSendPdf = (invoice) => {
-    const ok = printInvoice(invoice, resolveStore(invoice));
+    const ok = printInvoice(invoice, resolveStore(invoice), printOrientation);
     if (ok) {
       toast.success(`Use Print → Save as PDF for ${invoice.invoiceNumber}`);
     } else {
@@ -352,6 +353,20 @@ export default function ManagerInvoices() {
           >
             <RefreshCw size={18} className={syncPendingTally.isPending ? 'animate-spin' : ''} />
             {syncPendingTally.isPending ? 'Syncing Tally…' : 'Sync Pending to Tally'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPrintOrientation((current) => current === 'landscape' ? 'portrait' : 'landscape')}
+            aria-label={`Print mode: ${printOrientation === 'landscape' ? 'Horizontal' : 'Vertical'}. Click to change`}
+            title="Change invoice print orientation"
+            className="inline-flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 bg-white text-gray-800 rounded-lg font-medium shadow-sm hover:bg-gray-50"
+          >
+            <span>Print mode:</span>
+            {printOrientation === 'landscape' ? (
+              <><ArrowLeftRight size={18} /><span>Horizontal</span></>
+            ) : (
+              <><ArrowUp size={18} /><span>Vertical</span></>
+            )}
           </button>
           <button
             type="button"

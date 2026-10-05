@@ -66,9 +66,9 @@ export function ItemSearch({ onAddItem }) {
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className="font-medium">{product.sku_code}</div>
+                    <div className="font-medium">{product.barcode_text}</div>
                     <div className="text-sm text-gray-600">
-                      Code: {product.product_code || '-'} • Barcode: {product.barcode_text}
+                      Code: {product.product_code || '-'} • SKU: {product.sku_code || '-'}
                     </div>
                     <div className="text-sm text-gray-500">Stock: {getStoreQty(product, user?.storeId)} units</div>
                   </div>

@@ -39,3 +39,12 @@ export function useDeleteStockGroup(){
             invalidateKeys: [STOCK_GROUP_KEY]
         })
 }
+
+export function useSyncStockGroups(){
+    return useApiMutation({
+        url: "/stockgroup/syncstockgroup",
+        method: "post",
+        invalidateKeys: [STOCK_GROUP_KEY],
+        successMessage: "Stock group sync completed",
+    })
+}

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Package, Search, Printer, Barcode, Minus, Plus, Edit2, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Package, Search, Printer, Barcode, Minus, Plus, Edit2, Trash2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import Modal, {
   modalInputClass,
@@ -25,6 +25,7 @@ function buildEditForm(product, stores) {
   return {
     id: product._id,
     barcode_text: product.barcode_text || '',
+    alias: product.alias || '',
     brand: product.brand?._id || product.brand || '',
     category: product.category || '',
     unit: product.unit || '',
@@ -48,6 +49,79 @@ function calculateProductPricing(mrpValue, discountValue, discountType) {
   const disc = mrp > 0 ? Number(((dict_amt / mrp) * 100).toFixed(2)) : 0;
 
   return { disc, dict_amt, offer_price: Math.max(0, mrp - dict_amt) };
+}
+
+function FilterSelect({ label, value, onChange, options, isAccounting }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const listId = `filter-options-${label.toLowerCase()}`;
+  const selectedOption = options.find((option) => option.value === value);
+  const selectedOptionClass = isAccounting
+    ? 'bg-purple-50 font-medium text-purple-800'
+    : 'bg-amber-50 font-medium text-amber-800';
+  const hoverClass = isAccounting ? 'hover:bg-purple-50' : 'hover:bg-amber-50';
+  const focusRingClass = isAccounting ? 'focus:ring-purple-500' : 'focus:ring-amber-500';
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const closeOnOutsideClick = (event) => {
+      if (!containerRef.current?.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [isOpen]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setIsOpen(false);
+      }}
+    >
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-controls={listId}
+        onClick={() => setIsOpen((open) => !open)}
+        className={`flex w-full items-center justify-between gap-2 px-4 py-3 border border-gray-300 rounded-lg bg-white text-left focus:ring-2 ${focusRingClass} focus:border-transparent outline-none`}
+      >
+        <span className="truncate">{selectedOption?.label}</span>
+        <ChevronDown size={18} className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div
+          id={listId}
+          role="menu"
+          aria-label={`${label} options`}
+          className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+        >
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="menuitemradio"
+              aria-checked={option.value === value}
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              className={`block w-full px-4 py-2 text-left text-sm ${hoverClass} ${
+                option.value === value ? selectedOptionClass : 'text-gray-700'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function InventoryManagement({ user }) {
@@ -102,6 +176,7 @@ export default function InventoryManagement({ user }) {
   const openAddProductModal = () => {
     setNewProduct({
       barcode_text: '',
+      alias: '',
       brand: '',
       category: '',
       unit: '',
@@ -156,6 +231,7 @@ export default function InventoryManagement({ user }) {
     addProductMutation.mutate(
       {
         barcode_text: newProduct.barcode_text.trim(),
+        alias: newProduct.alias.trim(),
         brand: newProduct.brand,
         category: newProduct.category,
         unit: newProduct.unit,
@@ -240,6 +316,7 @@ export default function InventoryManagement({ user }) {
       {
         id: editForm.id,
         barcode_text: editForm.barcode_text.trim(),
+        alias: editForm.alias.trim(),
         brand: editForm.brand || undefined,
         category: editForm.category || undefined,
         unit: editForm.unit || undefined,
@@ -460,29 +537,29 @@ export default function InventoryManagement({ user }) {
         </label>
         <label className="min-w-0">
           <span className="block text-sm font-medium text-gray-700 mb-1">Category</span>
-          <select
+          <FilterSelect
+            label="Category"
             value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-          >
-            <option value="All">All categories</option>
-            {stockCategory.map(cat => (
-              <option key={cat.categoryId} value={cat.categoryId}>{cat.name}</option>
-            ))}
-          </select>
+            onChange={setFilterCategory}
+            isAccounting={role === 'accounting'}
+            options={[
+              { value: 'All', label: 'All categories' },
+              ...stockCategory.map((cat) => ({ value: cat.categoryId, label: cat.name })),
+            ]}
+          />
         </label>
         <label className="min-w-0">
           <span className="block text-sm font-medium text-gray-700 mb-1">Brand</span>
-          <select
+          <FilterSelect
+            label="Brand"
             value={filterBrand}
-            onChange={(e) => setFilterBrand(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-          >
-            <option value="All">All brands</option>
-            {stockGroup.map((brand) => (
-              <option key={brand._id} value={brand._id}>{brand.name}</option>
-            ))}
-          </select>
+            onChange={setFilterBrand}
+            isAccounting={role === 'accounting'}
+            options={[
+              { value: 'All', label: 'All brands' },
+              ...stockGroup.map((brand) => ({ value: brand._id, label: brand.name })),
+            ]}
+          />
         </label>
         <button
           type="button"
@@ -678,6 +755,16 @@ export default function InventoryManagement({ user }) {
                   <option key={group._id} value={group._id}>{group.name}</option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Alias</label>
+              <input
+                type="text"
+                value={newProduct.alias}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, alias: e.target.value }))}
+                className={modalInputClass}
+                placeholder="Optional product alias"
+              />
             </div>
             <div>
               <label className={modalLabelClass}>Category *</label>
@@ -883,6 +970,16 @@ export default function InventoryManagement({ user }) {
                   <option key={sg._id} value={sg._id}>{sg.name}</option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className={modalLabelClass}>Alias</label>
+              <input
+                type="text"
+                value={editForm.alias}
+                onChange={(e) => handleEditField('alias', e.target.value)}
+                className={modalInputClass}
+                placeholder="Optional product alias"
+              />
             </div>
             <div>
               <label className={modalLabelClass}>Category</label>

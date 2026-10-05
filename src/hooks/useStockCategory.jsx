@@ -35,3 +35,12 @@ export function useDeleteStockCategory(){
         invalidateKeys: [STOCK_CATEGORY_KEY],
     })
 }
+
+export function useSyncStockCategories() {
+    return useApiMutation({
+        url: "/stockcategory/syncstockcategory",
+        method: "post",
+        invalidateKeys: [STOCK_CATEGORY_KEY],
+        successMessage: "Stock category sync completed",
+    });
+}

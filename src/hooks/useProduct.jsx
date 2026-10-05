@@ -1,5 +1,6 @@
 import { useApiMutation } from "./useApiMutation";
 import { useApiQuery } from "./useApiQuery";
+import http from "../apiServices/http.service";
 
 const PRODUCTS_QUERY_KEY = ["products"];
 
@@ -9,6 +10,13 @@ export function useGetAllProducts(query = '') {
         queryKey: [...PRODUCTS_QUERY_KEY, query],
         path: "/products/getAllProducts",
         params: query ? { q: query } : { limit: 100 },
+    });
+}
+
+export function useGetProductBySku() {
+    return useApiMutation({
+        mutationFn: (sku) => http.get(`/products/sku/${encodeURIComponent(sku)}`),
+        showErrorToast: false,
     });
 }
 

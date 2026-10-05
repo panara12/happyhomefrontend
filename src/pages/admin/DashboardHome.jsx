@@ -25,7 +25,7 @@ export default function DashboardHome({ user: userProp } = {}) {
   const purchase = dashboardData?.purchaseValue?.[0];
   const salesReturn = dashboardData?.salesReturns?.[0];
 
-  const stats = user?.userType === 'admin' ? [
+  const stats = userType === 'admin' ? [
     // {
     //   label: 'Net Profit (Month)',
     //   value: '₹5.33L',
@@ -44,7 +44,7 @@ export default function DashboardHome({ user: userProp } = {}) {
     },
     {
       label: 'Purchase Value',
-      value: `₹${dashboardData?.purchaseValue[0]?.totalAmount?.toLocaleString('en-IN') || '0'}`,
+      value: `₹${purchase?.totalAmount?.toLocaleString('en-IN') || '0'}`,
       change: '+8.2%',
       trend: 'up',
       icon: Receipt,
@@ -52,7 +52,7 @@ export default function DashboardHome({ user: userProp } = {}) {
     },
     {
       label: 'GST Payable',
-      value: `₹${dashboardData?.purchaseValue[0]?.totalGst?.toLocaleString('en-IN') || '0'}`,
+      value: `₹${purchase?.totalGst?.toLocaleString('en-IN') || '0'}`,
       change: 'Net tax',
       trend: 'up',
       icon: BarChart3,
@@ -60,8 +60,8 @@ export default function DashboardHome({ user: userProp } = {}) {
     },
     {
       label: 'Sales Returns',
-      value: `₹${dashboardData?.salesReturns[0]?.totalAmount?.toLocaleString('en-IN') || '0'}`,
-      change: `${dashboardData?.salesReturns[0]?.count || '0'} returns`,
+      value: `₹${salesReturn?.totalAmount?.toLocaleString('en-IN') || '0'}`,
+      change: `${salesReturn?.count || '0'} returns`,
       trend: 'down',
       icon: RotateCcw,
       color: 'bg-red-500'
@@ -90,7 +90,7 @@ export default function DashboardHome({ user: userProp } = {}) {
       icon: Users,
       color: 'bg-pink-500'
     },
-  ] : user.userType === 'manager' ? [
+  ] : userType === 'manager' ? [
     {
       label: 'Store Revenue',
       value: dashboardData?.totalSales ? `₹${dashboardData.totalSales.toLocaleString('en-IN')}` : '₹0',
