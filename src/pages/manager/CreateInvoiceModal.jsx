@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Barcode, Plus, Trash2 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import AutocompleteInput from '../../components/ui/AutocompleteInput';
@@ -14,6 +14,7 @@ import { useGetAllStores } from '../../hooks/useStore';
 import { useGetAllProducts, useGetProductBySku } from '../../hooks/useProduct';
 import { useSubmitInvoice } from '../../hooks/useInvoice';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
+import { BarcodeCameraModal } from '../sales/BarcodeCameraModal';
 
 function formatMoney(value) {
   return `₹${Number(value || 0).toLocaleString('en-IN')}`;
@@ -31,6 +32,7 @@ export default function CreateInvoiceModal({ onClose }) {
 
   const [items, setItems] = useState([{ productId: '', productQuery: '', quantity: 1, price: 0, gst: 0 }]);
   const [activeProductRow, setActiveProductRow] = useState(0);
+  const [showCamera, setShowCamera] = useState(false);
 
   const { data: customerSearchData } = useSearchCustomers(customerQuery);
   const { data: storesData } = useGetAllStores();
@@ -282,14 +284,24 @@ useBarcodeScanner(handleScan, { enabled: !submitInvoiceMutation.isPending });
       <div className="mb-4">
         <div className="flex items-center justify-between mb-3">
           <h4 className="font-medium text-gray-800 text-sm">Items *</h4>
-          <button
-            type="button"
-            onClick={handleAddItem}
-            className="flex items-center gap-1 font-medium text-sm text-amber-600 hover:text-amber-700"
-          >
-            <Plus size={18} />
-            Add Item
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowCamera(true)}
+              className="flex items-center gap-1 font-medium text-sm text-amber-600 hover:text-amber-700"
+            >
+              <Barcode size={18} />
+              Scan barcode
+            </button>
+            <button
+              type="button"
+              onClick={handleAddItem}
+              className="flex items-center gap-1 font-medium text-sm text-amber-600 hover:text-amber-700"
+            >
+              <Plus size={18} />
+              Add Item
+            </button>
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -350,6 +362,12 @@ useBarcodeScanner(handleScan, { enabled: !submitInvoiceMutation.isPending });
         <span className="text-gray-800 font-semibold">Total Amount:</span>
         <span className="text-2xl font-bold text-amber-600">{formatMoney(totalAmount)}</span>
       </div>
+      {showCamera && (
+        <BarcodeCameraModal
+          onScan={handleScan}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
     </Modal>
   );
 }
