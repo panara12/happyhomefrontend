@@ -309,7 +309,7 @@ export default function SalesmanDashboard() {
               <>
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                   <h3 className="font-medium mb-4">Add Items</h3>
-                  <ItemSearch onAddItem={handleAddItem} />
+                  <ItemSearch onAddItem={handleAddItem} onScanSku={handleScan}/>
                 </div>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

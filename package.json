@@ -16,6 +16,7 @@
     "@tanstack/react-query-devtools": "^5.101.4",
     "axios": "^1.18.1",
     "dotenv": "^17.4.2",
+    "html5-qrcode": "^2.3.8",
     "jsbarcode": "^3.12.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

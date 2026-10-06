@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Search, Barcode, Plus } from 'lucide-react';
 import { useGetAllProducts } from '../../hooks/useProduct';
+import { BarcodeCameraModal } from './BarcodeCameraModal';
 
-export function ItemSearch({ onAddItem }) {
+export function ItemSearch({ onAddItem,onScanSku  }) {
+  const [showCamera, setShowCamera] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -48,7 +50,14 @@ export function ItemSearch({ onAddItem }) {
     <div className="space-y-4">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <Barcode className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <button
+          type="button"
+          onClick={() => setShowCamera(true)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-gray-500 hover:text-amber-600 hover:bg-amber-50"
+          title="Scan with camera"
+        >
+          <Barcode className="w-5 h-5" />
+        </button>
         <input
           type="text"
           placeholder="Search by item name, code, or scan barcode..."
@@ -85,7 +94,6 @@ export function ItemSearch({ onAddItem }) {
         )}
       </div>
 
-      {console.log(selectedItem)}
       {selectedItem && (
         <div className="border border-amber-200 rounded-lg p-4 bg-amber-50">
           <div className="flex items-start justify-between mb-4">
@@ -150,6 +158,13 @@ export function ItemSearch({ onAddItem }) {
             Add to Invoice
           </button>
         </div>
+      )}
+
+      {showCamera && (
+        <BarcodeCameraModal
+          onScan={(sku) => onScanSku?.(sku)}
+          onClose={() => setShowCamera(false)}
+        />
       )}
     </div>
   );
