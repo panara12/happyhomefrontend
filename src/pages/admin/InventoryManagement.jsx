@@ -134,7 +134,7 @@ export default function InventoryManagement({ user }) {
   const { data: unitsData, isLoading: isUnitLoading } = useGetAllUnits();
   const units = unitsData?.units || unitsData?.data || [];
 
-  const { data: productsData, isLoading: productsLoading } = useGetAllProducts();
+  const { data: productsData, isLoading: productsLoading } = useGetAllProducts('', { fetchAll: true });
   const { data: accounting } = useGetAllAccountingConst();
   const addProductMutation = useAddProduct();
   const deleteProductMutation = useDeleteProduct();

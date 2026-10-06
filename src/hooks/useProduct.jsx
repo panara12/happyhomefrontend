@@ -5,11 +5,26 @@ import http from "../apiServices/http.service";
 const PRODUCTS_QUERY_KEY = ["products"];
 
 // Single endpoint — no ?q → paginated list, ?q=text → search results
-export function useGetAllProducts(query = '') {
+export function useGetAllProducts(query = '', { fetchAll = false } = {}) {
     return useApiQuery({
-        queryKey: [...PRODUCTS_QUERY_KEY, query],
+        queryKey: [...PRODUCTS_QUERY_KEY, query, fetchAll ? 'all-pages' : 'first-page'],
         path: "/products/getAllProducts",
         params: query ? { q: query } : { limit: 100 },
+        ...(fetchAll && !query ? {
+            queryFn: async () => {
+                const limit = 100;
+                const firstPage = await http.get("/products/getAllProducts", { params: { page: 1, limit } });
+                const products = [...(firstPage?.products || [])];
+                const totalPages = Math.max(1, Number(firstPage?.pagination?.totalPages) || 1);
+
+                for (let page = 2; page <= totalPages; page += 1) {
+                    const response = await http.get("/products/getAllProducts", { params: { page, limit } });
+                    products.push(...(response?.products || []));
+                }
+
+                return { ...firstPage, products };
+            },
+        } : {}),
     });
 }
 
