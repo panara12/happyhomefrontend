@@ -225,7 +225,7 @@ export default function DashboardHome({ user: userProp } = {}) {
               <div>
                 <p className="text-gray-600 text-sm">{stat.label}</p>
                 <p className="text-3xl font-bold text-gray-800 mt-2">{stat.value}</p>
-                <div className="flex items-center gap-2 mt-2">
+                {/* <div className="flex items-center gap-2 mt-2">
                   {stat.trend === 'up' ? (
                     <TrendingUp size={16} className="text-green-500" />
                   ) : (
@@ -234,7 +234,7 @@ export default function DashboardHome({ user: userProp } = {}) {
                   <span className={`text-sm font-medium ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
                     {stat.change}
                   </span>
-                </div>
+                </div> */}
               </div>
               <div className={`${stat.color} p-4 rounded-full text-white`}>
                 <stat.icon size={24} />
