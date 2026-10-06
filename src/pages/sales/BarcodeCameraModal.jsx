@@ -12,57 +12,80 @@ export function BarcodeCameraModal({ onScan, onClose }) {
   const [error, setError] = useState('');
   const [lastCode, setLastCode] = useState('');
 
-  useEffect(() => {
-    const scanner = new Html5Qrcode(REGION_ID, {
-      formatsToSupport: [F.CODE_128, F.CODE_39, F.EAN_13, F.EAN_8, F.UPC_A],
-      useBarCodeDetectorIfSupported: true,
-      verbose: false,
+  const scannerRef = useRef(null);
+const [zoom, setZoom] = useState(null); // { min, max, step, value }
+
+useEffect(() => {
+  const scanner = new Html5Qrcode(REGION_ID, {
+    formatsToSupport: [F.CODE_128, F.CODE_39, F.EAN_13, F.EAN_8, F.UPC_A],
+    useBarCodeDetectorIfSupported: true,
+    verbose: false,
+  });
+  scannerRef.current = scanner;
+
+  const startPromise = scanner
+    .start(
+      { facingMode: 'environment' },
+      {
+        fps: 15,
+        disableFlip: true,
+        // wide, relative scan box instead of a fixed 300x120
+        qrbox: (w, h) => ({
+          width: Math.floor(w * 0.9),
+          height: Math.floor(Math.min(h * 0.5, 160)),
+        }),
+        videoConstraints: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+      },
+      (decodedText) => {
+        const code = decodedText.trim();
+        const now = Date.now();
+        if (!code) return;
+        if (code === lastRef.current.code && now - lastRef.current.time < COOLDOWN_MS) return;
+        lastRef.current = { code, time: now };
+        setLastCode(code);
+        navigator.vibrate?.(100);
+        onScanRef.current(code);
+      },
+      () => {}
+    )
+    .then(async () => {
+      // ask for continuous autofocus (works on Android Chrome)
+      await scanner
+        .applyVideoConstraints({ advanced: [{ focusMode: 'continuous' }] })
+        .catch(() => {});
+      // zoom slider if the phone supports it
+      const caps = scanner.getRunningTrackCapabilities?.();
+      if (caps?.zoom) {
+        setZoom({ min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1, value: caps.zoom.min });
+      }
+    })
+    .catch((err) => {
+      const msg = String(err?.message || err);
+      if (/permission|denied|notallowed/i.test(msg)) {
+        setError('Camera permission denied. Allow camera access in the browser settings and try again.');
+      } else if (/secure|https/i.test(msg)) {
+        setError('Camera needs HTTPS. Open the site over https://.');
+      } else {
+        setError('Could not start the camera. ' + msg);
+      }
     });
 
-    const startPromise = scanner
-      .start(
-        {
-          facingMode: 'environment',
-        },
-        {
-          fps: 10,
-          qrbox: { width: 300, height: 120 }, // wide box suits 1D barcodes
-          videoConstraints: {
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        },
-        (decodedText) => {
-          const code = decodedText.trim();
-          const now = Date.now();
-          if (!code) return;
-          if (code === lastRef.current.code && now - lastRef.current.time < COOLDOWN_MS) return;
-          lastRef.current = { code, time: now };
-          setLastCode(code);
-          navigator.vibrate?.(100);
-          onScanRef.current(code);
-        },
-        () => {} // per-frame "no barcode found", ignore
-      )
-      .catch((err) => {
-        const msg = String(err?.message || err);
-        if (/permission|denied|notallowed/i.test(msg)) {
-          setError('Camera permission denied. Allow camera access in the browser settings and try again.');
-        } else if (/secure|https/i.test(msg)) {
-          setError('Camera needs HTTPS. Open the site over https://.');
-        } else {
-          setError('Could not start the camera. ' + msg);
-        }
-      });
+  return () => {
+    startPromise
+      .then(() => scanner.stop())
+      .then(() => scanner.clear())
+      .catch(() => {});
+  };
+}, []);
 
-    return () => {
-      startPromise
-        .then(() => scanner.stop())
-        .then(() => scanner.clear())
-        .catch(() => {});
-    };
-  }, []);
+const handleZoom = (value) => {
+  setZoom((z) => ({ ...z, value }));
+  scannerRef.current?.applyVideoConstraints({ advanced: [{ zoom: value }] }).catch(() => {});
+};
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
@@ -85,6 +108,17 @@ export function BarcodeCameraModal({ onScan, onClose }) {
               </p>
               {lastCode && <p className="text-sm text-green-700 mt-2">Last scanned: {lastCode}</p>}
             </>
+          )}
+          {zoom && (
+            <input
+              type="range"
+              min={zoom.min}
+              max={zoom.max}
+              step={zoom.step}
+              value={zoom.value}
+              onChange={(e) => handleZoom(Number(e.target.value))}
+              className="w-full mt-3"
+            />
           )}
           <button
             onClick={onClose}
