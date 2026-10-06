@@ -147,7 +147,7 @@ export function BarcodeCameraModal({ onScan, onClose }) {
 
           <button onClick={onClose} className="mt-2 w-full px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
             Done
-          </button>
+          </button> 
         </div>
       </div>
     </div>
