@@ -202,7 +202,8 @@ export default function ManagerInvoices() {
     fromDate,
     toDate,
     dateField: activeDateConfig.dateField,
-    limit: 500,
+    limit: 100,
+    fetchAll: true,
   });
 
   const updateStatusMutation = useUpdateInvoiceStatus();
@@ -252,13 +253,16 @@ export default function ManagerInvoices() {
     setApprovingInvoice(invoice);
   };
 
-  const handleConfirmApprove = (paymentBreakdown) => {
+  const handleConfirmApprove = ({ loyaltyPointsRedeemed = 0, gstType = 'PRODUCT', ...paymentBreakdown }) => {
     if (!approvingInvoice) return;
     updateStatusMutation.mutate(
       {
         id: approvingInvoice._id || approvingInvoice.id,
         status: 'approved',
         paymentBreakdown,
+        loyaltyPointsRedeemed,
+        gstType,
+
       },
       {
         onSuccess: async (res) => {
@@ -509,7 +513,10 @@ export default function ManagerInvoices() {
                     <div className="p-4 space-y-3">
                       <div>
                         <p className="text-sm text-gray-600">Customer</p>
-                        <p className="font-medium text-gray-800">{invoice.customerName || '—'}</p>
+                        <p className="font-medium text-gray-800">
+                          {invoice.customerName || '—'}{' '}
+                          <span className="text-xs font-semibold text-amber-700">({invoice.customerPoints || 0} points)</span>
+                        </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Phone</p>

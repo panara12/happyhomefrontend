@@ -60,6 +60,7 @@ export default function InvoiceManagement({ user }) {
       id: 'INV-001',
       date: '2026-04-20',
       customer: 'Rajesh Kumar',
+      customerPoints: 0,
       phone: '+91 98765 43210',
       store: 'Store 1',
       items: [
@@ -76,6 +77,7 @@ export default function InvoiceManagement({ user }) {
       id: 'INV-002',
       date: '2026-04-21',
       customer: 'Priya Sharma',
+      customerPoints: 0,
       phone: '+91 98765 43211',
       store: 'Store 1',
       items: [
@@ -91,6 +93,7 @@ export default function InvoiceManagement({ user }) {
       id: 'INV-003',
       date: '2026-04-22',
       customer: 'Amit Patel',
+      customerPoints: 0,
       phone: '+91 98765 43212',
       store: 'Store 1',
       items: [
@@ -105,6 +108,7 @@ export default function InvoiceManagement({ user }) {
       id: 'INV-004',
       date: '2026-04-23',
       customer: 'Sneha Desai',
+      customerPoints: 0,
       phone: '+91 98765 43213',
       store: 'Store 1',
       items: [
@@ -125,6 +129,7 @@ export default function InvoiceManagement({ user }) {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [approvingInvoice, setApprovingInvoice] = useState(null);
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
 
   const [formData, setFormData] = useState({
@@ -222,15 +227,20 @@ export default function InvoiceManagement({ user }) {
 
   const handleApproveInvoice = (invoice) => {
     setApprovingInvoice(invoice);
+    setPointsToRedeem(0);
     setShowPaymentModal(true);
   };
 
   const handlePaymentMethodSelected = (paymentMethod) => {
     if (!approvingInvoice) return;
 
-    setInvoices(invoices.map(inv =>
-      inv.id === approvingInvoice.id ? { ...inv, status: 'Approved', paymentMethod } : inv
-    ));
+    const redeemed = Math.min(Math.max(0, Number(pointsToRedeem) || 0), approvingInvoice.customerPoints || 0, approvingInvoice.total);
+    const earned = Math.floor((approvingInvoice.total - redeemed) / 100);
+    setInvoices(invoices.map(inv => inv.id === approvingInvoice.id
+      ? { ...inv, status: 'Approved', paymentMethod, total: inv.total - redeemed, loyaltyPointsRedeemed: redeemed, loyaltyPointsEarned: earned, customerPoints: (inv.customerPoints || 0) - redeemed + earned }
+      : inv.customer === approvingInvoice.customer
+        ? { ...inv, customerPoints: (inv.customerPoints || 0) - redeemed + earned }
+        : inv));
     setShowPaymentModal(false);
     setApprovingInvoice(null);
     toast.success(`Invoice ${approvingInvoice.id} approved with ${paymentMethod} payment!`);
@@ -373,7 +383,7 @@ export default function InvoiceManagement({ user }) {
                   <div className="p-4 space-y-3">
                     <div>
                       <p className="text-sm text-gray-600">Customer</p>
-                      <p className="font-medium text-gray-800">{invoice.customer}</p>
+              <p className="font-medium text-gray-800">{invoice.customer} <span className="text-xs font-semibold text-amber-700">({invoice.customerPoints || 0} points)</span></p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Phone</p>
@@ -1252,7 +1262,24 @@ export default function InvoiceManagement({ user }) {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Amount:</span>
-                <span className="text-xl font-bold text-green-600">₹{approvingInvoice.total.toLocaleString()}</span>
+                <span className="text-xl font-bold text-green-600">₹{(approvingInvoice.total - (Number(pointsToRedeem) || 0)).toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="loyalty-points" className={modalLabelClass}>Loyalty Points (1 point = ₹1)</label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="loyalty-points"
+                  type="number"
+                  min="0"
+                  max={Math.min(approvingInvoice.customerPoints || 0, approvingInvoice.total)}
+                  step="1"
+                  value={pointsToRedeem}
+                  onChange={(event) => setPointsToRedeem(Math.min(Math.max(0, parseInt(event.target.value, 10) || 0), approvingInvoice.customerPoints || 0, approvingInvoice.total))}
+                  className={modalInputClass}
+                />
+                <span className="shrink-0 text-sm text-gray-600">Available: {approvingInvoice.customerPoints || 0}</span>
               </div>
             </div>
 

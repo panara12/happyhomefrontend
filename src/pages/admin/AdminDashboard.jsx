@@ -22,6 +22,7 @@ import LeadManagement from "../../pages/admin/LeadManagement"
 import GSTReports from "../../pages/admin/GSTReports"
 import ProfitLoss from "../../pages/admin/ProfitLoss"
 import ServicePanel from "../manager/ServicePanel"
+import ClientCards from "../manager/ClientCards"
 
 import { useSelector } from "react-redux"
 import { useLogout } from "../../hooks/useAuth"
@@ -34,6 +35,7 @@ const navigationItems = [
   { id: "stores", label: "Stores", icon: Store, path: "/admin/stores" },
   { id: "inventory", label: "Master Inventory", icon: Package, path: "/admin/inventory" },
   { id: "invoices", label: "Sales Invoices", icon: FileText, path: "/admin/invoices" },
+  { id: "client-cards", label: "Client Cards", icon: Users, path: "/admin/client-cards" },
   { id: "sales-return", label: "Sales Return", icon: RotateCcw, path: "/admin/sales-return" },
   { id: "users", label: "Users", icon: Users, path: "/admin/users" },
   { id: "transfers", label: "Store Transfers", icon: ArrowLeftRight, path: "/admin/transfers" },
@@ -86,6 +88,7 @@ export default function AdminRouter() {
           <Route path="/stores" element={<StoreManagement user={user} />} />
           <Route path="/inventory" element={<InventoryManagement user={user} />} />
           <Route path="/invoices" element={<ManagerInvoices />} />
+          <Route path="/client-cards" element={<ClientCards user={user} />} />
           <Route path="/sales-return" element={<SalesReturn user={user} />} />
           <Route path="/users" element={<UserManagement user={user} />} />
           <Route path="/transfers" element={<TransferManagement user={user} />} />

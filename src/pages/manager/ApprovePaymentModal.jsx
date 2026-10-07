@@ -30,8 +30,12 @@ export default function ApprovePaymentModal({
   const user = useSelector((state) => state.app.userInfo);
   const isAccounting = user?.userType === 'accounting';
   const [payments, setPayments] = useState({ cash: '', upi: '', debit: '' });
+  const [pointsToRedeem, setPointsToRedeem] = useState('0');
+  const [gstType, setGstType] = useState(invoice?.gstType || 'PRODUCT');
 
-  const invoiceTotal = roundMoney(invoice?.total);
+  const availablePoints = Math.max(0, Number(invoice?.customerPoints) || 0);
+  const redeemedPoints = Math.min(Math.max(0, parseInt(pointsToRedeem, 10) || 0), availablePoints, Number(invoice?.total) || 0);
+  const invoiceTotal = roundMoney((Number(invoice?.total) || 0) - redeemedPoints);
   const paidTotal = useMemo(
     () =>
       roundMoney(
@@ -56,6 +60,8 @@ export default function ApprovePaymentModal({
       cash: Number(payments.cash) || 0,
       upi: Number(payments.upi) || 0,
       debit: Number(payments.debit) || 0,
+      loyaltyPointsRedeemed: redeemedPoints,
+      gstType,
     });
   };
 
@@ -98,12 +104,12 @@ export default function ApprovePaymentModal({
             : 'bg-amber-50 border-amber-200'
         }`}
       >
-        <p className={`text-sm ${isAccounting ? 'text-indigo-800' : 'text-amber-800'}`}>Invoice Total</p>
+        <p className={`text-sm ${isAccounting ? 'text-indigo-800' : 'text-amber-800'}`}>Payable After Points</p>
         <p className={`text-2xl font-bold ${isAccounting ? 'text-indigo-700' : 'text-amber-700'}`}>
           {formatMoney(invoiceTotal)}
         </p>
         <p className={`text-xs mt-1 ${isAccounting ? 'text-indigo-700' : 'text-amber-700'}`}>
-          Split the total across Cash, upi, and Debit. Sum must match exactly.
+          Redeemed points reduce the amount due. Split the balance across Cash, UPI, and Debit.
         </p>
       </div>
 
@@ -125,6 +131,39 @@ export default function ApprovePaymentModal({
             />
           </div>
         ))}
+        <div>
+          <label className={modalLabelClass} htmlFor="loyalty-points-redeemed">
+            Loyalty Points (1 point = ₹1)
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              id="loyalty-points-redeemed"
+              type="number"
+              min="0"
+              max={Math.min(availablePoints, Number(invoice?.total) || 0)}
+              step="1"
+              value={pointsToRedeem}
+              onChange={(event) => setPointsToRedeem(event.target.value)}
+              className={modalInputClass}
+              disabled={isSubmitting}
+            />
+            <span className="shrink-0 text-sm text-gray-600">Available: {availablePoints}</span>
+          </div>
+        </div>
+        <div>
+          <label className={modalLabelClass} htmlFor="invoice-gst-type">GST Type</label>
+          <select
+            id="invoice-gst-type"
+            value={gstType}
+            onChange={(event) => setGstType(event.target.value)}
+            className={modalInputClass}
+            disabled={isSubmitting}
+          >
+            <option value="PRODUCT">Use each product&apos;s GST type</option>
+            <option value="IGST">IGST</option>
+            <option value="CGST/SGST">CGST + SGST</option>
+          </select>
+        </div>
       </div>
 
       <div className="mt-4 pt-3 border-t border-gray-200 space-y-1.5">

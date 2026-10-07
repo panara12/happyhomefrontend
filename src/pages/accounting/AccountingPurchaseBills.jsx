@@ -65,6 +65,7 @@ const initialFormData = {
     billNumber: '',
     billDate: new Date().toISOString().split('T')[0],
     storeId: '',
+    gstType: 'CGST/SGST',
     items: [{ ...emptyItem }]
 };
 
@@ -156,18 +157,20 @@ export default function AccountingPurchaseBills() {
     };
 
     const calculateBillTotal = () => {
-        let subtotal = 0, totalCGST = 0, totalSGST = 0;
+        let subtotal = 0, totalGST = 0;
         formData.items.forEach(item => {
             const taxableValue = (item.quantity || 0) * (item.purchaseRate || 0);
             const gstAmount = (taxableValue * (item.gst || 0)) / 100;
             subtotal += taxableValue;
-            totalCGST += gstAmount / 2;
-            totalSGST += gstAmount / 2;
+            totalGST += gstAmount;
         });
-        return { subtotal, cgst: totalCGST, sgst: totalSGST, total: subtotal + totalCGST + totalSGST };
+        const cgst = totalGST / 2;
+        const sgst = totalGST / 2;
+        const igst = formData.gstType === 'IGST' ? totalGST : 0;
+        return { subtotal, cgst, sgst, igst, gst: totalGST, total: subtotal + totalGST };
     };
 
-    const billFormTotals = useMemo(calculateBillTotal, [formData.items]);
+    const billFormTotals = useMemo(calculateBillTotal, [formData.items, formData.gstType]);
 
     const handleCreateBill = async () => {
         const invalidItems = formData.items.filter(
@@ -194,6 +197,7 @@ export default function AccountingPurchaseBills() {
             supplierName: supplier.supplierName,
             supplierGSTIN: formData.supplierGSTIN.trim() || supplier.supplierGstNumber || '',
             storeId: formData.storeId,
+            gstType: formData.gstType,
            items: formData.items.map(item => {
                 const priced = applyItemDiscount(item);
                 return {
@@ -205,6 +209,7 @@ export default function AccountingPurchaseBills() {
                     quantity: priced.quantity,
                     purchaseRate: priced.purchaseRate,
                     gst: priced.gst,
+                    gstType: formData.gstType,
                     mrp: priced.mrp,
                     disc: priced.disc,
                     dict_amt: priced.dict_amt,
@@ -519,7 +524,7 @@ export default function AccountingPurchaseBills() {
                             </span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-700">CGST + SGST:</span>
+                            <span className="text-gray-700">{viewingBill.gstType === 'IGST' ? 'IGST:' : 'CGST + SGST:'}</span>
                             <span className="font-medium text-gray-800">
                                 ₹{Number(viewingBill.CGSTplusSGST || 0).toLocaleString()}
                             </span>
@@ -658,9 +663,9 @@ export default function AccountingPurchaseBills() {
                                                             >
                                                                 <div className="flex justify-between items-start">
                                                                     <div>
-                                                                        <div className="font-medium">{product.sku_code}</div>
+                                                                        <div className="font-medium">{product.barcode_text}</div>
                                                                         <div className="text-sm text-gray-600">
-                                                                            Code: {product.product_code || '-'} • Barcode: {product.barcode_text}
+                                                                            Code: {product.product_code || '-'} • SKU: {product.sku_code || '-'}
                                                                         </div>
                                                                     </div>
                                                                     <div className="text-right">
@@ -862,12 +867,24 @@ export default function AccountingPurchaseBills() {
                         </div>
 
                         <div className="border-t border-gray-200 pt-4 mb-4">
+                            <div className="flex items-center justify-between gap-4 pb-2">
+                                <label htmlFor="accounting-purchase-bill-gst-type" className={modalLabelClass}>GST Type</label>
+                                <select
+                                    id="accounting-purchase-bill-gst-type"
+                                    value={formData.gstType}
+                                    onChange={(event) => setFormData((prev) => ({ ...prev, gstType: event.target.value }))}
+                                    className={`${modalInputClass} max-w-xs`}
+                                >
+                                    <option value="CGST/SGST">CGST + SGST</option>
+                                    <option value="IGST">IGST</option>
+                                </select>
+                            </div>
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-gray-700">Taxable Value:</span>
                                 <span className="font-bold text-gray-800">₹{billFormTotals.subtotal.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between items-center mb-2">
-                                <span className="text-gray-700">CGST + SGST:</span>
+                                <span className="text-gray-700">{formData.gstType === 'IGST' ? 'IGST:' : 'CGST + SGST:'}</span>
                                 <span className="font-medium text-gray-800">₹{(billFormTotals.cgst + billFormTotals.sgst).toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between items-center pt-2 border-t border-gray-200">

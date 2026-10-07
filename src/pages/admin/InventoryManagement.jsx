@@ -1221,7 +1221,7 @@ export default function InventoryManagement({ user }) {
                           />
                         </td>
                         <td className="px-3 py-2">
-                          <p className="font-medium text-gray-800 truncate max-w-[180px]">{product.barcode_text}</p>
+                          <p className="font-medium text-gray-800 whitespace-normal break-words">{product.barcode_text}</p>
                           <p className="text-xs text-gray-500 sm:hidden">{product.sku_code}</p>
                         </td>
                         <td className="px-3 py-2 text-gray-600 hidden sm:table-cell">{product.sku_code || '—'}</td>
