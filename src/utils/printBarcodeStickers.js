@@ -28,7 +28,7 @@ function formatStickerAmount(value) {
 
 const DOT_MM = 25.4 / BARCODE_STICKER_SPEC.dpi;   // 0.125 mm per dot
 const MAX_BARCODE_MM = 40;                         // 50mm sticker, ~5mm quiet zone each side
-const BARCODE_HEIGHT_MM = 8;
+const BARCODE_HEIGHT_MM = 6;
 
 function createBarcodeSvg(value) {
     if (!value) return "";
@@ -144,14 +144,12 @@ export function printBarcodeStickers(selections, storeName = "Happy Home") {
         .code {
   width: 100%;
   padding-bottom: 0.5mm;
-  font-size: 9pt;
+  font-size: 8pt;
   font-weight: bold;
-  line-height: 1.05;
+  line-height: 1;
   text-align: left;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
         .prices {
   width: 100%;

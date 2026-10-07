@@ -1,6 +1,8 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+const WATERMARK_URL = `${import.meta.env.BASE_URL}favicon.svg`;
+
 function formatDate(value) {
   if (!value) return '';
   const d = new Date(value);
@@ -220,12 +222,26 @@ function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscap
       print-color-adjust: exact;
     }
     .sheet {
+      position: relative;
       width: ${isLandscape ? '210mm' : '148mm'};
       min-height: ${isLandscape ? '148mm' : '210mm'};
       margin: 0 auto;
       padding: 7mm 8mm 6mm;
       background: #fff;
     }
+    .watermark {
+      position: absolute;
+      z-index: 0;
+      left: 50%;
+      top: 50%;
+      width: 65%;
+      max-height: 65%;
+      object-fit: contain;
+      transform: translate(-50%, -50%);
+      opacity: 0.12;
+      pointer-events: none;
+    }
+    .sheet > :not(.watermark) { position: relative; z-index: 1; }
     .accent {
       border: none;
       border-top: 1.5px solid #e67e22;
@@ -422,6 +438,7 @@ function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscap
 </head>
 <body>
   <div class="sheet">
+    <img class="watermark" src="${escapeHtml(WATERMARK_URL)}" alt="" />
     ${m.storeState ? `<div class="jurisdiction">Subject to Jamnagar Jurisdiction</div>` : ''}
 
     <div class="header">
@@ -611,6 +628,11 @@ export async function downloadInvoicePdfFile(invoice, store, orientation = 'land
     const R = W - M;
     const cx = W / 2;
     let y = M;
+    const baseColumnWidths = [7, 36, 15, 16, 18, 15, 8, 19];
+    const columnWidthScale = (W - M * 2) / baseColumnWidths.reduce((sum, width) => sum + width, 0);
+    const columnStyles = Object.fromEntries(
+      baseColumnWidths.map((width, index) => [index, { cellWidth: width * columnWidthScale }])
+    );
 
     const font = (style = 'normal', size = 10) => {
       pdf.setFont('helvetica', style);
@@ -751,16 +773,7 @@ export async function downloadInvoicePdfFile(invoice, store, orientation = 'land
         lineWidth: 0,
         halign: 'center',
       },
-      columnStyles: {
-        0: { cellWidth: 7 },
-        1: { cellWidth: 36 },
-        2: { cellWidth: 15 },
-        3: { cellWidth: 16 },
-        4: { cellWidth: 18 },
-        5: { cellWidth: 15 },
-        6: { cellWidth: 8 },
-        7: { cellWidth: 19 },
-      },
+      columnStyles,
     });
 
     y = pdf.lastAutoTable.finalY + 3.5;
@@ -841,6 +854,32 @@ export async function downloadInvoicePdfFile(invoice, store, orientation = 'land
     pdf.text(footer, cx, y, { align: 'center' });
     const fw = pdf.getTextWidth(footer);
     pdf.line(cx - fw / 2, y + 0.7, cx + fw / 2, y + 0.7);
+
+    try {
+      const watermark = new Image();
+      watermark.src = WATERMARK_URL;
+      await watermark.decode();
+      const watermarkWidth = Math.min(70, W * 0.65);
+      const watermarkHeight = watermarkWidth * (watermark.naturalHeight / watermark.naturalWidth);
+      const canvas = document.createElement('canvas');
+      canvas.width = watermark.naturalWidth;
+      canvas.height = watermark.naturalHeight;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Could not prepare invoice watermark');
+      context.globalAlpha = 0.12;
+      context.drawImage(watermark, 0, 0);
+      pdf.setPage(1);
+      pdf.addImage(
+        canvas.toDataURL('image/png'),
+        'PNG',
+        cx - watermarkWidth / 2,
+        H / 2 - watermarkHeight / 2,
+        watermarkWidth,
+        watermarkHeight
+      );
+    } catch (error) {
+      console.warn('Unable to load invoice watermark', error);
+    }
 
     const filename = String(invoice.invoiceNumber || 'invoice').replace(/[\\/:*?"<>|]/g, '_');
     pdf.save(`${filename}.pdf`);
