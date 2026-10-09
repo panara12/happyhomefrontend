@@ -114,10 +114,10 @@ export default function Login() {
                         />
                     </div>
 
-                    <p className="text-xs text-gray-500 flex items-start gap-1.5">
+                    {/* <p className="text-xs text-gray-500 flex items-start gap-1.5">
                         <MapPin size={14} className="mt-0.5 shrink-0 text-amber-600" />
                         Sales and manager logins require location within 200m of your assigned store.
-                    </p>
+                    </p> */}
 
                     {errorMessage && (
                         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -139,7 +139,7 @@ export default function Login() {
                     </button>
                 </form>
 
-                <DevLoginHints onFill={(u, p) => { setUsername(u); setPassword(p); }} />
+                {/* <DevLoginHints onFill={(u, p) => { setUsername(u); setPassword(p); }} /> */}
             </div>
         </div>
     );
