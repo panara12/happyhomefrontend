@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const WATERMARK_URL = `${import.meta.env.BASE_URL}favicon.svg`;
+const WATERMARK_URL = `${import.meta.env.BASE_URL}water.png`;
 
 function formatDate(value) {
   if (!value) return '';
@@ -238,7 +238,7 @@ function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscap
       max-height: 65%;
       object-fit: contain;
       transform: translate(-50%, -50%);
-      opacity: 0.12;
+      opacity: 1;
       pointer-events: none;
     }
     .sheet > :not(.watermark) { position: relative; z-index: 1; }

@@ -5,16 +5,15 @@ import { toast } from 'sonner';
 import AutocompleteInput from '../../components/ui/AutocompleteInput';
 import Modal, {
   modalInputClass,
-  modalLabelClass,
   modalSecondaryBtnClass,
   modalPrimaryBtnClass,
 } from '../../components/ui/Modal';
-import { useSearchCustomers } from '../../hooks/useCustomer';
 import { useGetAllStores } from '../../hooks/useStore';
 import { useGetAllProducts, useGetProductBySku } from '../../hooks/useProduct';
 import { useSubmitInvoice } from '../../hooks/useInvoice';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { BarcodeCameraModal } from '../sales/BarcodeCameraModal';
+import { CustomerSearch } from '../sales/CustomerSearch';
 
 function formatMoney(value) {
   return `₹${Number(value || 0).toLocaleString('en-IN')}`;
@@ -23,9 +22,7 @@ function formatMoney(value) {
 export default function CreateInvoiceModal({ onClose }) {
   const user = useSelector((state) => state.app.userInfo);
 
-  const [customerQuery, setCustomerQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [phone, setPhone] = useState('');
 
   const [storeQuery, setStoreQuery] = useState('');
   const [selectedStore, setSelectedStore] = useState(null);
@@ -34,7 +31,6 @@ export default function CreateInvoiceModal({ onClose }) {
   const [activeProductRow, setActiveProductRow] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
 
-  const { data: customerSearchData } = useSearchCustomers(customerQuery);
   const { data: storesData } = useGetAllStores();
   const activeProductQuery = items[activeProductRow]?.productQuery || '';
   const { data: productsData } = useGetAllProducts(activeProductQuery);
@@ -53,15 +49,6 @@ export default function CreateInvoiceModal({ onClose }) {
       }
     }
   }, [user?.storeId, stores, selectedStore]);
-
-  const customerOptions = useMemo(() => {
-    return (customerSearchData?.customers || []).map((c) => ({
-      id: c._id,
-      label: c.name,
-      subLabel: `${c.phone || ''}${c.clientType ? ` • ${c.clientType}` : ''}`,
-      raw: c,
-    }));
-  }, [customerSearchData]);
 
   const storeOptions = useMemo(() => {
     const q = storeQuery.trim().toLowerCase();
@@ -98,12 +85,6 @@ export default function CreateInvoiceModal({ onClose }) {
       0
     );
   }, [items]);
-
-  const handleSelectCustomer = (opt) => {
-    setSelectedCustomer(opt.raw);
-    setCustomerQuery(opt.label);
-    setPhone(opt.raw.phone || '');
-  };
 
   const handleSelectStore = (opt) => {
     setSelectedStore(opt.raw);
@@ -244,26 +225,11 @@ useBarcodeScanner(handleScan, { enabled: !submitInvoiceMutation.isPending });
       }
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
-        <AutocompleteInput
-          label="Customer Name"
-          required
-          placeholder="Enter customer name"
-          value={customerQuery}
-          onChange={(val) => {
-            setCustomerQuery(val);
-            setSelectedCustomer(null);
-          }}
-          onSelect={handleSelectCustomer}
-          options={customerOptions}
-        />
-        <div>
-          <label className={modalLabelClass}>Phone Number *</label>
-          <input
-            type="text"
-            value={phone}
-            readOnly
-            placeholder="+91 XXXXX XXXXX"
-            className={`${modalInputClass} bg-gray-50`}
+        <div className="sm:col-span-2">
+          <CustomerSearch
+            selectedCustomer={selectedCustomer}
+            onSelectCustomer={setSelectedCustomer}
+            skipNewCustomerButtonOnTab
           />
         </div>
         <div className="sm:col-span-2">

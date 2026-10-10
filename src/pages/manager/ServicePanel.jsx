@@ -20,6 +20,15 @@ const LOGO = '/src/imports/475883765_1412800516794054_7992306912571437520_n-1.jp
 
 const today = new Date().toISOString().split('T')[0];
 
+function getDateAfterDays(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 const emptyForm = {
   customerName: '',
   mobileNumber: '',
@@ -257,7 +266,7 @@ function ComplaintCard({ complaint, onView, onComplete, onFollowUp, onReceived, 
 
 // ─── Registration Form ────────────────────────────────────────────────────────
 function ComplaintForm({ onClose, onSubmit, isSubmitting, isAdmin, stores, storesLoading }) {
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() => ({ ...emptyForm, followUpDate: getDateAfterDays(2) }));
   const [errors, setErrors] = useState({});
 
   const set = (key, value) =>

@@ -61,7 +61,9 @@ export default function UserManagement({ user }) {
 
   const handleEditUser = useCallback((u) => {
     setSelectedUser(u);
-    setFormData({ ...u, userId: u._id });
+    // Passwords are never returned by the API; start blank so it is only
+    // changed when a new password is explicitly entered.
+    setFormData({ ...u, userId: u._id, password: '' });
     setShowUpdateModal(true);
   }, []);
 
@@ -95,7 +97,9 @@ export default function UserManagement({ user }) {
   const handleUpdateUser = useCallback((e) => {
     e.preventDefault();
     if (formData.fullName && formData.username ) {
-      updateUserMutation.mutate(formData, {
+      const updatePayload = { ...formData };
+      if (!updatePayload.password?.trim()) delete updatePayload.password;
+      updateUserMutation.mutate(updatePayload, {
         onSuccess: () => {
           setShowUpdateModal(false);
           toast.success("Updated successfully");

@@ -39,8 +39,8 @@ export default function TransferManagement({ user: userProp }) {
   const role = user?.userType || user?.role;
   const isAdmin = role === 'admin';
   const loginStoreId = normalizeStoreId(user?.storeId);
-  // Manager always uses assigned store (e.g. hph001). Admin has no storeId — picks From Store.
-  const isFromStoreLocked = Boolean(loginStoreId) && !isAdmin;
+  // Managers request stock for their assigned store and choose the source store.
+  const isRequestingStoreLocked = Boolean(loginStoreId) && !isAdmin;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,8 +48,8 @@ export default function TransferManagement({ user: userProp }) {
   const [productQuery, setProductQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [formData, setFormData] = useState({
-    fromStoreId: loginStoreId || '',
-    toStoreId: '',
+    fromStoreId: '',
+    toStoreId: loginStoreId || '',
     quantity: 1,
     reason: '',
   });
@@ -70,9 +70,7 @@ export default function TransferManagement({ user: userProp }) {
   const stores = storesData?.stores || [];
   const products = productsData?.products || [];
 
-  const fromStoreId = isFromStoreLocked
-    ? loginStoreId
-    : normalizeStoreId(formData.fromStoreId);
+  const fromStoreId = normalizeStoreId(formData.fromStoreId);
 
   const fromStore = useMemo(() => {
     if (!fromStoreId) return null;
@@ -81,24 +79,21 @@ export default function TransferManagement({ user: userProp }) {
     ) || null;
   }, [stores, fromStoreId]);
 
-  const toStoreOptions = useMemo(() => {
-    if (!fromStoreId) return stores;
+  const storeChoices = useMemo(() => {
+    const excludedStoreId = isAdmin ? fromStoreId : loginStoreId;
+    if (!excludedStoreId) return stores;
     return stores.filter(
-      (s) => normalizeStoreId(s.storeId).toLowerCase() !== fromStoreId.toLowerCase()
+      (s) => normalizeStoreId(s.storeId).toLowerCase() !== excludedStoreId.toLowerCase()
     );
-  }, [stores, fromStoreId]);
-
-  const fromStoreLabel = fromStore
-    ? `${fromStore.name} (${fromStore.storeId})`
-    : fromStoreId || 'No store assigned';
+  }, [stores, fromStoreId, isAdmin, loginStoreId]);
 
   useEffect(() => {
-    if (loginStoreId && isFromStoreLocked) {
+    if (loginStoreId && isRequestingStoreLocked) {
       setFormData((prev) =>
-        prev.fromStoreId === loginStoreId ? prev : { ...prev, fromStoreId: loginStoreId }
+        prev.toStoreId === loginStoreId ? prev : { ...prev, toStoreId: loginStoreId }
       );
     }
-  }, [loginStoreId, isFromStoreLocked]);
+  }, [loginStoreId, isRequestingStoreLocked]);
 
   const productOptions = useMemo(() => {
     return products.slice(0, 20).map((p) => {
@@ -116,29 +111,26 @@ export default function TransferManagement({ user: userProp }) {
   }, [products, fromStoreId]);
 
   useEffect(() => {
-    if (!formData.toStoreId && toStoreOptions.length) {
-      setFormData((prev) => ({ ...prev, toStoreId: toStoreOptions[0].storeId }));
+    if (!fromStoreId && storeChoices.length && !isAdmin) {
+      setFormData((prev) => ({ ...prev, fromStoreId: storeChoices[0].storeId }));
     }
-    if (
-      formData.toStoreId &&
-      normalizeStoreId(formData.toStoreId).toLowerCase() === fromStoreId.toLowerCase() &&
-      toStoreOptions.length
-    ) {
-      setFormData((prev) => ({ ...prev, toStoreId: toStoreOptions[0].storeId }));
+    if (isAdmin && (!formData.toStoreId || formData.toStoreId === fromStoreId) && storeChoices.length) {
+      setFormData((prev) => ({ ...prev, toStoreId: storeChoices[0].storeId }));
     }
-  }, [toStoreOptions, formData.toStoreId, fromStoreId]);
+  }, [storeChoices, fromStoreId, isAdmin, formData.toStoreId]);
 
   const handleCreateTransfer = () => {
     if (!fromStoreId) {
-      toast.error(isAdmin ? 'Please select From Store' : 'Your account has no store assigned');
+      toast.error('Please select the store that will send the stock');
       return;
     }
     if (!selectedProduct?._id) {
       toast.error('Please select a product');
       return;
     }
-    if (!formData.toStoreId) {
-      toast.error('Please select destination store');
+    const receivingStoreId = isAdmin ? formData.toStoreId : loginStoreId;
+    if (!receivingStoreId) {
+      toast.error('Your account has no requesting store assigned');
       return;
     }
     if (!formData.quantity || formData.quantity < 1) {
@@ -148,11 +140,11 @@ export default function TransferManagement({ user: userProp }) {
 
     createTransferMutation.mutate(
       {
-        toStoreId: formData.toStoreId,
+        toStoreId: receivingStoreId,
         productId: selectedProduct._id,
         quantity: Number(formData.quantity),
         reason: formData.reason || '',
-        ...(isAdmin ? { fromStoreId } : {}),
+        fromStoreId,
       },
       {
         onSuccess: () => {
@@ -160,8 +152,8 @@ export default function TransferManagement({ user: userProp }) {
           setSelectedProduct(null);
           setProductQuery('');
           setFormData({
-            fromStoreId: loginStoreId || '',
-            toStoreId: '',
+            fromStoreId: isAdmin ? '' : (storeChoices[0]?.storeId || ''),
+            toStoreId: isAdmin ? '' : loginStoreId,
             quantity: 1,
             reason: '',
           });
@@ -304,12 +296,12 @@ export default function TransferManagement({ user: userProp }) {
                 <div className="mb-4">
                   <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
                     <div className="flex-1">
-                      <p className="text-xs text-gray-500 mb-1">From</p>
+                      <p className="text-xs text-gray-500 mb-1">Sending Store</p>
                       <p className="font-medium text-gray-800">{transfer.fromStore}</p>
                     </div>
                     <ArrowRight className="text-amber-600 mx-4" size={24} />
                     <div className="flex-1 text-right">
-                      <p className="text-xs text-gray-500 mb-1">To</p>
+                      <p className="text-xs text-gray-500 mb-1">Receiving Store</p>
                       <p className="font-medium text-gray-800">{transfer.toStore}</p>
                     </div>
                   </div>
@@ -321,7 +313,7 @@ export default function TransferManagement({ user: userProp }) {
                     <span className="font-medium text-gray-800">{transfer.product}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Quantity:</span>
+                    <span className="text-gray-600">Quantity requested:</span>
                     <span className="font-bold text-amber-600">{transfer.quantity} units</span>
                   </div>
                   <div className="flex justify-between">
@@ -336,7 +328,7 @@ export default function TransferManagement({ user: userProp }) {
 
                 {transfer.status === 'pending' && (
                   <div className="pt-4 border-t border-gray-200">
-                    {role === 'admin' || isIncoming ? (
+                    {role === 'admin' || isOutgoing ? (
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -344,7 +336,7 @@ export default function TransferManagement({ user: userProp }) {
                           className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                         >
                           <CheckCircle size={16} />
-                          {role === 'admin' ? 'Approve' : 'Accept Request'}
+                          {role === 'admin' ? 'Approve & Send' : 'Approve & Send'}
                         </button>
                         <button
                           type="button"
@@ -357,7 +349,7 @@ export default function TransferManagement({ user: userProp }) {
                       </div>
                     ) : (
                       <div className="text-center py-2 text-sm text-gray-600">
-                        Waiting for receiving store approval
+                        Waiting for sending store approval
                       </div>
                     )}
                   </div>
@@ -403,7 +395,7 @@ export default function TransferManagement({ user: userProp }) {
 
       {showCreateModal && (
         <Modal
-          title="Create Transfer Request"
+          title={isAdmin ? 'Create Stock Transfer' : 'Request Stock from Another Store'}
           size="sm"
           onClose={() => setShowCreateModal(false)}
           footer={
@@ -421,29 +413,34 @@ export default function TransferManagement({ user: userProp }) {
                 disabled={createTransferMutation.isPending}
                 className={modalPrimaryBtnClass}
               >
-                {createTransferMutation.isPending ? 'Creating...' : 'Create Transfer'}
+                {createTransferMutation.isPending ? 'Submitting...' : isAdmin ? 'Create Transfer' : 'Send Request'}
               </button>
             </>
           }
         >
+          {!isAdmin && (
+            <p className="mb-4 text-sm text-gray-600">
+              Choose the store that has the stock, then select the product and quantity you need. That store will approve and send it to your store.
+            </p>
+          )}
           <div className="grid grid-cols-1 gap-y-3">
             <div>
-              <label className={modalLabelClass}>From Store</label>
-              {isFromStoreLocked ? (
+              <label className={modalLabelClass}>{isAdmin ? 'Send From (Source Store)' : 'Requesting Store (Your Store)'}</label>
+              {isRequestingStoreLocked ? (
                 <input
                   type="text"
-                  value={fromStoreLabel}
+                  value={stores.find((s) => normalizeStoreId(s.storeId) === loginStoreId)?.name || loginStoreId || 'No store assigned'}
                   disabled
                   readOnly
                   className={`${modalInputClass} bg-gray-50 cursor-not-allowed`}
                 />
               ) : (
                 <select
-                  value={formData.fromStoreId || ''}
+                  value={fromStoreId}
                   onChange={(e) => setFormData({ ...formData, fromStoreId: e.target.value, toStoreId: '' })}
                   className={modalInputClass}
                 >
-                  <option value="">Select store</option>
+                  <option value="">Select source store</option>
                   {stores.map((store) => (
                     <option key={store.storeId} value={store.storeId}>
                       {store.name} ({store.storeId})
@@ -454,21 +451,34 @@ export default function TransferManagement({ user: userProp }) {
             </div>
 
             <div>
-              <label className={modalLabelClass}>To Store</label>
-              <select
-                value={formData.toStoreId}
-                onChange={(e) => setFormData({ ...formData, toStoreId: e.target.value })}
-                className={modalInputClass}
-              >
-                {toStoreOptions.length === 0 && (
-                  <option value="">No other stores available</option>
-                )}
-                {toStoreOptions.map((store) => (
-                  <option key={store.storeId} value={store.storeId}>
-                    {store.name}
-                  </option>
-                ))}
-              </select>
+              <label className={modalLabelClass}>{isAdmin ? 'Send To (Receiving Store)' : 'Send From (Store with stock)'}</label>
+              {isRequestingStoreLocked ? (
+                <select
+                  value={fromStoreId}
+                  onChange={(e) => setFormData({ ...formData, fromStoreId: e.target.value })}
+                  className={modalInputClass}
+                >
+                  {!fromStoreId && <option value="">Select source store</option>}
+                  {storeChoices.map((store) => (
+                    <option key={store.storeId} value={store.storeId}>
+                      {store.name} ({store.storeId})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  value={formData.toStoreId}
+                  onChange={(e) => setFormData({ ...formData, toStoreId: e.target.value })}
+                  className={modalInputClass}
+                >
+                  {storeChoices.length === 0 && <option value="">No other stores available</option>}
+                  {storeChoices.map((store) => (
+                    <option key={store.storeId} value={store.storeId}>
+                      {store.name} ({store.storeId})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <AutocompleteInput
@@ -487,7 +497,7 @@ export default function TransferManagement({ user: userProp }) {
             />
 
             <div>
-              <label className={modalLabelClass}>Quantity</label>
+              <label className={modalLabelClass}>Quantity to request</label>
               <input
                 type="number"
                 min="1"
@@ -499,13 +509,13 @@ export default function TransferManagement({ user: userProp }) {
             </div>
 
             <div>
-              <label className={modalLabelClass}>Reason (Optional)</label>
+              <label className={modalLabelClass}>Note for sending store (Optional)</label>
               <textarea
                 value={formData.reason}
                 onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                 className={modalInputClass}
                 rows={3}
-                placeholder="Why is this transfer needed?"
+                placeholder="For example: Out of stock at my store"
               />
             </div>
           </div>

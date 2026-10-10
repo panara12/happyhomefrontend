@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, User, Phone, Mail, MapPin, Award, Building2, Users, ShoppingBag, Eye, Filter, Timer, Cake } from 'lucide-react';
+import { Search, User, Phone, Mail, MapPin, Award, Building2, Users, ShoppingBag, Eye, Filter, Timer, Cake, MessageCircle } from 'lucide-react';
 import { Pagination } from '../../components/ui/Pagination';
-import Modal, { modalSecondaryBtnClass } from '../../components/ui/Modal';
-import { useGetAllCustomers } from '../../hooks/useCustomer';
+import Modal, { modalInputClass, modalSecondaryBtnClass } from '../../components/ui/Modal';
+import { useGetAllCustomers, useGetCustomersWithBirthdayThisMonth } from '../../hooks/useCustomer';
 
 const PAGE_SIZE = 9;
 
@@ -11,6 +11,13 @@ function formatDate(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: '2-digit' });
+}
+
+function getWhatsAppUrl(phone, message) {
+  let digits = String(phone || '').replace(/\D/g, '');
+  if (digits.length === 10) digits = `91${digits}`;
+  if (!digits || !message.trim()) return '';
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message.trim())}`;
 }
 
 function formatMoney(value) {
@@ -24,6 +31,8 @@ export default function ClientCards() {
   const [page, setPage] = useState(1);
   const [selectedClient, setSelectedClient] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showBirthdayModal, setShowBirthdayModal] = useState(false);
+  const [birthdayMessage, setBirthdayMessage] = useState('');
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
@@ -42,6 +51,11 @@ export default function ClientCards() {
   });
 
   const clients = data?.customers || [];
+  const { data: birthdayData, isLoading: birthdaysLoading, isError: birthdaysError } =
+    useGetCustomersWithBirthdayThisMonth(showBirthdayModal);
+  const birthdayClients = birthdayData?.customers || [];
+  const birthdayMonth = new Date().toLocaleDateString('en-IN', { month: 'long' });
+  const birthdayWhatsAppClients = birthdayClients.filter((client) => getWhatsAppUrl(client.phone, birthdayMessage));
   const paginationMeta = data?.pagination || { total: 0, page: 1, limit: PAGE_SIZE, totalPages: 1 };
   const summary = data?.summary || {
     total: 0,
@@ -99,6 +113,7 @@ export default function ClientCards() {
         </div>
         <button
           type="button"
+          onClick={() => setShowBirthdayModal(true)}
           className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-3 rounded-lg hover:from-pink-600 hover:to-rose-600 transition-all shadow-lg w-fit"
         >
           <Cake size={20} />
@@ -429,6 +444,76 @@ export default function ClientCards() {
                 your administrator.
               </p>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {showBirthdayModal && (
+        <Modal
+          title={`Birthdays in ${birthdayMonth}`}
+          size="lg"
+          onClose={() => setShowBirthdayModal(false)}
+          footer={(
+            <button type="button" onClick={() => setShowBirthdayModal(false)} className={modalSecondaryBtnClass}>
+              Close
+            </button>
+          )}
+        >
+          <div className="space-y-5">
+            <div>
+              <label htmlFor="birthday-message" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Birthday message and special offer
+              </label>
+              <textarea
+                id="birthday-message"
+                value={birthdayMessage}
+                onChange={(event) => setBirthdayMessage(event.target.value)}
+                rows={3}
+                className={modalInputClass}
+                placeholder="Write a birthday greeting and include your special offer..."
+              />
+              <button
+                type="button"
+                disabled={!birthdayMessage.trim() || birthdayWhatsAppClients.length === 0}
+                onClick={() => {
+                  birthdayWhatsAppClients.forEach((client) => {
+                    window.open(getWhatsAppUrl(client.phone, birthdayMessage), '_blank', 'noopener,noreferrer');
+                  });
+                }}
+                className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              >
+                <MessageCircle size={17} />
+                Send WhatsApp to all ({birthdayWhatsAppClients.length})
+              </button>
+              <p className="mt-1 text-xs text-gray-500">
+                Opens a prefilled chat for each client with a phone number. Send each message in WhatsApp.
+              </p>
+            </div>
+
+            <section>
+              <h4 className="font-semibold text-gray-800 mb-3">
+                Clients celebrating this month ({birthdayClients.length})
+              </h4>
+              {birthdaysLoading ? (
+                <p className="py-8 text-center text-gray-500">Loading birthdays...</p>
+              ) : birthdaysError ? (
+                <p className="py-8 text-center text-red-600">Could not load birthday clients. Please try again.</p>
+              ) : birthdayClients.length === 0 ? (
+                <p className="py-8 text-center text-gray-500 bg-gray-50 rounded-lg">No client birthdays this month.</p>
+              ) : (
+                <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 border border-gray-200 rounded-lg">
+                  {birthdayClients.map((client) => (
+                    <div key={client._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-800">{client.name}</p>
+                        <p className="text-sm text-gray-500">{client.phone}{client.email ? ` · ${client.email}` : ''}</p>
+                        <p className="text-sm font-medium text-pink-700">{formatDate(client.dateOfBirth)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         </Modal>
       )}

@@ -213,8 +213,8 @@ export default function ViewTransfers() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">From Store</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">To Store</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Sending Store</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Receiving Store</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Items</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Request Date</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Requested By</th>

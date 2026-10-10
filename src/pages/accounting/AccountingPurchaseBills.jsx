@@ -11,6 +11,7 @@ import Modal, {
   modalPrimaryBtnClass,
   modalSecondaryBtnClass,
 } from '../../components/ui/Modal';
+import TallyStoreSyncModal from '../../components/TallyStoreSyncModal';
 import { useStockCategoryContext } from '../../context/stockcategoryContext';
 import { useGetAllUnits } from '../../hooks/useUnit';
 import { useAddPurchaseBill, useGetAllPurchaseBill } from '../../hooks/usePurchaseBill';
@@ -58,6 +59,23 @@ function applyItemDiscount(item) {
   return { ...item, mrp, discType, disc, dict_amt, offer_price };
 }
 
+function TallySyncBadge({ bill }) {
+    const status = bill.tallySync?.status || (bill.tallySync?.synced ? 'synced' : 'pending');
+    const styles = {
+        synced: 'bg-green-100 text-green-700',
+        pending: 'bg-amber-100 text-amber-700',
+        failed: 'bg-red-100 text-red-700',
+    };
+    return (
+        <span
+            title={bill.tallySync?.error || undefined}
+            className={`inline-flex rounded-full px-3 py-1 text-xs font-medium capitalize ${styles[status] || styles.pending}`}
+        >
+            {status}
+        </span>
+    );
+}
+
 const initialFormData = {
     supplierName: '',
     supplierPhoneNumber: '',
@@ -66,6 +84,8 @@ const initialFormData = {
     billDate: new Date().toISOString().split('T')[0],
     storeId: '',
     gstType: 'CGST/SGST',
+    packingExpense: 0,
+    discountAmount: 0,
     items: [{ ...emptyItem }]
 };
 
@@ -87,6 +107,7 @@ export default function AccountingPurchaseBills() {
     const syncPendingTally = useSyncPendingTally();
 
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showTallySyncModal, setShowTallySyncModal] = useState(false);
     const [viewingBill, setViewingBill] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [formData, setFormData] = useState(initialFormData);
@@ -132,6 +153,17 @@ export default function AccountingPurchaseBills() {
         setItemSearchTerm(value);
     };
 
+    // Products store the unit's unitId, while this select uses the Unit document _id.
+    const getProductUnitId = (productUnit) => {
+        const value = typeof productUnit === 'object' && productUnit !== null
+            ? (productUnit._id || productUnit.unitId || productUnit.name)
+            : productUnit;
+        const match = units.find((unit) =>
+            [unit._id, unit.unitId, unit.name].some((candidate) => String(candidate) === String(value))
+        );
+        return match?._id || '';
+    };
+
     // Binds a selected existing product's data straight into that item row's fields.
     // Doesn't touch quantity/purchaseRate since those are bill-specific, not product-specific.
     const handleSelectProduct = (index, product) => {
@@ -143,7 +175,7 @@ export default function AccountingPurchaseBills() {
             barcode_text: product.barcode_text || newItems[index].barcode_text,
             alias: product.alias ?? newItems[index].alias,
             hsncode: product.hsncode || newItems[index].hsncode,
-            unit: product.unit || newItems[index].unit,
+            unit: getProductUnitId(product.unit) || newItems[index].unit,
             gst: product.gst ?? newItems[index].gst,
             mrp: product.mrp ?? newItems[index].mrp,
             disc: product.disc ?? newItems[index].disc,
@@ -167,10 +199,12 @@ export default function AccountingPurchaseBills() {
         const cgst = totalGST / 2;
         const sgst = totalGST / 2;
         const igst = formData.gstType === 'IGST' ? totalGST : 0;
-        return { subtotal, cgst, sgst, igst, gst: totalGST, total: subtotal + totalGST };
+        const packingExpense = Number(formData.packingExpense) || 0;
+        const discountAmount = Number(formData.discountAmount) || 0;
+        return { subtotal, cgst, sgst, igst, gst: totalGST, total: subtotal + totalGST + packingExpense - discountAmount };
     };
 
-    const billFormTotals = useMemo(calculateBillTotal, [formData.items, formData.gstType]);
+    const billFormTotals = useMemo(calculateBillTotal, [formData.items, formData.gstType, formData.packingExpense, formData.discountAmount]);
 
     const handleCreateBill = async () => {
         const invalidItems = formData.items.filter(
@@ -199,7 +233,7 @@ export default function AccountingPurchaseBills() {
             storeId: formData.storeId,
             gstType: formData.gstType,
            items: formData.items.map(item => {
-                const priced = applyItemDiscount(item);
+                const priced = item;
                 return {
                     brand: priced.brand,
                     category: priced.category,
@@ -219,6 +253,8 @@ export default function AccountingPurchaseBills() {
             }),
             taxableValue: totals.subtotal,
             CGSTplusSGST: totals.cgst + totals.sgst,
+            packingExpense: Number(formData.packingExpense) || 0,
+            discountAmount: Number(formData.discountAmount) || 0,
             totalAmount: totals.total
         };
 
@@ -275,7 +311,7 @@ export default function AccountingPurchaseBills() {
                 <div className="flex flex-wrap items-center gap-3">
                     <button
                         type="button"
-                        onClick={() => syncPendingTally.mutate({})}
+                        onClick={() => setShowTallySyncModal(true)}
                         disabled={syncPendingTally.isPending}
                         className="flex items-center gap-2 border border-gray-300 bg-white text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-50 transition-all shadow-sm disabled:opacity-60"
                     >
@@ -291,6 +327,15 @@ export default function AccountingPurchaseBills() {
                     </button>
                 </div>
             </div>
+
+            <TallyStoreSyncModal
+                open={showTallySyncModal}
+                stores={stores}
+                isPending={syncPendingTally.isPending}
+                onClose={() => setShowTallySyncModal(false)}
+                onConfirm={(storeId) => syncPendingTally.mutate({ storeId }, { onSuccess: () => setShowTallySyncModal(false) })}
+                title="Sync pending purchase data to Tally"
+            />
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
@@ -349,13 +394,14 @@ export default function AccountingPurchaseBills() {
                                 <th className="px-4 py-3 text-left">Store</th>
                                 <th className="px-4 py-3 text-center">Items</th>
                                 <th className="px-4 py-3 text-right">Total</th>
-                                <th className="px-4 py-3 text-center">Status</th>
+                                <th className="px-4 py-3 text-center">Inventory Status</th>
+                                <th className="px-4 py-3 text-center">Tally Sync</th>
                                 <th className="px-4 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                             {billsLoading && (
-                                <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-500">Loading purchase bills...</td></tr>
+                                <tr><td colSpan={9} className="px-4 py-6 text-center text-gray-500">Loading purchase bills...</td></tr>
                             )}
                             {!billsLoading && billsPagination.paginatedItems.map(bill => (
                             // {filteredBills.map(bill => (
@@ -389,6 +435,7 @@ export default function AccountingPurchaseBills() {
                                             Inventory Updated
                                         </span>
                                     </td>
+                                    <td className="px-4 py-3 text-center"><TallySyncBadge bill={bill} /></td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center justify-center gap-2">
                                             <button
@@ -481,7 +528,7 @@ export default function AccountingPurchaseBills() {
                                         <th className="px-3 py-2 text-right">Rate</th>
                                         <th className="px-3 py-2 text-right">MRP</th>
                                         <th className="px-3 py-2 text-center">GST%</th>
-                                        <th className="px-3 py-2 text-right">Line Total</th>
+                                        <th className="px-3 py-2 text-right">Sub Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -528,6 +575,14 @@ export default function AccountingPurchaseBills() {
                             <span className="font-medium text-gray-800">
                                 ₹{Number(viewingBill.CGSTplusSGST || 0).toLocaleString()}
                             </span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-700">Packing Expense:</span>
+                            <span className="font-medium text-gray-800">{Number(viewingBill.packingExpense || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-700">Discount Amount:</span>
+                            <span className="font-medium text-gray-800">−{Number(viewingBill.discountAmount || 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                             <span className="text-base font-bold text-gray-800">Total Amount:</span>
@@ -684,7 +739,7 @@ export default function AccountingPurchaseBills() {
                                         </div>
 
                                         <div className="grid grid-cols-12 gap-3 mb-3">
-                                            <div className="col-span-12 md:col-span-3">
+                                            <div className="col-span-12 md:col-span-6">
                                                 <label className="block text-xs text-gray-600 mb-1">Barcode / Product Text *</label>
                                                 <input
                                                     type="text"
@@ -694,7 +749,7 @@ export default function AccountingPurchaseBills() {
                                                     placeholder="Barcode text"
                                                 />
                                             </div>
-                                            <div className="col-span-12 md:col-span-3">
+                                            <div className="col-span-12 md:col-span-6">
                                                 <label className="block text-xs text-gray-600 mb-1">Alias</label>
                                                 <input
                                                     type="text"
@@ -704,6 +759,9 @@ export default function AccountingPurchaseBills() {
                                                     placeholder="Optional product alias"
                                                 />
                                             </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-12 gap-3 mb-3">
                                             <div className="col-span-6 sm:col-span-2">
                                                 <label className="block text-xs text-gray-600 mb-1">HSN Code</label>
                                                 <input
@@ -855,7 +913,9 @@ export default function AccountingPurchaseBills() {
                                                 <input
                                                     type="number"
                                                     value={item.offer_price ?? 0}
-                                                    readOnly
+                                                    min="0"
+                                                    step="0.01"
+                                                    onChange={(e) => handleItemChange(index, 'offer_price', parseFloat(e.target.value) || 0)}
                                                     className="w-full px-3 py-2 border-2 border-green-300 rounded-lg bg-green-50 font-bold text-green-700"
                                                     placeholder="0"
                                                 />
@@ -878,6 +938,16 @@ export default function AccountingPurchaseBills() {
                                     <option value="CGST/SGST">CGST + SGST</option>
                                     <option value="IGST">IGST</option>
                                 </select>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label htmlFor="accounting-purchase-bill-packing-expense" className={modalLabelClass}>Packing Expense</label>
+                                    <input id="accounting-purchase-bill-packing-expense" type="number" min="0" step="0.01" value={formData.packingExpense} onChange={(event) => setFormData((prev) => ({ ...prev, packingExpense: event.target.value }))} className={modalInputClass} />
+                                </div>
+                                <div>
+                                    <label htmlFor="accounting-purchase-bill-discount-amount" className={modalLabelClass}>Discount Amount</label>
+                                    <input id="accounting-purchase-bill-discount-amount" type="number" min="0" step="0.01" value={formData.discountAmount} onChange={(event) => setFormData((prev) => ({ ...prev, discountAmount: event.target.value }))} className={modalInputClass} />
+                                </div>
                             </div>
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-gray-700">Taxable Value:</span>

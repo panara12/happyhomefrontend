@@ -18,6 +18,7 @@ import Modal, {
   modalPrimaryBtnClass,
   modalSecondaryBtnClass,
 } from '../../components/ui/Modal';
+import TallyStoreSyncModal from '../../components/TallyStoreSyncModal';
 
 const emptyItem = {
   brand: '',
@@ -44,6 +45,8 @@ const emptyForm = {
   billDate: new Date().toISOString().split('T')[0],
   storeId: '',
   gstType: 'CGST/SGST',
+  packingExpense: 0,
+  discountAmount: 0,
   items: [{ ...emptyItem }],
 };
 
@@ -68,6 +71,27 @@ function applyItemDiscount(item) {
   return { ...item, mrp, discType, disc, dict_amt, offer_price };
 }
 
+function getTallySyncStatus(bill) {
+  return bill.tallySync?.status || (bill.tallySync?.synced ? 'synced' : 'pending');
+}
+
+function TallySyncBadge({ bill }) {
+  const status = getTallySyncStatus(bill);
+  const styles = {
+    synced: 'bg-green-100 text-green-700',
+    pending: 'bg-amber-100 text-amber-700',
+    failed: 'bg-red-100 text-red-700',
+  };
+  return (
+    <span
+      title={bill.tallySync?.error || undefined}
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium capitalize ${styles[status] || styles.pending}`}
+    >
+      {status}
+    </span>
+  );
+}
+
 export default function PurchaseBills() {
   const { stores } = useStoreContext();
   const { data: purchaseBillsData, isLoading: billsLoading } = useGetAllPurchaseBill();
@@ -82,6 +106,7 @@ export default function PurchaseBills() {
   const { mutateAsync: addSupplier, isPending: isSupplierSubmitting } = useAddSupplier();
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showTallySyncModal, setShowTallySyncModal] = useState(false);
   const [viewingBill, setViewingBill] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState(emptyForm);
@@ -137,6 +162,16 @@ export default function PurchaseBills() {
     setItemSearchTerm(value);
   };
 
+  const getProductUnitId = (productUnit) => {
+    const value = typeof productUnit === 'object' && productUnit !== null
+      ? (productUnit._id || productUnit.unitId || productUnit.name)
+      : productUnit;
+    const match = units.find((unit) =>
+      [unit._id, unit.unitId, unit.name].some((candidate) => String(candidate) === String(value))
+    );
+    return match?._id || '';
+  };
+
   const handleSelectProduct = (index, product) => {
     setFormData((prev) => {
       const items = [...prev.items];
@@ -147,7 +182,7 @@ export default function PurchaseBills() {
         barcode_text: product.barcode_text || items[index].barcode_text,
         alias: product.alias ?? items[index].alias,
         hsncode: product.hsncode || items[index].hsncode,
-        unit: product.unit || items[index].unit,
+        unit: getProductUnitId(product.unit) || items[index].unit,
         gst: product.gst ?? items[index].gst,
         mrp: product.mrp ?? items[index].mrp,
         disc: product.disc ?? items[index].disc,
@@ -172,8 +207,10 @@ export default function PurchaseBills() {
     const cgst = totalGST / 2;
     const sgst = totalGST / 2;
     const igst = formData.gstType === 'IGST' ? totalGST : 0;
-    return { subtotal, cgst, sgst, igst, gst: totalGST, total: subtotal + totalGST };
-  }, [formData.items, formData.gstType]);
+    const packingExpense = Number(formData.packingExpense) || 0;
+    const discountAmount = Number(formData.discountAmount) || 0;
+    return { subtotal, cgst, sgst, igst, gst: totalGST, total: subtotal + totalGST + packingExpense - discountAmount };
+  }, [formData.items, formData.gstType, formData.packingExpense, formData.discountAmount]);
 
   const handleCreateBill = async () => {
     const invalidItems = formData.items.filter(
@@ -207,7 +244,7 @@ export default function PurchaseBills() {
         storeId: formData.storeId,
         gstType: formData.gstType,
         items: formData.items.map((item) => {
-          const priced = applyItemDiscount(item);
+          const priced = item;
           return {
             brand: priced.brand,
             category: priced.category,
@@ -227,6 +264,8 @@ export default function PurchaseBills() {
         }),
         taxableValue: billFormTotals.subtotal,
         CGSTplusSGST: billFormTotals.cgst + billFormTotals.sgst,
+        packingExpense: Number(formData.packingExpense) || 0,
+        discountAmount: Number(formData.discountAmount) || 0,
         totalAmount: billFormTotals.total,
       };
 
@@ -266,7 +305,7 @@ export default function PurchaseBills() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={() => syncPendingTally.mutate({})}
+            onClick={() => setShowTallySyncModal(true)}
             disabled={syncPendingTally.isPending}
             className="flex items-center gap-2 border border-gray-300 bg-white text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-50 transition-all shadow-sm disabled:opacity-60"
           >
@@ -282,6 +321,15 @@ export default function PurchaseBills() {
           </button>
         </div>
       </div>
+
+      <TallyStoreSyncModal
+        open={showTallySyncModal}
+        stores={stores}
+        isPending={syncPendingTally.isPending}
+        onClose={() => setShowTallySyncModal(false)}
+        onConfirm={(storeId) => syncPendingTally.mutate({ storeId }, { onSuccess: () => setShowTallySyncModal(false) })}
+        title="Sync pending purchase data to Tally"
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -329,15 +377,16 @@ export default function PurchaseBills() {
                 <th className="px-4 py-3 text-right">Taxable Value</th>
                 <th className="px-4 py-3 text-right">GST</th>
                 <th className="px-4 py-3 text-right">Total</th>
+                <th className="px-4 py-3 text-center">Tally Sync</th>
                 <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {billsLoading && (
-                <tr><td colSpan={9} className="px-4 py-6 text-center text-gray-500">Loading purchase bills...</td></tr>
+                <tr><td colSpan={10} className="px-4 py-6 text-center text-gray-500">Loading purchase bills...</td></tr>
               )}
               {!billsLoading && billsPagination.paginatedItems.length === 0 && (
-                <tr><td colSpan={9} className="px-4 py-6 text-center text-gray-500">No purchase bills found.</td></tr>
+                <tr><td colSpan={10} className="px-4 py-6 text-center text-gray-500">No purchase bills found.</td></tr>
               )}
               {billsPagination.paginatedItems.map(bill => (
                 <tr key={bill.billId} className="hover:bg-gray-50 transition-colors">
@@ -363,6 +412,7 @@ export default function PurchaseBills() {
                   <td className="px-4 py-3 text-right font-medium text-gray-800">₹{(bill.taxableValue || 0).toLocaleString()}</td>
                   <td className="px-4 py-3 text-right text-gray-600">₹{(bill.CGSTplusSGST || 0).toLocaleString()}</td>
                   <td className="px-4 py-3 text-right font-bold text-green-600">₹{(bill.totalAmount || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-center"><TallySyncBadge bill={bill} /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">
                       <button
@@ -508,6 +558,14 @@ export default function PurchaseBills() {
               <span className="font-medium text-gray-800">
                 ₹{Number(viewingBill.CGSTplusSGST || 0).toLocaleString()}
               </span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-700">Packing Expense:</span>
+              <span className="font-medium text-gray-800">{Number(viewingBill.packingExpense || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-700">Discount Amount:</span>
+              <span className="font-medium text-gray-800">−{Number(viewingBill.discountAmount || 0).toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center pt-2 border-t border-gray-200">
               <span className="text-base font-bold text-gray-800">Total Amount:</span>
@@ -700,14 +758,17 @@ export default function PurchaseBills() {
                   </div>
 
                   <div className="grid grid-cols-12 gap-3 mb-3">
-                    <div className="col-span-12 md:col-span-3">
+                    <div className="col-span-12 md:col-span-6">
                       <label className="block text-xs text-gray-600 mb-1">Barcode / Product Text *</label>
                       <input type="text" value={item.barcode_text} onChange={(e) => handleItemChange(index, 'barcode_text', e.target.value)} className={modalInputClass} placeholder="Barcode text" />
                     </div>
-                    <div className="col-span-12 md:col-span-3">
+                    <div className="col-span-12 md:col-span-6">
                       <label className="block text-xs text-gray-600 mb-1">Alias</label>
                       <input type="text" value={item.alias} onChange={(e) => handleItemChange(index, 'alias', e.target.value)} className={modalInputClass} placeholder="Optional product alias" />
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-12 gap-3 mb-3">
                     <div className="col-span-6 sm:col-span-2">
                       <label className="block text-xs text-gray-600 mb-1">HSN Code *</label>
                       <input type="text" value={item.hsncode} onChange={(e) => handleItemChange(index, 'hsncode', e.target.value)} className={modalInputClass} placeholder="HSN" />
@@ -777,7 +838,7 @@ export default function PurchaseBills() {
                     </div>
                     <div className="col-span-12 md:col-span-4">
                       <label className="block text-xs font-medium text-green-700 mb-1">Final Selling Price</label>
-                      <input type="number" value={item.offer_price ?? 0} readOnly className="w-full px-3 py-2 border-2 border-green-300 rounded-lg bg-green-50 font-bold text-green-700" />
+                      <input type="number" min="0" step="0.01" value={item.offer_price ?? 0} onChange={(e) => handleItemChange(index, 'offer_price', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border-2 border-green-300 rounded-lg bg-green-50 font-bold text-green-700" />
                     </div>
                   </div>
                 </div>
@@ -797,6 +858,16 @@ export default function PurchaseBills() {
                 <option value="CGST/SGST">CGST + SGST</option>
                 <option value="IGST">IGST</option>
               </select>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label htmlFor="purchase-bill-packing-expense" className={modalLabelClass}>Packing Expense</label>
+                <input id="purchase-bill-packing-expense" type="number" min="0" step="0.01" value={formData.packingExpense} onChange={(event) => setFormData((prev) => ({ ...prev, packingExpense: event.target.value }))} className={modalInputClass} />
+              </div>
+              <div>
+                <label htmlFor="purchase-bill-discount-amount" className={modalLabelClass}>Discount Amount</label>
+                <input id="purchase-bill-discount-amount" type="number" min="0" step="0.01" value={formData.discountAmount} onChange={(event) => setFormData((prev) => ({ ...prev, discountAmount: event.target.value }))} className={modalInputClass} />
+              </div>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-700">Taxable Value:</span>

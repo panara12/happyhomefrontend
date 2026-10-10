@@ -26,6 +26,15 @@ export function useGetAllCustomers({ q = "", clientType = "All", page = 1, limit
     });
 }
 
+export function useGetCustomersWithBirthdayThisMonth(enabled = true) {
+    return useApiQuery({
+        queryKey: [...CUSTOMERS_QUERY_KEY, "birthdays", "current-month"],
+        path: "/customers/birthdays/current-month",
+        enabled,
+        staleTime: 5 * 60 * 1000,
+    });
+}
+
 export function useAddCustomer() {
     return useApiMutation({
         url: "/customers/add",

@@ -5,6 +5,7 @@ import { useGetAllStores } from '../../hooks/useStore'
 import { useStockCategoryContext } from '../../context/stockcategoryContext'
 import { Pagination } from '../../components/ui/Pagination'
 import { usePagination } from '../../hooks/usePagination'
+import TallyStoreSyncModal from '../../components/TallyStoreSyncModal'
 
 const THEME = {
   gradientFrom: 'from-indigo-900',
@@ -18,6 +19,7 @@ export default function AddCategory() {
   const [name, setName] = useState('')
   const [storeId, setStoreId] = useState('')
   const [editing, setEditing] = useState(null)
+  const [showSyncModal, setShowSyncModal] = useState(false)
 
   const { stockCategory, stockCategoryLoading: isLoading } = useStockCategoryContext()
   const { data: storeResponse, isLoading: storesLoading } = useGetAllStores()
@@ -87,11 +89,19 @@ export default function AddCategory() {
       <div className={`bg-gradient-to-r ${THEME.gradientFrom} ${THEME.gradientTo} p-4 rounded-md mb-4`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="text-2xl font-semibold">Categories</h2><p className="text-sm text-indigo-200">Manage stock categories for Accounting</p></div>
-          <button type="button" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending} className="inline-flex items-center gap-2 px-3 py-2 bg-white text-indigo-900 rounded shadow disabled:opacity-60">
+          <button type="button" onClick={() => setShowSyncModal(true)} disabled={syncMutation.isPending} className="inline-flex items-center gap-2 px-3 py-2 bg-white text-indigo-900 rounded shadow disabled:opacity-60">
             <RefreshCw size={16} className={syncMutation.isPending ? 'animate-spin' : ''} />{syncMutation.isPending ? 'Syncing…' : 'Sync to Tally'}
           </button>
         </div>
       </div>
+      <TallyStoreSyncModal
+        open={showSyncModal}
+        stores={stores}
+        isPending={syncMutation.isPending}
+        onClose={() => setShowSyncModal(false)}
+        onConfirm={(selectedStoreId) => syncMutation.mutate({ storeId: selectedStoreId }, { onSuccess: () => setShowSyncModal(false) })}
+        title="Sync stock categories to Tally"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* ── Form ── */}

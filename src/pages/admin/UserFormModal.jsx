@@ -75,13 +75,13 @@ export function UserFormModal({ mode, formData, setFormData, stores, onSubmit, o
           />
         </div>
         <div>
-          <label className={modalLabelClass}>Password *</label>
+          <label className={modalLabelClass}>Password {isEdit ? '(leave blank to keep current)' : '*'}</label>
           <input
             type="password"
             value={formData.password}
             onChange={updateField('password')}
             className={modalInputClass}
-            placeholder="••••••••"
+            placeholder={isEdit ? 'Enter a new password to change it' : 'Enter password'}
           />
         </div>
         <div>

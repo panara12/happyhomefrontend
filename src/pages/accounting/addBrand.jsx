@@ -5,6 +5,7 @@ import { useGetAllStores } from '../../hooks/useStore'
 import { useStockGroupContext } from '../../context/stockGroupContext'
 import { Pagination } from '../../components/ui/Pagination'
 import { usePagination } from '../../hooks/usePagination'
+import TallyStoreSyncModal from '../../components/TallyStoreSyncModal'
 
 const THEME = {
   gradientFrom: 'from-indigo-900',
@@ -19,6 +20,7 @@ export default function AddBrand() {
   const [brandCode, setBrandCode] = useState('')
   const [storeId, setStoreId] = useState('')
   const [editing, setEditing] = useState(null)
+  const [showSyncModal, setShowSyncModal] = useState(false)
 
   const { stockGroup, stockGroupLoading: isLoading } = useStockGroupContext()
   const { data: storeResponse, isLoading: storesLoading } = useGetAllStores()
@@ -28,7 +30,10 @@ export default function AddBrand() {
   // See AddCategory.jsx for why this needs useMemo, not `stockGroup || []`
   // directly: usePagination resets page state by reference-comparing items,
   // and a fresh [] literal every render never stabilizes → infinite loop.
-  const brands = useMemo(() => stockGroup || [], [stockGroup])
+  const brands = useMemo(
+    () => [...(stockGroup || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)),
+    [stockGroup]
+  )
   const pagination = usePagination(brands)
 
   const addMutation    = useAddStockGroup()
@@ -89,11 +94,19 @@ export default function AddBrand() {
       <div className={`bg-gradient-to-r ${THEME.gradientFrom} ${THEME.gradientTo} p-4 rounded-md mb-4`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="text-2xl font-semibold">Brands</h2><p className="text-sm text-indigo-200">Manage stock brands (stock groups) for Accounting</p></div>
-          <button type="button" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending} className="inline-flex items-center gap-2 px-3 py-2 bg-white text-indigo-900 rounded shadow disabled:opacity-60">
+          <button type="button" onClick={() => setShowSyncModal(true)} disabled={syncMutation.isPending} className="inline-flex items-center gap-2 px-3 py-2 bg-white text-indigo-900 rounded shadow disabled:opacity-60">
             <RefreshCw size={16} className={syncMutation.isPending ? 'animate-spin' : ''} />{syncMutation.isPending ? 'Syncing…' : 'Sync to Tally'}
           </button>
         </div>
       </div>
+      <TallyStoreSyncModal
+        open={showSyncModal}
+        stores={stores}
+        isPending={syncMutation.isPending}
+        onClose={() => setShowSyncModal(false)}
+        onConfirm={(selectedStoreId) => syncMutation.mutate({ storeId: selectedStoreId }, { onSuccess: () => setShowSyncModal(false) })}
+        title="Sync stock groups to Tally"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* ── Form ── */}

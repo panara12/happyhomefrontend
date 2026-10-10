@@ -31,7 +31,7 @@ function formatDisplayDate(value) {
   return d.toLocaleDateString('en-IN');
 }
 
-export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
+export function CustomerSearch({ onSelectCustomer, selectedCustomer, skipNewCustomerButtonOnTab = false }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -123,6 +123,7 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer }) {
         </div>
         <button
           type="button"
+          tabIndex={skipNewCustomerButtonOnTab ? -1 : undefined}
           onClick={() => setShowNewCustomerForm(!showNewCustomerForm)}
           className="w-full sm:w-auto shrink-0 px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center justify-center gap-2"
         >

@@ -59,6 +59,7 @@ export default function AutocompleteInput({
             <button
               key={opt.id}
               type="button"
+              tabIndex={-1}
               className="w-full text-left px-4 py-2.5 hover:bg-amber-50 border-b border-gray-100 last:border-b-0"
               onClick={() => {
                 onSelect?.(opt);

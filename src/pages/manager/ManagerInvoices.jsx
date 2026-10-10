@@ -21,6 +21,7 @@ import ApprovePaymentModal from './ApprovePaymentModal';
 import { ConfirmModal } from '../admin/ConfirmModal';
 import { downloadInvoicePdfFile, printInvoice } from '../../utils/printInvoice';
 import { useStoreContext } from '../../context/storeContext';
+import TallyStoreSyncModal from '../../components/TallyStoreSyncModal';
 
 const PAGE_SIZE = 10;
 
@@ -171,6 +172,7 @@ export default function ManagerInvoices() {
   const [approvingInvoice, setApprovingInvoice] = useState(null);
   const [rejectingInvoice, setRejectingInvoice] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTallySyncModal, setShowTallySyncModal] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
@@ -351,7 +353,7 @@ export default function ManagerInvoices() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={() => syncPendingTally.mutate({})}
+            onClick={() => setShowTallySyncModal(true)}
             disabled={syncPendingTally.isPending}
             className="inline-flex items-center justify-center gap-2 px-5 py-3 border border-gray-300 bg-white text-gray-800 rounded-lg font-medium shadow-sm hover:bg-gray-50 disabled:opacity-60"
           >
@@ -759,6 +761,15 @@ export default function ManagerInvoices() {
       {showCreateModal && (
         <CreateInvoiceModal onClose={() => setShowCreateModal(false)} />
       )}
+
+      <TallyStoreSyncModal
+        open={showTallySyncModal}
+        stores={stores}
+        isPending={syncPendingTally.isPending}
+        onClose={() => setShowTallySyncModal(false)}
+        onConfirm={(storeId) => syncPendingTally.mutate({ storeId }, { onSuccess: () => setShowTallySyncModal(false) })}
+        title="Sync pending sales data to Tally"
+      />
     </div>
   );
 }
