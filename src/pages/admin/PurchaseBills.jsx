@@ -423,13 +423,13 @@ export default function PurchaseBills() {
                       >
                         <Eye size={16} />
                       </button>
-                      <button
+                      {/* <button
                         type="button"
                         className="p-2 hover:bg-purple-50 rounded-lg transition-colors text-purple-600"
                         title="Download"
                       >
                         <Download size={16} />
-                      </button>
+                      </button> */}
                     </div>
                   </td>
                 </tr>

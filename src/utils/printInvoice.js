@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 const WATERMARK_URL = `${import.meta.env.BASE_URL}water.png`;
+const SIGNATURE_URL = `${import.meta.env.BASE_URL}sign.jpeg`;
 
 function formatDate(value) {
   if (!value) return '';
@@ -413,16 +414,16 @@ function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscap
       font-size: 9.5px;
     }
     .bottom .sign .for { font-weight: 700; }
-    .bottom .sign .auth {
-      margin-top: 28px;
-      font-size: 9.5px;
+    .bottom .sign .signature {
+      display: block;
+      width: 34mm;
+      height: 14mm;
+      object-fit: contain;
+      margin: 2px 0 0 auto;
     }
-    .computer {
-      text-align: center;
-      font-size: 9px;
-      text-decoration: underline;
-      text-underline-offset: 2px;
-      margin-top: 6px;
+    .bottom .sign .auth {
+      margin-top: 0;
+      font-size: 9.5px;
     }
 
     @media print {
@@ -534,11 +535,10 @@ function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscap
       </div>
       <div class="sign">
         <div class="for">for ${escapeHtml(m.storeName || '—')}</div>
+        <img class="signature" src="${escapeHtml(SIGNATURE_URL)}" alt="Authorised signature" />
         <div class="auth">Authorised Signatory</div>
       </div>
     </div>
-
-    <div class="computer">This is a Computer Generated Invoice</div>
   </div>
 </body>
 </html>`;
@@ -594,7 +594,11 @@ function triggerFramePrint(iframe) {
       }, 1200);
     }
   };
-  setTimeout(run, 100);
+  const imageReady = Array.from(iframe.contentDocument?.images || []).map((image) =>
+    image.decode().catch(() => undefined)
+  );
+  Promise.all(imageReady).then(() => setTimeout(run, 50));
+  setTimeout(run, 1200);
   return true;
 }
 
@@ -844,16 +848,25 @@ export async function downloadInvoicePdfFile(invoice, store, orientation = 'land
     );
     pdf.text(decl, M, y + 4);
 
+    try {
+      const signature = new Image();
+      signature.src = SIGNATURE_URL;
+      await signature.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = signature.naturalWidth;
+      canvas.height = signature.naturalHeight;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Could not prepare authorised signature');
+      context.drawImage(signature, 0, 0);
+      const signatureWidth = 34;
+      const signatureHeight = signatureWidth * (signature.naturalHeight / signature.naturalWidth);
+      pdf.addImage(canvas.toDataURL('image/jpeg'), 'JPEG', R - signatureWidth, y + 2, signatureWidth, signatureHeight);
+    } catch (error) {
+      console.warn('Unable to load authorised invoice signature', error);
+    }
+
     font('normal', 8.5);
     pdf.text('Authorised Signatory', R, y + 16, { align: 'right' });
-
-    y += 22;
-    ensure(6);
-    font('normal', 8);
-    const footer = 'This is a Computer Generated Invoice';
-    pdf.text(footer, cx, y, { align: 'center' });
-    const fw = pdf.getTextWidth(footer);
-    pdf.line(cx - fw / 2, y + 0.7, cx + fw / 2, y + 0.7);
 
     try {
       const watermark = new Image();
