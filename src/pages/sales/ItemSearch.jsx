@@ -116,7 +116,6 @@ export function ItemSearch({ onAddItem,onScanSku  }) {
               <input
                 type="number"
                 min="1"
-                max={selectedItem.stock}
                 value={quantity}
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
