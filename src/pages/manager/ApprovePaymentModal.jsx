@@ -31,11 +31,13 @@ export default function ApprovePaymentModal({
   const isAccounting = user?.userType === 'accounting';
   const [payments, setPayments] = useState({ cash: '', upi: '', debit: '' });
   const [pointsToRedeem, setPointsToRedeem] = useState('0');
+  const [cashDiscount, setCashDiscount] = useState('0');
   const [gstType, setGstType] = useState(invoice?.gstType || 'PRODUCT');
 
   const availablePoints = Math.max(0, Number(invoice?.customerPoints) || 0);
   const redeemedPoints = Math.min(Math.max(0, parseInt(pointsToRedeem, 10) || 0), availablePoints, Number(invoice?.total) || 0);
-  const invoiceTotal = roundMoney((Number(invoice?.total) || 0) - redeemedPoints);
+  const cashDiscountAmount = Math.min(Math.max(0, Number(cashDiscount) || 0), Math.max(0, (Number(invoice?.total) || 0) - redeemedPoints));
+  const invoiceTotal = roundMoney((Number(invoice?.total) || 0) - redeemedPoints - cashDiscountAmount);
   const paidTotal = useMemo(
     () =>
       roundMoney(
@@ -61,6 +63,7 @@ export default function ApprovePaymentModal({
       upi: Number(payments.upi) || 0,
       debit: Number(payments.debit) || 0,
       loyaltyPointsRedeemed: redeemedPoints,
+      cashDiscountAmount,
       gstType,
     });
   };
@@ -104,12 +107,12 @@ export default function ApprovePaymentModal({
             : 'bg-amber-50 border-amber-200'
         }`}
       >
-        <p className={`text-sm ${isAccounting ? 'text-indigo-800' : 'text-amber-800'}`}>Payable After Points</p>
+        <p className={`text-sm ${isAccounting ? 'text-indigo-800' : 'text-amber-800'}`}>Payable After Discounts</p>
         <p className={`text-2xl font-bold ${isAccounting ? 'text-indigo-700' : 'text-amber-700'}`}>
           {formatMoney(invoiceTotal)}
         </p>
         <p className={`text-xs mt-1 ${isAccounting ? 'text-indigo-700' : 'text-amber-700'}`}>
-          Redeemed points reduce the amount due. Split the balance across Cash, UPI, and Debit.
+          Points and cash discount reduce the amount due. Split the balance across Cash, UPI, and Debit.
         </p>
       </div>
 
@@ -149,6 +152,21 @@ export default function ApprovePaymentModal({
             />
             <span className="shrink-0 text-sm text-gray-600">Available: {availablePoints}</span>
           </div>
+        </div>
+        <div>
+          <label className={modalLabelClass} htmlFor="cash-discount">Cash Discount</label>
+          <input
+            id="cash-discount"
+            type="text"
+            inputMode="decimal"
+            value={cashDiscount}
+            onChange={(event) => {
+              if (event.target.value === '' || /^\d*\.?\d{0,2}$/.test(event.target.value)) setCashDiscount(event.target.value);
+            }}
+            className={modalInputClass}
+            placeholder="0"
+            disabled={isSubmitting}
+          />
         </div>
         <div>
           <label className={modalLabelClass} htmlFor="invoice-gst-type">GST Type</label>

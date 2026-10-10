@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Package, Search, Printer, Barcode, Minus, Plus, Edit2, Trash2, ChevronDown } from 'lucide-react';
+import { Package, Search, Printer, Barcode, Minus, Plus, Edit2, Trash2, ChevronDown, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import Modal, {
   modalInputClass,
@@ -49,6 +49,12 @@ function calculateProductPricing(mrpValue, discountValue, discountType) {
   const disc = mrp > 0 ? Number(((dict_amt / mrp) * 100).toFixed(2)) : 0;
 
   return { disc, dict_amt, offer_price: Math.max(0, mrp - dict_amt) };
+}
+
+function escapeCsvCell(value) {
+  const text = value == null ? '' : String(value);
+  const safeText = /^[=+@\-\t\r]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replaceAll('"', '""')}"`;
 }
 
 function FilterSelect({ label, value, onChange, options, isAccounting }) {
@@ -165,6 +171,58 @@ export default function InventoryManagement({ user }) {
   const getCategoryName = (categoryId) => stockCategory.find(sc => sc.categoryId === categoryId)?.name || categoryId || '-';
   const getStoreQty = (product, sid) => product.qty?.find(q => q.storeId === sid)?.qty || 0;
   const getTotalStock = (product) => (product.qty || []).reduce((sum, q) => sum + (q.qty || 0), 0);
+
+  const handleExportProducts = () => {
+    if (productsLoading) return;
+    if (products.length === 0) {
+      toast.error('There are no products to export.');
+      return;
+    }
+
+    const storeColumns = stores.map((store) => ({
+      header: `Stock - ${store.name || store.storeId} (${store.storeId})`,
+      storeId: String(store.storeId),
+    }));
+    const headers = [
+      'Product Sr No', 'Barcode / Product Name', 'Alias', 'SKU', 'Product Code', 'Brand', 'Category',
+      'Unit', 'HSN Code', 'MRP', 'Offer Price', 'GST (%)', 'GST Type',
+      'Discount (%)', 'Discount Amount', 'Total Stock', ...storeColumns.map(({ header }) => header),
+    ];
+    const rows = products.map((product) => {
+      const brandId = product.brand?._id || product.brand;
+      const unit = units.find((item) => String(item.unitId || item._id) === String(product.unit) || String(item._id) === String(product.unit));
+      return [
+        product.product_sr_no,
+        product.barcode_text,
+        product.alias,
+        product.sku_code,
+        product.product_code,
+        getBrandName(brandId),
+        getCategoryName(product.category),
+        unit?.name || product.unit,
+        product.hsncode,
+        product.mrp,
+        product.offer_price,
+        product.gst,
+        product.gstType,
+        product.disc,
+        product.dict_amt,
+        getTotalStock(product),
+        ...storeColumns.map(({ storeId: sid }) => product.qty?.find((quantity) => String(quantity.storeId) === sid)?.qty ?? 0),
+      ];
+    });
+    const csv = [headers, ...rows].map((row) => row.map(escapeCsvCell).join(',')).join('\r\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `inventory-products-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${products.length} product${products.length === 1 ? '' : 's'}.`);
+  };
 
   const openBarcodeModal = () => {
     setBarcodeSearch('');
@@ -470,6 +528,17 @@ export default function InventoryManagement({ user }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          {role === 'admin' && (
+            <button
+              type="button"
+              onClick={handleExportProducts}
+              disabled={productsLoading}
+              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 text-white px-6 py-3 rounded-lg hover:from-emerald-700 hover:to-green-700 transition-all shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Download size={20} />
+              {productsLoading ? 'Loading Products...' : 'Export Data'}
+            </button>
+          )}
           <button
             onClick={openBarcodeModal}
             className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"

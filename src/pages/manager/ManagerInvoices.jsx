@@ -255,7 +255,7 @@ export default function ManagerInvoices() {
     setApprovingInvoice(invoice);
   };
 
-  const handleConfirmApprove = ({ loyaltyPointsRedeemed = 0, gstType = 'PRODUCT', ...paymentBreakdown }) => {
+  const handleConfirmApprove = ({ loyaltyPointsRedeemed = 0, cashDiscountAmount = 0, gstType = 'PRODUCT', ...paymentBreakdown }) => {
     if (!approvingInvoice) return;
     updateStatusMutation.mutate(
       {
@@ -263,6 +263,7 @@ export default function ManagerInvoices() {
         status: 'approved',
         paymentBreakdown,
         loyaltyPointsRedeemed,
+        cashDiscountAmount,
         gstType,
 
       },
