@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Package, Search, Printer, Barcode, Minus, Plus, Edit2, Trash2, ChevronDown, Download } from 'lucide-react';
+import { Package, Search, Printer, Barcode, Minus, Plus, Edit2, Trash2, ChevronDown, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import Modal, {
   modalInputClass,
@@ -10,25 +10,29 @@ import Modal, {
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 import { useStockCategoryContext } from '../../context/stockcategoryContext';
-import { useAddProduct, useDeleteProduct, useGetAllProducts, useUpdateProduct } from '../../hooks/useProduct';
+import { useAddProduct, useDeleteProduct, useGetAllProducts, useImportProductLocally, useUpdateProduct } from '../../hooks/useProduct';
 import { useGetAllAccountingConst } from '../../hooks/useGetAllAccountStates';
 import { useGetAllUnits } from '../../hooks/useUnit';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
 import { BARCODE_STICKER_SPEC, printBarcodeStickers } from '../../utils/printBarcodeStickers';
 
-function buildEditForm(product, stores) {
+function buildEditForm(product, stores, units) {
   const qtyByStore = {};
   stores.forEach((store) => {
     qtyByStore[store.storeId] = product.qty?.find((q) => q.storeId === store.storeId)?.qty ?? 0;
   });
+  const productUnitId = product.unit?._id || product.unit;
+  const matchingUnit = units.find((unit) => (
+    String(unit._id) === String(productUnitId) || String(unit.unitId) === String(productUnitId)
+  ));
   return {
     id: product._id,
     barcode_text: product.barcode_text || '',
     alias: product.alias || '',
     brand: product.brand?._id || product.brand || '',
     category: product.category || '',
-    unit: product.unit || '',
+    unit: matchingUnit?._id || productUnitId || '',
     hsncode: product.hsncode || '',
     mrp: product.mrp ?? 0,
     oldOfferPrice: product.offer_price ?? product.mrp ?? 0,
@@ -55,6 +59,56 @@ function escapeCsvCell(value) {
   const text = value == null ? '' : String(value);
   const safeText = /^[=+@\-\t\r]/.test(text) ? `'${text}` : text;
   return `"${safeText.replaceAll('"', '""')}"`;
+}
+
+const PRODUCT_IMPORT_HEADERS = [
+  'Product Name', 'Alias', 'Brand', 'Category', 'Unit', 'HSN Code', 'MRP',
+  'GST (%)', 'Discount', 'Discount Type', 'Offer Price',
+];
+
+const getStoreQuantityHeader = (store) => `Quantity - ${store.name || store.storeId} (${store.storeId})`;
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let quoted = false;
+  const source = text.replace(/^\uFEFF/, '');
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '"' && quoted && source[index + 1] === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === ',' && !quoted) {
+      row.push(cell.trim());
+      cell = '';
+    } else if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && source[index + 1] === '\n') index += 1;
+      row.push(cell.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      cell = '';
+    } else {
+      cell += char;
+    }
+  }
+  row.push(cell.trim());
+  if (row.some(Boolean)) rows.push(row);
+  return rows;
+}
+
+function downloadCsv(filename, csv) {
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function FilterSelect({ label, value, onChange, options, isAccounting }) {
@@ -143,12 +197,17 @@ export default function InventoryManagement({ user }) {
   const { data: productsData, isLoading: productsLoading } = useGetAllProducts('', { fetchAll: true });
   const { data: accounting } = useGetAllAccountingConst();
   const addProductMutation = useAddProduct();
+  const bulkAddProductMutation = useImportProductLocally();
   const deleteProductMutation = useDeleteProduct();
   const updateProductMutation = useUpdateProduct();
   const products = productsData?.products ?? [];
 
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importRows, setImportRows] = useState([]);
+  const [importFileName, setImportFileName] = useState('');
+  const [isImportingProducts, setIsImportingProducts] = useState(false);
   const [newProduct, setNewProduct] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
   const [editForm, setEditForm] = useState(null);
@@ -212,16 +271,262 @@ export default function InventoryManagement({ user }) {
       ];
     });
     const csv = [headers, ...rows].map((row) => row.map(escapeCsvCell).join(',')).join('\r\n');
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `inventory-products-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    downloadCsv(`inventory-products-${new Date().toISOString().slice(0, 10)}.csv`, csv);
     toast.success(`Exported ${products.length} product${products.length === 1 ? '' : 's'}.`);
+  };
+
+  const downloadImportTemplate = () => {
+    const headers = [...PRODUCT_IMPORT_HEADERS, ...stores.map(getStoreQuantityHeader)];
+    downloadCsv('product-import-template.csv', headers.map(escapeCsvCell).join(','));
+  };
+
+  const handleImportFile = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      toast.error('Choose a CSV file.');
+      return;
+    }
+
+    const csvRows = parseCsv(await file.text());
+    if (csvRows.length < 2) {
+      toast.error('The CSV has no product rows. Fill in the template and try again.');
+      setImportRows([]);
+      return;
+    }
+
+    const normalizeHeader = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const headers = csvRows[0].map(normalizeHeader);
+    const column = Object.fromEntries(PRODUCT_IMPORT_HEADERS.map((header) => [
+      normalizeHeader(header), headers.indexOf(normalizeHeader(header)),
+    ]));
+    const requiredHeaders = ['Product Name', 'Brand', 'Category', 'Unit', 'MRP'];
+    const missingHeaders = [
+      ...requiredHeaders.filter((header) => column[normalizeHeader(header)] < 0),
+      ...stores.map(getStoreQuantityHeader).filter((header) => !headers.includes(normalizeHeader(header))),
+    ];
+    if (missingHeaders.length) {
+      toast.error(`CSV is missing required column${missingHeaders.length > 1 ? 's' : ''}: ${missingHeaders.join(', ')}`);
+      setImportRows([]);
+      return;
+    }
+
+    const value = (cells, header) => {
+      const index = column[normalizeHeader(header)];
+      return index < 0 ? '' : (cells[index] || '').trim();
+    };
+    const matchByText = (list, input, fields) => {
+      const needle = input.trim().toLocaleLowerCase();
+      return list.find((item) => fields.some((field) => String(field(item) ?? '').trim().toLocaleLowerCase() === needle));
+    };
+    const parsedRows = csvRows.slice(1).map((cells, index) => {
+      const errors = [];
+      const barcode_text = value(cells, 'Product Name');
+      const brandText = value(cells, 'Brand');
+      const categoryText = value(cells, 'Category');
+      const unitText = value(cells, 'Unit');
+      const brand = matchByText(stockGroup, brandText, [(item) => item.name, (item) => item._id]);
+      const category = matchByText(stockCategory, categoryText, [(item) => item.name, (item) => item.categoryId]);
+      const unit = matchByText(units, unitText, [(item) => item.name, (item) => item.unitId, (item) => item._id]);
+      const mrpText = value(cells, 'MRP');
+      const mrp = Number(mrpText);
+      const gstText = value(cells, 'GST (%)');
+      const gst = gstText === '' ? 0 : Number(gstText);
+      const discountText = value(cells, 'Discount');
+      const discount = discountText === '' ? 0 : Number(discountText);
+      const discountType = (value(cells, 'Discount Type') || 'percent').toLowerCase();
+      const offerText = value(cells, 'Offer Price');
+      const enteredOfferPrice = offerText === '' ? null : Number(offerText);
+      const quantities = Object.fromEntries(stores.map((store) => {
+        const quantityColumn = headers.indexOf(normalizeHeader(getStoreQuantityHeader(store)));
+        const quantityText = quantityColumn < 0 ? '' : (cells[quantityColumn] || '').trim();
+        return [String(store.storeId), { text: quantityText, value: quantityText === '' ? 0 : Number(quantityText) }];
+      }));
+      const targetStoreId = role === 'admin' ? stores[0]?.storeId : storeId;
+
+      if (!barcode_text) errors.push('Product Name is required');
+      if (!brand) errors.push(`Brand “${brandText || '(blank)'}” not found`);
+      if (!category) errors.push(`Category “${categoryText || '(blank)'}” not found`);
+      if (!unit) errors.push(`Unit “${unitText || '(blank)'}” not found`);
+      if (mrpText === '' || !Number.isFinite(mrp) || mrp < 0) errors.push('MRP is required and must be a valid non-negative number');
+      if (!Number.isFinite(gst) || gst < 0) errors.push('GST must be a valid non-negative number');
+      if (!Number.isFinite(discount) || discount < 0 || (discountType === 'percent' && discount > 100)) errors.push('Discount is invalid');
+      if (!['percent', 'value'].includes(discountType)) errors.push('Discount Type must be percent or value');
+      if (enteredOfferPrice !== null && (!Number.isFinite(enteredOfferPrice) || enteredOfferPrice < 0)) errors.push('Offer Price must be a valid non-negative number');
+      Object.entries(quantities).forEach(([quantityStoreId, quantity]) => {
+        if (!Number.isFinite(quantity.value) || quantity.value < 0) errors.push(`Quantity for ${quantityStoreId} must be a valid non-negative number`);
+        if (role !== 'admin' && quantityStoreId !== String(storeId) && quantity.value > 0) {
+          errors.push(`Only admins can set quantity for store ${quantityStoreId}`);
+        }
+      });
+      if (!targetStoreId) errors.push('Store ID is required');
+
+      const pricing = calculateProductPricing(mrp, discount, discountType);
+      return {
+        rowNumber: index + 2,
+        errors,
+        manualOfferPrice: enteredOfferPrice !== null,
+        payload: {
+          barcode_text,
+          alias: value(cells, 'Alias'),
+          brand: brand?._id,
+          category: category?.categoryId,
+          unit: unit?._id || unit?.unitId,
+          hsncode: value(cells, 'HSN Code'),
+          mrp,
+          gst,
+          disc: pricing.disc,
+          dict_amt: pricing.dict_amt,
+          offer_price: enteredOfferPrice ?? pricing.offer_price,
+          storeId: targetStoreId,
+          qty: stores
+            .filter((store) => role === 'admin' || String(store.storeId) === String(storeId))
+            .map((store) => ({ storeId: String(store.storeId), qty: quantities[String(store.storeId)]?.value || 0 })),
+        },
+        display: {
+          barcode_text,
+          alias: value(cells, 'Alias'),
+          brand: brand?.name || brandText,
+          category: category?.name || categoryText,
+          unit: unit?.name || unitText,
+          hsncode: value(cells, 'HSN Code'),
+          mrp: mrpText,
+          gst: gstText || '0',
+          discount: discountText || '0',
+          discountType,
+          offer_price: enteredOfferPrice ?? pricing.offer_price,
+          quantities: Object.fromEntries(Object.entries(quantities).map(([quantityStoreId, quantity]) => [quantityStoreId, quantity.text || '0'])),
+          storeId: targetStoreId,
+        },
+        existingProduct: products.find((product) => String(product.barcode_text || '').trim().toLocaleLowerCase() === barcode_text.trim().toLocaleLowerCase()) || null,
+      };
+    });
+    setImportFileName(file.name);
+    setImportRows(parsedRows);
+    if (parsedRows.some((row) => row.errors.length)) {
+      toast.error('Review the highlighted rows. Fix the CSV and import it again before adding products.');
+    } else {
+      toast.success(`Loaded ${parsedRows.length} product${parsedRows.length === 1 ? '' : 's'} for review.`);
+    }
+  };
+
+  const handleImportFieldChange = (rowNumber, field, value) => {
+    setImportRows((currentRows) => currentRows.map((row) => {
+      if (row.rowNumber !== rowNumber) return row;
+      const quantityStoreId = field.startsWith('quantity:') ? field.slice('quantity:'.length) : null;
+      const display = quantityStoreId
+        ? { ...row.display, quantities: { ...row.display.quantities, [quantityStoreId]: value } }
+        : { ...row.display, [field]: value };
+      const existingProduct = products.find((product) => (
+        String(product.barcode_text || '').trim().toLocaleLowerCase() === String(display.barcode_text || '').trim().toLocaleLowerCase()
+      )) || null;
+      const findMatch = (list, input, fields) => {
+        const needle = String(input || '').trim().toLocaleLowerCase();
+        return list.find((item) => fields.some((getValue) => String(getValue(item) ?? '').trim().toLocaleLowerCase() === needle));
+      };
+      const brand = findMatch(stockGroup, display.brand, [(item) => item.name, (item) => item._id]);
+      const category = findMatch(stockCategory, display.category, [(item) => item.name, (item) => item.categoryId]);
+      const unit = findMatch(units, display.unit, [(item) => item.name, (item) => item.unitId, (item) => item._id]);
+      const mrpText = String(display.mrp ?? '').trim();
+      const mrp = mrpText === '' ? NaN : Number(mrpText);
+      const gstText = String(display.gst ?? '').trim();
+      const gst = gstText === '' ? 0 : Number(gstText);
+      const discountText = String(display.discount ?? '').trim();
+      const discount = discountText === '' ? 0 : Number(discountText);
+      const discountType = String(display.discountType || 'percent').toLowerCase();
+      const manualOfferPrice = field === 'offer_price'
+        ? String(value ?? '').trim() !== ''
+        : row.manualOfferPrice;
+      const offerText = String(display.offer_price ?? '').trim();
+      const offerPrice = manualOfferPrice ? Number(offerText) : null;
+      const quantities = Object.fromEntries(stores.map((store) => {
+        const quantityText = String(display.quantities?.[String(store.storeId)] ?? '').trim();
+        return [String(store.storeId), quantityText === '' ? 0 : Number(quantityText)];
+      }));
+      const targetStoreId = role === 'admin' ? String(display.storeId || '').trim() : storeId;
+      const errors = [];
+      if (!String(display.barcode_text || '').trim()) errors.push('Product Name is required');
+      if (!brand) errors.push(`Brand “${display.brand || '(blank)'}” not found`);
+      if (!category) errors.push(`Category “${display.category || '(blank)'}” not found`);
+      if (!unit) errors.push(`Unit “${display.unit || '(blank)'}” not found`);
+      if (!Number.isFinite(mrp) || mrp < 0) errors.push('MRP is required and must be a valid non-negative number');
+      if (!Number.isFinite(gst) || gst < 0) errors.push('GST must be a valid non-negative number');
+      if (!Number.isFinite(discount) || discount < 0 || (discountType === 'percent' && discount > 100)) errors.push('Discount is invalid');
+      if (!['percent', 'value'].includes(discountType)) errors.push('Discount Type must be percent or value');
+      if (offerPrice !== null && (!Number.isFinite(offerPrice) || offerPrice < 0)) errors.push('Offer Price must be a valid non-negative number');
+      Object.entries(quantities).forEach(([quantityStoreIdValue, quantity]) => {
+        if (!Number.isFinite(quantity) || quantity < 0) errors.push(`Quantity for ${quantityStoreIdValue} must be a valid non-negative number`);
+        if (role !== 'admin' && quantityStoreIdValue !== String(storeId) && quantity > 0) {
+          errors.push(`Only admins can set quantity for store ${quantityStoreIdValue}`);
+        }
+      });
+      if (!targetStoreId) errors.push('Store ID is required');
+      const pricing = calculateProductPricing(mrp, discount, discountType);
+      const resolvedOfferPrice = offerPrice ?? pricing.offer_price;
+      display.offer_price = manualOfferPrice ? display.offer_price : pricing.offer_price;
+      return {
+        ...row,
+        errors,
+        manualOfferPrice,
+        existingProduct,
+        display,
+        payload: {
+          ...row.payload,
+          barcode_text: String(display.barcode_text || '').trim(),
+          alias: String(display.alias || '').trim(),
+          brand: brand?._id,
+          category: category?.categoryId,
+          unit: unit?._id || unit?.unitId,
+          hsncode: String(display.hsncode || '').trim(),
+          mrp: Number.isFinite(mrp) ? mrp : 0,
+          gst: Number.isFinite(gst) ? gst : 0,
+          disc: pricing.disc,
+          dict_amt: pricing.dict_amt,
+          offer_price: resolvedOfferPrice,
+          storeId: targetStoreId,
+          qty: stores
+            .filter((store) => role === 'admin' || String(store.storeId) === String(storeId))
+            .map((store) => ({ storeId: String(store.storeId), qty: Number.isFinite(quantities[String(store.storeId)]) ? quantities[String(store.storeId)] : 0 })),
+        },
+      };
+    }));
+  };
+
+  const handleAddImportedProducts = async () => {
+    if (isImportingProducts || !importRows.length || importRows.some((row) => row.errors.length)) return;
+    setIsImportingProducts(true);
+    let added = 0;
+    let updated = 0;
+    const failures = [];
+    const failedRowNumbers = new Map();
+    try {
+      for (const row of importRows) {
+        try {
+          const result = await bulkAddProductMutation.mutateAsync(row.payload);
+          if (result?.updated || row.existingProduct) updated += 1;
+          else added += 1;
+        } catch (error) {
+          const message = error?.response?.data?.message || error?.message || 'Failed to add';
+          failures.push(`Row ${row.rowNumber}: ${message}`);
+          failedRowNumbers.set(row.rowNumber, message);
+        }
+      }
+      if (added || updated) toast.success(`Added ${added} new and updated ${updated} existing product${added + updated === 1 ? '' : 's'}.`);
+      if (failures.length) toast.error(`${failures.length} row${failures.length === 1 ? '' : 's'} failed. ${failures.slice(0, 3).join('; ')}`);
+      if (!failures.length) {
+        setShowImportModal(false);
+        setImportRows([]);
+        setImportFileName('');
+      } else {
+        setImportRows((current) => current
+          .filter((row) => failedRowNumbers.has(row.rowNumber))
+          .map((row) => ({ ...row, errors: [...row.errors, `Server rejected this row: ${failedRowNumbers.get(row.rowNumber)}`] })));
+        setImportFileName('Some rows failed; successful rows were removed from this preview. Correct the CSV and re-upload to retry.');
+      }
+    } finally {
+      setIsImportingProducts(false);
+    }
   };
 
   const openBarcodeModal = () => {
@@ -314,7 +619,7 @@ export default function InventoryManagement({ user }) {
 
   const openEdit = (product) => {
     setEditingProduct(product);
-    setEditForm(buildEditForm(product, stores));
+    setEditForm(buildEditForm(product, stores, units));
   };
 
   const closeEdit = () => {
@@ -549,6 +854,20 @@ export default function InventoryManagement({ user }) {
           {['admin', 'manager', 'accounting'].includes(role) && (
             <button
               type="button"
+              onClick={() => {
+                setImportRows([]);
+                setImportFileName('');
+                setShowImportModal(true);
+              }}
+              className="flex items-center gap-2 bg-gradient-to-r from-sky-600 to-blue-600 text-white px-6 py-3 rounded-lg hover:from-sky-700 hover:to-blue-700 transition-all shadow-lg"
+            >
+              <Upload size={20} />
+              Import CSV
+            </button>
+          )}
+          {['admin', 'manager', 'accounting'].includes(role) && (
+            <button
+              type="button"
               onClick={openAddProductModal}
               className="flex items-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 text-white px-6 py-3 rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all shadow-lg"
             >
@@ -779,6 +1098,124 @@ export default function InventoryManagement({ user }) {
           onPageChange={inventoryPagination.goToPage}
         />
       </div>
+
+      {showImportModal && (
+        <Modal
+          title="Import Products from CSV"
+          size="xl"
+          onClose={() => {
+            if (isImportingProducts) return;
+            setShowImportModal(false);
+          }}
+          closeOnBackdrop={!isImportingProducts}
+          footer={(
+            <>
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                disabled={isImportingProducts}
+                className={modalSecondaryBtnClass}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddImportedProducts}
+                disabled={!importRows.length || importRows.some((row) => row.errors.length) || isImportingProducts}
+                className={modalPrimaryBtnClass}
+              >
+                {isImportingProducts ? 'Adding products...' : `Add / update all ${importRows.length || ''} products`}
+              </button>
+            </>
+          )}
+        >
+          <p className="text-sm text-gray-600 mb-4">
+            Download the blank template, fill one product per row, then upload it to review. Brand, category, and unit must match existing records by name or ID. Each store has its own quantity column.
+            {role === 'admin' ? ' Existing products will have their details updated and imported quantities added to current stock.' : ` Products will use your store (${storeId || 'not assigned'}); other store quantities must be zero.`}
+          </p>
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <button
+              type="button"
+              onClick={downloadImportTemplate}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Download size={17} /> Download template
+            </button>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-700">
+              <Upload size={17} /> Choose CSV file
+              <input type="file" accept=".csv,text/csv" onChange={handleImportFile} className="sr-only" />
+            </label>
+            {importFileName && <span className="text-sm text-gray-600">{importFileName}</span>}
+          </div>
+          <div className="text-xs text-gray-500 mb-4">
+            Headers: {[...PRODUCT_IMPORT_HEADERS, ...stores.map(getStoreQuantityHeader)].join(', ')}. Discount Type accepts <code>percent</code> or <code>value</code>; blank optional values default to zero or are calculated.
+          </div>
+          {importRows.length > 0 ? (
+            <>
+            {importRows.some((row) => row.existingProduct) && (
+              <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Warning: {importRows.filter((row) => row.existingProduct).length} imported row(s) match existing products. Their product details will be updated, and each store quantity in the CSV will be added to the existing quantity.
+              </div>
+            )}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="max-h-[48vh] overflow-auto">
+                <table className="min-w-[1450px] w-full text-xs">
+                  <thead className="sticky top-0 bg-gray-100 text-gray-700 z-10">
+                    <tr className="text-left">
+                      {['Row', 'Product Name', 'Alias', 'Brand', 'Category', 'Unit', 'HSN', 'MRP', 'GST %', 'Discount', 'Discount Type', 'Offer Price', ...stores.map((store) => `Qty: ${store.name || store.storeId}`), 'Existing Product', 'Validation'].map((header) => (
+                        <th key={header} className="px-3 py-2.5 font-semibold">{header}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importRows.map((row) => (
+                      <tr key={row.rowNumber} className={`border-t ${row.errors.length ? 'bg-red-50' : 'bg-white'}`}>
+                        <td className="px-3 py-2">{row.rowNumber}</td>
+                        <td className="px-3 py-2"><input aria-label={`Row ${row.rowNumber} product name`} value={row.display.barcode_text} onChange={(event) => handleImportFieldChange(row.rowNumber, 'barcode_text', event.target.value)} className="min-w-36 w-full rounded border border-gray-300 px-2 py-1" /></td>
+                        <td className="px-3 py-2"><input aria-label={`Row ${row.rowNumber} alias`} value={row.display.alias} onChange={(event) => handleImportFieldChange(row.rowNumber, 'alias', event.target.value)} className="min-w-24 w-full rounded border border-gray-300 px-2 py-1" /></td>
+                        <td className="px-3 py-2"><input aria-label={`Row ${row.rowNumber} brand`} value={row.display.brand} onChange={(event) => handleImportFieldChange(row.rowNumber, 'brand', event.target.value)} className="min-w-28 w-full rounded border border-gray-300 px-2 py-1" /></td>
+                        <td className="px-3 py-2"><input aria-label={`Row ${row.rowNumber} category`} value={row.display.category} onChange={(event) => handleImportFieldChange(row.rowNumber, 'category', event.target.value)} className="min-w-28 w-full rounded border border-gray-300 px-2 py-1" /></td>
+                        <td className="px-3 py-2"><input aria-label={`Row ${row.rowNumber} unit`} value={row.display.unit} onChange={(event) => handleImportFieldChange(row.rowNumber, 'unit', event.target.value)} className="min-w-24 w-full rounded border border-gray-300 px-2 py-1" /></td>
+                        <td className="px-3 py-2"><input aria-label={`Row ${row.rowNumber} HSN code`} value={row.display.hsncode} onChange={(event) => handleImportFieldChange(row.rowNumber, 'hsncode', event.target.value)} className="min-w-20 w-full rounded border border-gray-300 px-2 py-1" /></td>
+                        <td className="px-3 py-2"><input aria-label={`Row ${row.rowNumber} MRP`} type="number" min="0" step="0.01" value={row.display.mrp} onChange={(event) => handleImportFieldChange(row.rowNumber, 'mrp', event.target.value)} className="min-w-20 w-full rounded border border-gray-300 px-2 py-1" /></td>
+                        <td className="px-3 py-2"><input aria-label={`Row ${row.rowNumber} GST`} type="number" min="0" step="0.01" value={row.display.gst} onChange={(event) => handleImportFieldChange(row.rowNumber, 'gst', event.target.value)} className="min-w-16 w-full rounded border border-gray-300 px-2 py-1" /></td>
+                        <td className="px-3 py-2"><input aria-label={`Row ${row.rowNumber} discount`} type="number" min="0" step="0.01" value={row.display.discount} onChange={(event) => handleImportFieldChange(row.rowNumber, 'discount', event.target.value)} className="min-w-20 w-full rounded border border-gray-300 px-2 py-1" /></td>
+                        <td className="px-3 py-2"><select aria-label={`Row ${row.rowNumber} discount type`} value={row.display.discountType} onChange={(event) => handleImportFieldChange(row.rowNumber, 'discountType', event.target.value)} className="min-w-24 rounded border border-gray-300 px-2 py-1"><option value="percent">percent</option><option value="value">value</option></select></td>
+                        <td className="px-3 py-2"><input aria-label={`Row ${row.rowNumber} offer price`} type="number" min="0" step="0.01" value={row.display.offer_price} onChange={(event) => handleImportFieldChange(row.rowNumber, 'offer_price', event.target.value)} className="min-w-20 w-full rounded border border-gray-300 px-2 py-1" /></td>
+                        {stores.map((store) => (
+                          <td key={store.storeId} className="px-3 py-2">
+                            <input
+                              aria-label={`Row ${row.rowNumber} quantity for ${store.name || store.storeId}`}
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={row.display.quantities?.[String(store.storeId)] ?? '0'}
+                              onChange={(event) => handleImportFieldChange(row.rowNumber, `quantity:${store.storeId}`, event.target.value)}
+                              className="min-w-20 w-full rounded border border-gray-300 px-2 py-1"
+                            />
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-amber-800">{row.existingProduct ? `Will update ${row.existingProduct.barcode_text}; quantities will be added` : 'New product'}</td>
+                        <td className={`px-3 py-2 ${row.errors.length ? 'text-red-700' : 'text-green-700'}`}>
+                          {row.errors.length ? row.errors.join('; ') : 'Ready'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="border-t bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                {importRows.filter((row) => !row.errors.length).length} ready · {importRows.filter((row) => row.errors.length).length} with errors · {importRows.filter((row) => row.existingProduct).length} existing matches
+              </div>
+            </div>
+            </>
+          ) : (
+            <div className="rounded-lg border border-dashed border-gray-300 py-12 text-center text-sm text-gray-500">
+              Download the template and choose a completed CSV to see the product preview here.
+            </div>
+          )}
+        </Modal>
+      )}
 
       {showAddProductModal && newProduct && (
         <Modal
@@ -1072,10 +1509,15 @@ export default function InventoryManagement({ user }) {
               >
                 <option value="">Select unit</option>
                 {units.map((u) => (
-                  <option key={u.unitId || u._id} value={u.unitId || u._id}>
+                  <option key={u._id || u.unitId} value={u._id || u.unitId}>
                     {u.name || u.unitId}
                   </option>
                 ))}
+                {editForm.unit && !units.some((u) => String(u._id || u.unitId) === String(editForm.unit)) && (
+                  <option value={editForm.unit} disabled>
+                    Unavailable unit ({editForm.unit})
+                  </option>
+                )}
               </select>
             </div>
             <div>

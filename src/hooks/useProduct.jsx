@@ -35,12 +35,22 @@ export function useGetProductBySku() {
     });
 }
 
-export function useAddProduct() {
+export function useAddProduct({ successMessage = "Product added successfully", showErrorToast = true } = {}) {
     return useApiMutation({
         url: "/products/addproduct",
         method: "post",
         invalidateKeys: [PRODUCTS_QUERY_KEY],
-        successMessage: "Product added successfully",
+        successMessage,
+        showErrorToast,
+    });
+}
+
+export function useImportProductLocally() {
+    return useApiMutation({
+        url: "/products/addproduct/local",
+        method: "post",
+        invalidateKeys: [PRODUCTS_QUERY_KEY],
+        showErrorToast: false,
     });
 }
 
