@@ -2,14 +2,13 @@ import { useCallback, useMemo, useState } from 'react';
 import { Plus, Users, Calendar, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { useActiveUser, useAddUser, useDeleteUser, useUpdateUser, useGetAllUsers } from '../../hooks/useUser';
-import { useGetAllLeaves, useUpdateLeave } from '../../hooks/useLeave';
+import { useAddLeave, useGetAllLeaves, useUpdateLeave } from '../../hooks/useLeave';
 import { useStoreContext } from '../../context/storeContext';
 import { UserFormModal } from './UserFormModal';
 import { ConfirmModal } from './ConfirmModal';
 import { TeamMembersTab } from './TeamMembersTab';
 import { LeaveApplicationsTab } from './LeaveApplicationsTab';
 import { LeaveDetailModal } from './LeaveDetailModal';
-import { useLeaveContext } from '../../context/leaveContext';
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '');
 
@@ -21,7 +20,6 @@ export default function UserManagement({ user }) {
   const [activeTab, setActiveTab] = useState('team');
   const {stores} = useStoreContext()
   const {data:userlist} = useGetAllUsers()
-  const {leaves:leaveApplications} = useLeaveContext();
   // Derive directly from the query — no useEffect/local-state mirroring,
   // and this defaults to [] so nothing downstream ever sees `undefined`.
   const users = userlist?.data ?? EMPTY_ARRAY;
@@ -36,6 +34,7 @@ export default function UserManagement({ user }) {
   const { data: leaveData } = useGetAllLeaves({ enabled: activeTab === 'leave' });
   const leaves = leaveData?.leaves ?? EMPTY_ARRAY;
   const updateLeaveMutation = useUpdateLeave();
+  const addLeaveMutation = useAddLeave();
 
   const addUserMutation = useAddUser();
   const updateUserMutation = useUpdateUser();
@@ -139,13 +138,28 @@ export default function UserManagement({ user }) {
     });
   }, [updateLeaveMutation]);
 
+  const handleAddManagerLeave = useCallback((leave, onSuccess) => {
+    addLeaveMutation.mutate(leave, {
+      onSuccess: () => {
+        toast.success('Leave request submitted successfully');
+        onSuccess?.();
+      },
+      onError: (error) => toast.error(error?.response?.data?.message || 'Unable to submit leave request'),
+    });
+  }, [addLeaveMutation]);
+
   // /leave/getallleave doesn't populate the employee — join against the
   // already-fetched user list instead of adding a backend round trip.
   const usersById = useMemo(() => new Map(users.map(u => [u._id, u])), [users]);
 
-  const normalizedLeaves = useMemo(() => leaves.map(l => ({
+  const normalizedLeaves = useMemo(() => leaves.map(l => {
+    const employeeId = String(l.userId?._id ?? l.userId);
+    return {
     id: l.leave_id,
-    employeeName: usersById.get(l.userId)?.fullName ?? 'Unknown',
+    employeeId,
+    employeeName: usersById.get(employeeId)?.fullName
+      ?? (employeeId === String(user?._id ?? user?.id) ? user?.fullName || user?.name : null)
+      ?? 'Unknown',
     leaveType: l.leave_type,
     fromDate: formatDate(l.start_date),
     toDate: formatDate(l.end_date),
@@ -154,7 +168,7 @@ export default function UserManagement({ user }) {
     status: l.status,
     appliedDate: formatDate(l.applied_date),
     store: l.store_id,
-  })), [leaves, usersById]);
+  }; }), [leaves, usersById, user]);
 
   const pendingLeaves = useMemo(() => normalizedLeaves.filter(l => l.status === 'Pending'), [normalizedLeaves]);
   const processedLeaves = useMemo(() => normalizedLeaves.filter(l => l.status !== 'Pending'), [normalizedLeaves]);
@@ -235,6 +249,8 @@ export default function UserManagement({ user }) {
           processedLeaves={processedLeaves}
           onApprove={handleLeaveApproval}
           onViewDetail={handleViewLeaveDetail}
+          user={user}
+          onSubmitLeave={handleAddManagerLeave}
         />
       )}
 

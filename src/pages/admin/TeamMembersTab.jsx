@@ -34,7 +34,6 @@ export function TeamMembersTab({ users, onEditUser, onDeleteUser, onActivateUser
   ), [users, searchTerm]);
 
   const pagination = usePagination(filteredUsers);
-
   return (
     <>
       <div className="relative">

@@ -1,15 +1,40 @@
-import { CheckCircle, XCircle, Eye } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle, XCircle, Eye, Plus } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
 import { getLeaveTypeColor } from './leaveBadges';
+import { LeaveApplication } from '../sales/LeaveApplication';
+import Modal from '../../components/ui/Modal';
 
 // `pendingLeaves`/`processedLeaves` are already role/store-access filtered
 // by the parent — this only owns pagination + rendering.
-export function LeaveApplicationsTab({ pendingLeaves, processedLeaves, onApprove, onViewDetail }) {
+export function LeaveApplicationsTab({ pendingLeaves, processedLeaves, onApprove, onViewDetail, user, onSubmitLeave }) {
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
   const pagination = usePagination(processedLeaves);
 
   return (
     <div className="space-y-4">
+      {user?.userType === 'manager' && (
+        <div className="bg-white rounded-xl shadow p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">My Leave Request</h3>
+            <p className="text-sm text-gray-500">Your request will be reviewed by an administrator.</p>
+          </div>
+          <button onClick={() => setShowLeaveModal(true)} className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 text-white px-4 py-2 rounded-lg hover:from-amber-700 hover:to-orange-700">
+            <Plus size={18} /> Add Leave Request
+          </button>
+        </div>
+      )}
+
+      {showLeaveModal && (
+        <Modal title="Apply for Leave" onClose={() => setShowLeaveModal(false)} size="lg">
+          <LeaveApplication
+            userId={user?._id ?? user?.id}
+            onSubmit={(leave) => onSubmitLeave?.(leave, () => setShowLeaveModal(false))}
+          />
+        </Modal>
+      )}
+
       {/* Pending Leaves */}
       {pendingLeaves.length > 0 && (
         <div>
@@ -20,7 +45,10 @@ export function LeaveApplicationsTab({ pendingLeaves, processedLeaves, onApprove
             Pending Approvals
           </h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {pendingLeaves.map((leave) => (
+            {pendingLeaves.map((leave) => {
+              const isOwnManagerRequest = user?.userType === 'manager'
+                && String(leave.employeeId) === String(user?._id ?? user?.id);
+              return (
               <div key={leave.id} className="bg-white rounded-xl shadow-lg border-2 border-yellow-200 overflow-hidden">
                 <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-4">
                   <div className="flex items-center justify-between">
@@ -58,7 +86,7 @@ export function LeaveApplicationsTab({ pendingLeaves, processedLeaves, onApprove
                     Applied on: {leave.appliedDate}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-3 border-t">
+                  {!isOwnManagerRequest && <div className="grid grid-cols-2 gap-3 pt-3 border-t">
                     <button
                       onClick={() => onApprove(leave.id, 'Approved')}
                       className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-medium"
@@ -73,10 +101,11 @@ export function LeaveApplicationsTab({ pendingLeaves, processedLeaves, onApprove
                       <XCircle size={18} />
                       Reject
                     </button>
-                  </div>
+                  </div>}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
