@@ -152,8 +152,7 @@ export default function CreateInvoiceModal({ onClose }) {
     const tax = 0;
     const total = Number(subtotal.toFixed(2));
 
-    // Every invoice is created as pending -- payment is collected later
-    // during approval, same flow for every role.
+    // Accounting invoices are auto-approved and require a complete payment breakdown.
     submitInvoiceMutation.mutate(
       {
         customerId: selectedCustomer._id,
