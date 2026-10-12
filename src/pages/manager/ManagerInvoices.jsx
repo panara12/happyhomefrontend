@@ -99,6 +99,18 @@ function formatMoney(value) {
   return `₹${Number(value || 0).toLocaleString('en-IN')}`;
 }
 
+function getPaymentMode(paymentBreakdown = {}) {
+  const modes = [
+    ['cash', 'Cash'],
+    ['upi', 'UPI'],
+    ['debit', 'Debit'],
+  ];
+  const activeModes = modes
+    .filter(([key]) => Number(paymentBreakdown[key]) > 0)
+    .map(([key, label]) => `${label}: ${formatMoney(paymentBreakdown[key])}`);
+  return activeModes.length ? activeModes.join(' + ') : '—';
+}
+
 function sortByRecentDecision(a, b) {
   const aTime = new Date(a.approvedAt || a.updatedAt || a.createdAt || 0).getTime();
   const bTime = new Date(b.approvedAt || b.updatedAt || b.createdAt || 0).getTime();
@@ -601,6 +613,7 @@ export default function ManagerInvoices() {
                   <th className="px-4 py-3 text-left text-sm">Customer</th>
                   <th className="px-4 py-3 text-left text-sm">Phone</th>
                   <th className="px-4 py-3 text-left text-sm">Approved</th>
+                  {!isAccounting && <th className="px-4 py-3 text-left text-sm">Payment Mode</th>}
                   <th className="px-4 py-3 text-right text-sm">Total</th>
                   <th className="px-4 py-3 text-center text-sm">Tally Sync</th>
                   <th className="px-4 py-3 text-center text-sm">Actions</th>
@@ -609,7 +622,7 @@ export default function ManagerInvoices() {
               <tbody className="divide-y divide-gray-200">
                 {pagination.paginatedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={isAccounting ? 7 : 8} className="px-4 py-8 text-center text-gray-500">
                       No approved invoices.
                     </td>
                   </tr>
@@ -620,6 +633,7 @@ export default function ManagerInvoices() {
                       <td className="px-4 py-3 text-gray-800">{invoice.customerName || '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{invoice.customerPhone || '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{formatDate(invoice.approvedAt || invoice.createdAt)}</td>
+                      {!isAccounting && <td className="px-4 py-3 text-gray-600">{getPaymentMode(invoice.paymentBreakdown)}</td>}
                       <td className="px-4 py-3 text-right font-bold text-gray-800">{formatMoney(invoice.total)}</td>
                       <td className="px-4 py-3 text-center"><TallySyncStatus tallySync={invoice.tallySync} /></td>
                       <td className="px-4 py-3">
