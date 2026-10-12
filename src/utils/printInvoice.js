@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 const WATERMARK_URL = `${import.meta.env.BASE_URL}water.png`;
-const SIGNATURE_URL = `${import.meta.env.BASE_URL}sign.jpeg`;
+const SIGNATURE_URL = `${import.meta.env.BASE_URL}signreal-right.png`;
 
 function formatDate(value) {
   if (!value) return '';
@@ -410,16 +410,25 @@ function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscap
       color: #222;
     }
     .bottom .sign {
+      position: relative;
       text-align: right;
       font-size: 9.5px;
     }
     .bottom .sign .for { font-weight: 700; }
+    .bottom .sign .signature-wrap {
+      position: relative;
+      width: 34mm;
+      height: 14mm;
+      margin: 2px -4mm 0 auto;
+    }
     .bottom .sign .signature {
-      display: block;
+      position: absolute;
+      top: 50%;
+      left: 50%;
       width: 34mm;
       height: 14mm;
       object-fit: contain;
-      margin: 2px 0 0 auto;
+      transform: translate(-50%, -50%);
     }
     .bottom .sign .auth {
       margin-top: 0;
@@ -535,7 +544,7 @@ function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscap
       </div>
       <div class="sign">
         <div class="for">for ${escapeHtml(m.storeName || '—')}</div>
-        <img class="signature" src="${escapeHtml(SIGNATURE_URL)}" alt="Authorised signature" />
+        <div class="signature-wrap"><img class="signature" src="${escapeHtml(SIGNATURE_URL)}" alt="Authorised signature" /></div>
         <div class="auth">Authorised Signatory</div>
       </div>
     </div>
