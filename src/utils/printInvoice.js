@@ -515,7 +515,7 @@ function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscap
     <div class="summary-wrap">
       <div class="payment">
         <h3>Payment Mode</h3>
-        <p>Cash: ${escapeHtml(formatAmount(m.cash))} &nbsp;&nbsp; GPay: ${escapeHtml(formatAmount(m.upi))} &nbsp;&nbsp; Debit: ${escapeHtml(formatAmount(m.debit))}</p>
+        <p>Cash: ${escapeHtml(formatAmount(m.cash))} &nbsp;&nbsp; UPI: ${escapeHtml(formatAmount(m.upi))} &nbsp;&nbsp; Debit: ${escapeHtml(formatAmount(m.debit))}</p>
       </div>
       <div class="totals">
         <div class="tax-block">
@@ -798,7 +798,7 @@ export async function downloadInvoicePdfFile(invoice, store, orientation = 'land
     pdf.text('Payment Mode', M, y);
     font('normal', 8.5);
     pdf.text(
-      `Cash: ${formatAmount(m.cash)}   GPay: ${formatAmount(m.upi)}   Debit: ${formatAmount(m.debit)}`,
+      `Cash: ${formatAmount(m.cash)}   UPI: ${formatAmount(m.upi)}   Debit: ${formatAmount(m.debit)}`,
       M,
       y + 4
     );
