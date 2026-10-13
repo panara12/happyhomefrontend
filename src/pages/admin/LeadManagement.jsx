@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Search, Edit2, Eye, UserPlus } from 'lucide-react';
+import { Plus, Search, Edit2, Eye, UserPlus, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSelector } from 'react-redux';
 import { usePagination } from '../../hooks/usePagination';
@@ -78,6 +78,7 @@ export default function LeadManagement({ user: userProp }) {
 
   const { mutate: addLead, isPending: isAdding } = useAddLead();
   const { mutate: updateLead, isPending: isUpdating } = useUpdateLead();
+  const canManageStatus = ['admin', 'manager'].includes(user?.userType);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -189,6 +190,19 @@ export default function LeadManagement({ user: userProp }) {
     addLead(payload, { onSuccess: () => closeModal() });
   };
 
+  const handleStatusChange = (lead, status) => {
+    updateLead(
+      { _id: lead._id, status },
+      { onSuccess: () => toast.success(`Lead marked ${status === 'completed' ? 'completed' : 'cancelled'}`) }
+    );
+  };
+
+  const statusLabel = (status) => ({
+    in_progress: 'In Progress',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
+  }[status] || 'In Progress');
+
   useEffect(() => {
     if (!showModal && !viewingLead) return;
     const onKey = (e) => {
@@ -270,6 +284,7 @@ export default function LeadManagement({ user: userProp }) {
                     <th className="px-4 py-3 font-medium">Customer Name</th>
                     <th className="px-4 py-3 font-medium">Phone Number</th>
                     <th className="px-4 py-3 font-medium">Delivery Date</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
@@ -281,8 +296,35 @@ export default function LeadManagement({ user: userProp }) {
                       <td className="px-4 py-3 text-gray-700">{lead.customer_name}</td>
                       <td className="px-4 py-3 text-gray-700">{lead.phone}</td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatLeadDate(lead.deliverydate || lead.date)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${lead.status === 'completed' ? 'bg-green-100 text-green-700' : lead.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {statusLabel(lead.status)}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-2">
+                          {canManageStatus && (lead.status || 'in_progress') === 'in_progress' && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={isUpdating}
+                                onClick={() => handleStatusChange(lead, 'completed')}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-green-300 text-green-700 rounded-lg hover:bg-green-50 disabled:opacity-50"
+                              >
+                                <Check size={14} />
+                                Completed
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isUpdating}
+                                onClick={() => handleStatusChange(lead, 'cancelled')}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-red-300 text-red-700 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                              >
+                                <X size={14} />
+                                Cancelled
+                              </button>
+                            </>
+                          )}
                           <button
                             type="button"
                             onClick={() => openView(lead)}
