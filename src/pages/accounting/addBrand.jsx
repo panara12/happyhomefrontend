@@ -102,6 +102,7 @@ export default function AddBrand() {
       <TallyStoreSyncModal
         open={showSyncModal}
         stores={stores}
+        recordType={null}
         isPending={syncMutation.isPending}
         onClose={() => setShowSyncModal(false)}
         onConfirm={(selectedStoreId) => syncMutation.mutate({ storeId: selectedStoreId }, { onSuccess: () => setShowSyncModal(false) })}

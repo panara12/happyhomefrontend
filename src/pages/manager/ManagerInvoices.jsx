@@ -60,12 +60,18 @@ const TAB_DATE_CONFIG = {
     fromLabel: 'Rejected From',
     toLabel: 'Rejected To',
   },
+  edited: {
+    dateField: 'createdAt',
+    fromLabel: 'Created From',
+    toLabel: 'Created To',
+  },
 };
 
 const TABS = [
   { id: 'pending', label: 'Pending', activeClass: 'bg-yellow-500 text-white', badgeClass: 'bg-yellow-100 text-yellow-800' },
   { id: 'approved', label: 'Approved', activeClass: 'bg-green-600 text-white', badgeClass: 'bg-green-100 text-green-800' },
   { id: 'rejected', label: 'Rejected', activeClass: 'bg-red-600 text-white', badgeClass: 'bg-red-100 text-red-800' },
+  { id: 'edited', label: 'Edited', activeClass: 'bg-blue-600 text-white', badgeClass: 'bg-blue-100 text-blue-800' },
 ];
 
 const ACCOUNTING_TABS = [
@@ -167,6 +173,7 @@ export default function ManagerInvoices() {
   const { stores } = useStoreContext();
   const user = useSelector((state) => state.app.userInfo);
   const isAccounting = user?.userType === 'accounting';
+  const isAdmin = user?.userType === 'admin';
   const theme = isAccounting ? THEME.accounting : THEME.manager;
   const tabs = isAccounting ? ACCOUNTING_TABS : TABS;
   const defaultRange = useMemo(() => getDefaultDateRange(), []);
@@ -211,7 +218,7 @@ export default function ManagerInvoices() {
   };
 
   const { data, isLoading, isError, refetch } = useGetStoreInvoices({
-    status: activeTab,
+    status: activeTab === 'edited' ? undefined : activeTab,
     q: debouncedSearch,
     fromDate,
     toDate,
@@ -219,13 +226,14 @@ export default function ManagerInvoices() {
     limit: 100,
     fetchAll: true,
   });
+  const { data: tallyInvoiceData } = useGetStoreInvoices({ status: 'approved', limit: 100, fetchAll: true });
 
   const updateStatusMutation = useUpdateInvoiceStatus();
   const updateInvoiceMutation = useUpdateInvoice();
   const syncPendingTally = useSyncPendingTally();
 
   const invoices = data?.invoices || [];
-  const summary = data?.summary || { total: 0, pending: 0, approved: 0, rejected: 0 };
+  const summary = data?.summary || { total: 0, pending: 0, approved: 0, rejected: 0, edited: 0 };
 
   // Always filter by status so keepPreviousData from another tab cannot leak into the list
   const pendingInvoices = useMemo(
@@ -240,11 +248,16 @@ export default function ManagerInvoices() {
     () => invoices.filter((inv) => inv.status === 'rejected').sort(sortByRecentDecision),
     [invoices]
   );
+  const editedInvoices = useMemo(
+    () => invoices.filter((inv) => inv.isEdited).sort(sortByRecentDecision),
+    [invoices]
+  );
 
   const tabLists = {
     pending: pendingInvoices,
     approved: approvedInvoices,
     rejected: rejectedInvoices,
+    edited: editedInvoices,
   };
 
   const activeInvoices = tabLists[activeTab] || pendingInvoices;
@@ -255,6 +268,7 @@ export default function ManagerInvoices() {
     pending: summary.pending,
     approved: summary.approved,
     rejected: summary.rejected,
+    edited: summary.edited || 0,
   };
 
   const refreshInvoiceLists = async (updatedInvoice) => {
@@ -352,7 +366,11 @@ export default function ManagerInvoices() {
 
   const handleSaveEdit = (payload) => {
     updateInvoiceMutation.mutate(payload, {
-      onSuccess: () => setEditingInvoice(null),
+      onSuccess: async (res) => {
+        await refreshInvoiceLists(res?.invoice);
+        setEditingInvoice(null);
+        setSelectedInvoice(null);
+      },
     });
   };
 
@@ -523,6 +541,11 @@ export default function ManagerInvoices() {
                         </span>
                       </div>
                       <p className="text-sm opacity-90 mt-1">{formatDate(invoice.createdAt)}</p>
+                      {invoice.isEdited && <p className="mt-2">
+                        <span className="rounded-full bg-white/20 px-2 py-1 text-xs">
+                          {`Edited ${invoice.editCount || 1} time(s)`}
+                        </span>
+                      </p>}
                     </div>
 
                     <div className="p-4 space-y-3">
@@ -553,13 +576,13 @@ export default function ManagerInvoices() {
                       )}
 
                       <div className="grid grid-cols-2 gap-2 pt-3">
-                        <button
+                        {isAdmin && <button
                           onClick={() => setEditingInvoice(invoice)}
                           className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
                         >
                           <Edit2 size={16} />
                           Edit
-                        </button>
+                        </button>}
                         <button
                           onClick={() => setSelectedInvoice(invoice)}
                           className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all"
@@ -629,7 +652,12 @@ export default function ManagerInvoices() {
                 ) : (
                   pagination.paginatedItems.map((invoice) => (
                     <tr key={invoice._id || invoice.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-800">{invoice.invoiceNumber}</td>
+                      <td className="px-4 py-3 font-medium text-gray-800">
+                        {invoice.invoiceNumber}
+                        {invoice.isEdited && <div className="mt-1 text-xs text-blue-700">
+                          {`Edited (${invoice.editCount || 1})`}
+                        </div>}
+                      </td>
                       <td className="px-4 py-3 text-gray-800">{invoice.customerName || '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{invoice.customerPhone || '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{formatDate(invoice.approvedAt || invoice.createdAt)}</td>
@@ -701,7 +729,12 @@ export default function ManagerInvoices() {
                 ) : (
                   pagination.paginatedItems.map((invoice) => (
                     <tr key={invoice._id || invoice.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-800">{invoice.invoiceNumber}</td>
+                      <td className="px-4 py-3 font-medium text-gray-800">
+                        {invoice.invoiceNumber}
+                        {invoice.isEdited && <div className="mt-1 text-xs text-blue-700">
+                          {`Edited (${invoice.editCount || 1})`}
+                        </div>}
+                      </td>
                       <td className="px-4 py-3 text-gray-800">{invoice.customerName || '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{invoice.customerPhone || '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{formatDate(invoice.approvedAt || invoice.createdAt)}</td>
@@ -720,6 +753,55 @@ export default function ManagerInvoices() {
                     </tr>
                   ))
                 )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={pagination.pageSize}
+            onPageChange={pagination.goToPage}
+          />
+        </div>
+      )}
+
+      {!isLoading && !isError && activeTab === 'edited' && (
+        <div className="bg-white rounded-xl shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-blue-600 text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm">Invoice #</th>
+                  <th className="px-4 py-3 text-left text-sm">Customer</th>
+                  <th className="px-4 py-3 text-left text-sm">Invoice Status</th>
+                  <th className="px-4 py-3 text-left text-sm">Edit Status</th>
+                  <th className="px-4 py-3 text-right text-sm">Total</th>
+                  <th className="px-4 py-3 text-center text-sm">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {pagination.paginatedItems.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">No edited invoices.</td></tr>
+                ) : pagination.paginatedItems.map((invoice) => (
+                  <tr key={invoice._id || invoice.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-800">{invoice.invoiceNumber}</td>
+                    <td className="px-4 py-3 text-gray-800">{invoice.customerName || '—'}</td>
+                    <td className="px-4 py-3 capitalize text-gray-700">{invoice.status}</td>
+                    <td className="px-4 py-3 text-blue-700">Edited {invoice.editCount || 1} time(s)</td>
+                    <td className="px-4 py-3 text-right font-bold text-gray-800">{formatMoney(invoice.total)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-2">
+                        <button onClick={() => setSelectedInvoice(invoice)} className="p-2 hover:bg-blue-50 rounded-lg text-blue-600" title="View">
+                          <Eye size={16} />
+                        </button>
+                        {isAdmin && <button onClick={() => setEditingInvoice(invoice)} className="p-2 hover:bg-amber-50 rounded-lg text-amber-600" title="Edit invoice">
+                          <Edit2 size={16} />
+                        </button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -761,6 +843,10 @@ export default function ManagerInvoices() {
           onClose={() => setSelectedInvoice(null)}
           onPrint={handlePrint}
           onSendPdf={handleSendPdf}
+          onEdit={isAdmin ? (invoice) => {
+            setSelectedInvoice(null);
+            setEditingInvoice(invoice);
+          } : undefined}
         />
       )}
 
@@ -780,9 +866,11 @@ export default function ManagerInvoices() {
       <TallyStoreSyncModal
         open={showTallySyncModal}
         stores={stores}
+        records={tallyInvoiceData?.invoices || []}
+        recordType="invoice"
         isPending={syncPendingTally.isPending}
         onClose={() => setShowTallySyncModal(false)}
-        onConfirm={(storeId) => syncPendingTally.mutate({ storeId }, { onSuccess: () => setShowTallySyncModal(false) })}
+        onConfirm={(payload) => syncPendingTally.mutate(payload, { onSuccess: () => setShowTallySyncModal(false) })}
         title="Sync pending sales data to Tally"
       />
     </div>

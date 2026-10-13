@@ -1,6 +1,6 @@
-import { Printer, Send } from 'lucide-react';
+import { Printer, Send, Edit2 } from 'lucide-react';
 import logoImg from '../../assets/logo.jpg';
-import Modal, { modalSecondaryBtnClass } from '../../components/ui/Modal';
+import Modal from '../../components/ui/Modal';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -28,7 +28,7 @@ function statusBadgeClass(status) {
   }
 }
 
-export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf }) {
+export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf, onEdit }) {
   if (!invoice) return null;
 
   const payment = invoice.paymentBreakdown || {};
@@ -56,27 +56,41 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf 
       size="md"
       onClose={onClose}
       footer={
-        <>
+        <div className={`grid w-full gap-2 ${onEdit ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(invoice)}
+              className="w-full min-w-0 px-2 sm:px-3 py-2.5 flex items-center justify-center gap-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs sm:text-sm font-medium"
+            >
+              <Edit2 size={16} className="shrink-0" />
+              Edit Invoice
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onPrint?.(invoice)}
-            className="w-full sm:w-48 px-4 py-2.5 flex items-center justify-center gap-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium shrink-0"
+            className="w-full min-w-0 px-2 sm:px-3 py-2.5 flex items-center justify-center gap-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium"
           >
-            <Printer size={18} />
+            <Printer size={16} className="shrink-0" />
             Print
           </button>
           <button
             type="button"
             onClick={() => onSendPdf?.(invoice)}
-            className="w-full sm:w-48 px-4 py-2.5 flex items-center justify-center gap-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium shrink-0"
+            className="w-full min-w-0 px-2 sm:px-3 py-2.5 flex items-center justify-center gap-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs sm:text-sm font-medium"
           >
-            <Send size={18} />
+            <Send size={16} className="shrink-0" />
             Send PDF
           </button>
-          <button type="button" onClick={onClose} className={modalSecondaryBtnClass}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full min-w-0 px-2 sm:px-3 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs sm:text-sm font-medium"
+          >
             Close
           </button>
-        </>
+        </div>
       }
     >
       <div className="bg-gray-50 rounded-xl p-4 mb-4">
@@ -97,6 +111,12 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf 
             <p className="text-sm text-gray-500">Store:</p>
             <p className="font-semibold text-gray-800">{invoice.storeId || '—'}</p>
           </div>
+          {invoice.isEdited && <div>
+            <p className="text-sm text-gray-500">Edit Status:</p>
+            <p className="font-semibold text-blue-700">
+              {`Edited ${invoice.editCount || 1} time(s)`}
+            </p>
+          </div>}
         </div>
       </div>
 

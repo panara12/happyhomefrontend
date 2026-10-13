@@ -22,7 +22,7 @@ export function useSyncPendingTally() {
       toast.success(
         data?.message
           ? `${data.message} (invoices: ${invSynced}, products: ${prodSynced})`
-          : "Pending Tally sync completed"
+          : "Tally sync completed"
       );
     },
   });

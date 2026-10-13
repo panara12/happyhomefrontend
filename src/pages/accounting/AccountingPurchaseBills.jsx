@@ -331,9 +331,11 @@ export default function AccountingPurchaseBills() {
             <TallyStoreSyncModal
                 open={showTallySyncModal}
                 stores={stores}
+                records={bills}
+                recordType="purchaseBill"
                 isPending={syncPendingTally.isPending}
                 onClose={() => setShowTallySyncModal(false)}
-                onConfirm={(storeId) => syncPendingTally.mutate({ storeId }, { onSuccess: () => setShowTallySyncModal(false) })}
+                onConfirm={(payload) => syncPendingTally.mutate(payload, { onSuccess: () => setShowTallySyncModal(false) })}
                 title="Sync pending purchase data to Tally"
             />
 
