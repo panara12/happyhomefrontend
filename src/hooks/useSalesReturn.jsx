@@ -21,7 +21,7 @@ export function useCreateSalesReturn() {
   return useApiMutation({
     url: "/sales-returns/create",
     method: "post",
-    invalidateKeys: [SALES_RETURNS_QUERY_KEY],
+    invalidateKeys: [SALES_RETURNS_QUERY_KEY, ["customers"]],
     successMessage: "Sales return created successfully",
   });
 }

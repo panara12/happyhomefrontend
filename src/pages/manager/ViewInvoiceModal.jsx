@@ -43,6 +43,7 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf,
   );
   // Total Amount = final selling prices (GST already included in price)
   const totalAmount = Number(invoice.total ?? itemsSubtotal);
+  const isPending = invoice.status === 'pending';
 
   return (
     <Modal
@@ -56,8 +57,8 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf,
       size="md"
       onClose={onClose}
       footer={
-        <div className={`grid w-full gap-2 ${onEdit ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
-          {onEdit && (
+        <div className={`grid w-full gap-2 ${isPending ? 'grid-cols-1' : onEdit ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
+          {!isPending && onEdit && (
             <button
               type="button"
               onClick={() => onEdit(invoice)}
@@ -67,22 +68,24 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf,
               Edit Invoice
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => onPrint?.(invoice)}
-            className="w-full min-w-0 px-2 sm:px-3 py-2.5 flex items-center justify-center gap-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium"
-          >
-            <Printer size={16} className="shrink-0" />
-            Print
-          </button>
-          <button
-            type="button"
-            onClick={() => onSendPdf?.(invoice)}
-            className="w-full min-w-0 px-2 sm:px-3 py-2.5 flex items-center justify-center gap-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs sm:text-sm font-medium"
-          >
-            <Send size={16} className="shrink-0" />
-            Send PDF
-          </button>
+          {!isPending && <>
+            <button
+              type="button"
+              onClick={() => onPrint?.(invoice)}
+              className="w-full min-w-0 px-2 sm:px-3 py-2.5 flex items-center justify-center gap-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium"
+            >
+              <Printer size={16} className="shrink-0" />
+              Print
+            </button>
+            <button
+              type="button"
+              onClick={() => onSendPdf?.(invoice)}
+              className="w-full min-w-0 px-2 sm:px-3 py-2.5 flex items-center justify-center gap-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs sm:text-sm font-medium"
+            >
+              <Send size={16} className="shrink-0" />
+              Send PDF
+            </button>
+          </>}
           <button
             type="button"
             onClick={onClose}
