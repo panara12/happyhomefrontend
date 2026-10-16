@@ -635,7 +635,7 @@ export default function ManagerInvoices() {
                   <th className="px-4 py-3 text-left text-sm">Invoice #</th>
                   <th className="px-4 py-3 text-left text-sm">Customer</th>
                   <th className="px-4 py-3 text-left text-sm">Phone</th>
-                  <th className="px-4 py-3 text-left text-sm">Approved</th>
+                  <th className="px-4 py-3 text-left text-sm">Invoice Date</th>
                   {!isAccounting && <th className="px-4 py-3 text-left text-sm">Payment Mode</th>}
                   <th className="px-4 py-3 text-right text-sm">Total</th>
                   <th className="px-4 py-3 text-center text-sm">Tally Sync</th>
@@ -660,7 +660,7 @@ export default function ManagerInvoices() {
                       </td>
                       <td className="px-4 py-3 text-gray-800">{invoice.customerName || '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{invoice.customerPhone || '—'}</td>
-                      <td className="px-4 py-3 text-gray-600">{formatDate(invoice.approvedAt || invoice.createdAt)}</td>
+                      <td className="px-4 py-3 text-gray-600">{formatDate(invoice.invoiceDate || invoice.createdAt)}</td>
                       {!isAccounting && <td className="px-4 py-3 text-gray-600">{getPaymentMode(invoice.paymentBreakdown)}</td>}
                       <td className="px-4 py-3 text-right font-bold text-gray-800">{formatMoney(invoice.total)}</td>
                       <td className="px-4 py-3 text-center"><TallySyncStatus tallySync={invoice.tallySync} /></td>

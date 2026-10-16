@@ -23,6 +23,7 @@ export default function CreateInvoiceModal({ onClose }) {
   const user = useSelector((state) => state.app.userInfo);
 
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   const [storeQuery, setStoreQuery] = useState('');
   const [selectedStore, setSelectedStore] = useState(null);
@@ -157,6 +158,7 @@ export default function CreateInvoiceModal({ onClose }) {
       {
         customerId: selectedCustomer._id,
         storeId: selectedStore.storeId,
+        invoiceDate,
         summary: { subtotal: total, tax, total },
         items: lineItems,
       },
@@ -224,6 +226,10 @@ useBarcodeScanner(handleScan, { enabled: !submitInvoiceMutation.isPending });
       }
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mb-4">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Invoice Date</label>
+          <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className={modalInputClass} />
+        </div>
         <div className="sm:col-span-2">
           <CustomerSearch
             selectedCustomer={selectedCustomer}

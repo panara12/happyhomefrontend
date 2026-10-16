@@ -240,6 +240,7 @@ export default function PurchaseBills() {
         billDate: formData.billDate,
         supplierId: supplier.supplierId,
         supplierName: supplier.supplierName,
+        supplierPhoneNumber: formData.supplierPhoneNumber.trim() || (supplier.supplierPhoneNumber != null ? String(supplier.supplierPhoneNumber) : ''),
         supplierGSTIN: formData.supplierGSTIN.trim() || supplier.supplierGstNumber || '',
         storeId: formData.storeId,
         gstType: formData.gstType,

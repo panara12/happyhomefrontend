@@ -27,6 +27,7 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
   const [pointsRedeemed, setPointsRedeemed] = useState('0');
   const [cashDiscount, setCashDiscount] = useState('0');
   const [invoiceTotal, setInvoiceTotal] = useState('0');
+  const [invoiceDate, setInvoiceDate] = useState('');
 
   const activeProductQuery = items[activeProductRow]?.productQuery || '';
   const { data: productsData } = useGetAllProducts(activeProductQuery);
@@ -57,6 +58,8 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
     setPointsRedeemed(String(invoice.loyaltyPointsRedeemed ?? 0));
     setCashDiscount(String(invoice.cashDiscountAmount ?? 0));
     setInvoiceTotal(String(invoice.total ?? 0));
+    const sourceDate = invoice.invoiceDate || invoice.createdAt;
+    setInvoiceDate(sourceDate ? new Date(sourceDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
     setItems(
       (invoice.items || []).map((item) => ({
         productId: String(item.productId || ''),
@@ -139,6 +142,7 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
       loyaltyPointsRedeemed: redeemed,
       cashDiscountAmount: discount,
       total: finalTotal,
+      invoiceDate,
       items: items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -172,6 +176,10 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
         </>
       }
     >
+      <div className="mb-4">
+        <label className={modalLabelClass}>Invoice Date</label>
+        <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className={modalInputClass} />
+      </div>
       <div className="mb-4">
         <CustomerSearch
           selectedCustomer={selectedCustomer}
