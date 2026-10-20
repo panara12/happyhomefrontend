@@ -23,6 +23,7 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
   const [items, setItems] = useState([]);
   const [activeProductRow, setActiveProductRow] = useState(0);
   const [gstType, setGstType] = useState('PRODUCT');
+  const [isGstInvoice, setIsGstInvoice] = useState(false);
   const [payments, setPayments] = useState({ cash: '0', upi: '0', debit: '0' });
   const [pointsRedeemed, setPointsRedeemed] = useState('0');
   const [cashDiscount, setCashDiscount] = useState('0');
@@ -46,10 +47,12 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
       _id: invoice.customerId,
       name: invoice.customerName || '',
       phone: invoice.customerPhone || '',
+      gstNumber: invoice.customerGstNumber || '',
       loyaltyPoints: invoice.customerPoints || 0,
       clientType: invoice.customerType || 'Regular',
     });
     setGstType(invoice.gstType || 'PRODUCT');
+    setIsGstInvoice(Boolean(invoice.isGstInvoice));
     setPayments({
       cash: String(invoice.paymentBreakdown?.cash ?? 0),
       upi: String(invoice.paymentBreakdown?.upi ?? 0),
@@ -134,6 +137,7 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
       id: invoice._id || invoice.id,
       customerId: selectedCustomer._id,
       gstType,
+      isGstInvoice,
       paymentBreakdown: {
         cash: Number(payments.cash) || 0,
         upi: Number(payments.upi) || 0,
@@ -279,6 +283,15 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
       </div>
 
       <div className="mt-5 border-t pt-4 space-y-4">
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isGstInvoice}
+            onChange={(e) => setIsGstInvoice(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+          />
+          GST Invoice
+        </label>
         <div>
           <label className={modalLabelClass}>Invoice GST Type</label>
           <select value={gstType} onChange={(e) => setGstType(e.target.value)} className={modalInputClass}>

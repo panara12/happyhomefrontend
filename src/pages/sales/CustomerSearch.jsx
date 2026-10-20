@@ -11,6 +11,7 @@ import Modal, {
 const emptyCustomer = {
   name: '',
   phone: '',
+  gstNumber: '',
   email: '',
   address: '',
   dateOfBirth: '',
@@ -143,6 +144,9 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer, skipNewCust
                 </span>
               </div>
               <div className="text-sm text-gray-600">Phone: {selectedCustomer.phone}</div>
+              {selectedCustomer.gstNumber && (
+                <div className="text-sm text-gray-600">GST Number: {selectedCustomer.gstNumber}</div>
+              )}
               {selectedCustomer.email && (
                 <div className="text-sm text-gray-600 break-all">Email: {selectedCustomer.email}</div>
               )}
@@ -192,6 +196,13 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer, skipNewCust
               placeholder="Phone Number *"
               value={newCustomer.phone}
               onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            />
+            <input
+              type="text"
+              placeholder="GST Number (Optional)"
+              value={newCustomer.gstNumber}
+              onChange={(e) => setNewCustomer({ ...newCustomer, gstNumber: e.target.value })}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
             />
             <input
@@ -291,6 +302,15 @@ export function CustomerSearch({ onSelectCustomer, selectedCustomer, skipNewCust
                 type="tel"
                 value={editingCustomer.phone}
                 onChange={(e) => setEditingCustomer({ ...editingCustomer, phone: e.target.value })}
+                className={modalInputClass}
+              />
+            </div>
+            <div>
+              <label className={modalLabelClass}>GST Number</label>
+              <input
+                type="text"
+                value={editingCustomer.gstNumber || ''}
+                onChange={(e) => setEditingCustomer({ ...editingCustomer, gstNumber: e.target.value })}
                 className={modalInputClass}
               />
             </div>

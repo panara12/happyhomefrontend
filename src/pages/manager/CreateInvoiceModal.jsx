@@ -24,6 +24,7 @@ export default function CreateInvoiceModal({ onClose }) {
 
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [isGstInvoice, setIsGstInvoice] = useState(false);
 
   const [storeQuery, setStoreQuery] = useState('');
   const [selectedStore, setSelectedStore] = useState(null);
@@ -139,6 +140,10 @@ export default function CreateInvoiceModal({ onClose }) {
       toast.error('Add at least one product with quantity');
       return;
     }
+    if (isGstInvoice && !selectedCustomer.gstNumber?.trim()) {
+      toast.error('A customer GST number is required for a GST invoice.');
+      return;
+    }
 
     const lineItems = items.map((item) => ({
       productId: item.productId,
@@ -159,6 +164,7 @@ export default function CreateInvoiceModal({ onClose }) {
         customerId: selectedCustomer._id,
         storeId: selectedStore.storeId,
         invoiceDate,
+        isGstInvoice,
         summary: { subtotal: total, tax, total },
         items: lineItems,
       },
@@ -237,6 +243,15 @@ useBarcodeScanner(handleScan, { enabled: !submitInvoiceMutation.isPending });
             skipNewCustomerButtonOnTab
           />
         </div>
+        <label className="sm:col-span-2 flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isGstInvoice}
+            onChange={(e) => setIsGstInvoice(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+          />
+          GST Invoice
+        </label>
         <div className="sm:col-span-2">
           <AutocompleteInput
             label="Store"

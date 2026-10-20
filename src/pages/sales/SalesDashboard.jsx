@@ -32,6 +32,7 @@ export default function SalesmanDashboard() {
   const [activeTab, setActiveTab] = useState('create');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [invoiceItems, setInvoiceItems] = useState([]);
+  const [isGstInvoice, setIsGstInvoice] = useState(false);
 
 
   const handleAddItem = (item, quantity, price) => {
@@ -99,6 +100,10 @@ export default function SalesmanDashboard() {
       alert('Please select a customer and add items to the invoice.');
       return;
     }
+    if (isGstInvoice && !selectedCustomer.gstNumber?.trim()) {
+      toast.error('A customer GST number is required for a GST invoice.');
+      return;
+    }
 
     // Price is final selling price (including GST) — total is sum of line totals only
     const subtotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
@@ -118,6 +123,7 @@ export default function SalesmanDashboard() {
 
     const payload = {
       customerId: newInvoice.customerId,
+      isGstInvoice,
       summary: {
         subtotal: Number(newInvoice.subtotal.toFixed(2)),
         tax: Number(newInvoice.tax.toFixed(2)),
@@ -138,6 +144,7 @@ export default function SalesmanDashboard() {
         const appended = Boolean(data?.appended);
         setSelectedCustomer(null);
         setInvoiceItems([]);
+        setIsGstInvoice(false);
         toast.success(
           appended
             ? `Items added to pending invoice #${savedInvoiceNumber}`
@@ -173,6 +180,7 @@ export default function SalesmanDashboard() {
   const handleNewInvoice = () => {
     setSelectedCustomer(null);
     setInvoiceItems([]);
+    setIsGstInvoice(false);
     setActiveTab('create');
   };
 
@@ -307,6 +315,15 @@ export default function SalesmanDashboard() {
 
             {selectedCustomer && (
               <>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isGstInvoice}
+                    onChange={(e) => setIsGstInvoice(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  GST Invoice
+                </label>
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                   <h3 className="font-medium mb-4">Add Items</h3>
                   <ItemSearch onAddItem={handleAddItem} onScanSku={handleScan}/>
