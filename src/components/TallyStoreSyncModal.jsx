@@ -17,7 +17,9 @@ export default function TallyStoreSyncModal({ open, stores = [], records = [], r
 
   const storeRecords = useMemo(() => records.filter((record) =>
     String(record.storeId || record.store?.storeId || '') === String(storeId)
-      && (recordType !== 'invoice' || (record.status === 'approved' && !record.isEdited))
+      // Edited invoices remain selectable until they have synced. The pending /
+      // synced split below is the single source of truth for eligibility.
+      && (recordType !== 'invoice' || record.status === 'approved')
   ), [records, recordType, storeId]);
   const isRecordSynced = (record) => record.tallySync?.synced || record.tallySync?.status === 'synced';
   const pendingRecords = storeRecords.filter((record) => !isRecordSynced(record));
