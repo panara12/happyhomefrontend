@@ -444,7 +444,7 @@ export default function ManagerInvoices() {
           <input
             id="invoice-search"
             type="text"
-            placeholder="Invoice number, customer name, or phone..."
+            placeholder="Invoice number, customer name, phone, or GST number..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={`w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none ${theme.focusRing}`}
