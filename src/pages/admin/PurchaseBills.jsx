@@ -47,6 +47,8 @@ const emptyForm = {
   gstType: 'CGST/SGST',
   packingExpense: 0,
   discountAmount: 0,
+  // Leave blank until the user needs to override the calculated amount.
+  totalAmount: '',
   items: [{ ...emptyItem }],
 };
 
@@ -267,7 +269,9 @@ export default function PurchaseBills() {
         CGSTplusSGST: billFormTotals.cgst + billFormTotals.sgst,
         packingExpense: Number(formData.packingExpense) || 0,
         discountAmount: Number(formData.discountAmount) || 0,
-        totalAmount: billFormTotals.total,
+        totalAmount: formData.totalAmount === ''
+          ? billFormTotals.total
+          : Number(formData.totalAmount),
       };
 
       await addPurchaseBill(payload);
@@ -880,9 +884,19 @@ export default function PurchaseBills() {
               <span className="text-gray-700">{formData.gstType === 'IGST' ? 'IGST:' : 'CGST + SGST:'}</span>
               <span className="font-medium text-gray-800">₹{(billFormTotals.cgst + billFormTotals.sgst).toLocaleString()}</span>
             </div>
-            <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-              <span className="text-base font-bold text-gray-800">Total Amount:</span>
-              <span className="text-xl font-bold text-amber-600">₹{billFormTotals.total.toLocaleString()}</span>
+            <div className="pt-2 border-t border-gray-200">
+              <label htmlFor="purchase-bill-total-amount" className={modalLabelClass}>Total Amount</label>
+              <input
+                id="purchase-bill-total-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.totalAmount}
+                placeholder={billFormTotals.total.toFixed(2)}
+                onChange={(event) => setFormData((prev) => ({ ...prev, totalAmount: event.target.value }))}
+                className={`${modalInputClass} text-xl font-bold text-amber-600`}
+              />
+              <p className="mt-1 text-xs text-gray-500">Calculated total: ₹{billFormTotals.total.toLocaleString()}</p>
             </div>
           </div>
         </Modal>
