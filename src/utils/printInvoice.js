@@ -169,6 +169,7 @@ function buildInvoiceModel(invoice, storeArg) {
     invoiceDate: formatDate(invoice.approvedAt || invoice.createdAt),
     partyName: invoice.customerName || '—',
     partyPhone: invoice.customerPhone || '',
+    partyGst: String(invoice.customerGstNumber || '').trim(),
     amountWords: numberToIndianWords(grandTotal),
     cash: Number(payment.cash) || 0,
     upi: Number(payment.upi) || 0,
@@ -469,6 +470,7 @@ function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscap
         <h3>Bill To</h3>
         <p>${escapeHtml(m.partyName)}</p>
         ${m.partyPhone ? `<p>Phone: ${escapeHtml(m.partyPhone)}</p>` : ''}
+        ${m.partyGst ? `<p>GSTIN/UIN: ${escapeHtml(m.partyGst)}</p>` : ''}
         ${m.storeState || m.storeCode ? `<p>State Name : ${escapeHtml(m.storeState)}${m.storeCode ? `, Code : ${escapeHtml(m.storeCode)}` : ''}</p>` : ''}
       </div>
       <div>
@@ -711,6 +713,10 @@ export async function downloadInvoicePdfFile(invoice, store, orientation = 'land
     leftY += 3.6;
     if (m.partyPhone) {
       pdf.text(`Phone: ${m.partyPhone}`, leftX, leftY);
+      leftY += 3.6;
+    }
+    if (m.partyGst) {
+      pdf.text(`GSTIN/UIN: ${m.partyGst}`, leftX, leftY);
       leftY += 3.6;
     }
     if (m.storeState || m.storeCode) {
