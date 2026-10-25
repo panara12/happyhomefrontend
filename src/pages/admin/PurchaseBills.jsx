@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search, Download, Eye, Calendar, CheckCircle, RefreshCw } from 'lucide-react';
+import { Plus, Search, Download, Eye, Calendar, CheckCircle, RefreshCw, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
@@ -9,7 +9,7 @@ import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 import { useSyncPendingTally } from '../../hooks/useTally';
 import { useStockCategoryContext } from '../../context/stockcategoryContext';
 import { useGetAllUnits } from '../../hooks/useUnit';
-import { useAddPurchaseBill } from '../../hooks/usePurchaseBill';
+import { useAddPurchaseBill, useUpdatePurchaseBill } from '../../hooks/usePurchaseBill';
 import { useAddSupplier, useSearchSuppliers } from '../../hooks/useSupplier';
 import { useGetAllProducts } from '../../hooks/useProduct';
 import Modal, {
@@ -56,6 +56,13 @@ function roundUpMoney(value) {
   return Math.ceil(Number(value) || 0);
 }
 
+function formatMoney(value) {
+  return Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function applyItemDiscount(item) {
   const mrp = roundUpMoney(item.mrp);
   const discType = item.discType === 'value' ? 'value' : 'percent';
@@ -94,6 +101,15 @@ function TallySyncBadge({ bill }) {
   );
 }
 
+function EditStatusBadge({ bill }) {
+  if (!bill.isEdited) return <span className="text-xs text-gray-400">Original</span>;
+  return (
+    <span className="inline-flex rounded-full px-3 py-1 text-xs font-medium bg-purple-100 text-purple-700">
+      Edited {bill.editCount || 1}×
+    </span>
+  );
+}
+
 export default function PurchaseBills() {
   const { stores } = useStoreContext();
   const { data: purchaseBillsData, isLoading: billsLoading } = useGetAllPurchaseBill();
@@ -105,24 +121,27 @@ export default function PurchaseBills() {
   const { data: unitList, isLoading: isUnitLoading } = useGetAllUnits();
   const units = unitList?.units || [];
   const { mutateAsync: addPurchaseBill, isPending: isBillSubmitting } = useAddPurchaseBill();
+  const { mutateAsync: updatePurchaseBill, isPending: isBillUpdating } = useUpdatePurchaseBill();
   const { mutateAsync: addSupplier, isPending: isSupplierSubmitting } = useAddSupplier();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTallySyncModal, setShowTallySyncModal] = useState(false);
   const [viewingBill, setViewingBill] = useState(null);
+  const [editingBill, setEditingBill] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState(emptyForm);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const { data: supplierSearchData, isLoading: suppliersLoading } = useSearchSuppliers(supplierSearchTerm);
   const supplierSearchResults = supplierSearchData?.suppliers ?? [];
-  const isSubmitting = isBillSubmitting || isSupplierSubmitting;
+  const isSubmitting = isBillSubmitting || isBillUpdating || isSupplierSubmitting;
   const [activeSearchIndex, setActiveSearchIndex] = useState(null);
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const { data: itemProductSearchData } = useGetAllProducts(itemSearchTerm);
   const itemSearchResults = itemSearchTerm ? (itemProductSearchData?.products || []) : [];
 
   const openAddModal = () => {
+    setEditingBill(null);
     setFormData({
       ...emptyForm,
       billDate: new Date().toISOString().split('T')[0],
@@ -132,6 +151,30 @@ export default function PurchaseBills() {
     setItemSearchTerm('');
     setSupplierSearchTerm('');
     setSelectedSupplier(null);
+    setShowAddModal(true);
+  };
+
+  const openEditModal = (bill) => {
+    setEditingBill(bill);
+    setFormData({
+      ...emptyForm,
+      ...bill,
+      billDate: bill.billDate ? new Date(bill.billDate).toISOString().slice(0, 10) : emptyForm.billDate,
+      supplierPhoneNumber: bill.supplierPhoneNumber || '',
+      supplierGSTIN: bill.supplierGSTIN || '',
+      totalAmount: bill.totalAmount == null ? '' : Number(bill.totalAmount).toFixed(2),
+      items: (bill.items || []).map((item) => ({
+        ...emptyItem, ...item,
+        brand: typeof item.brand === 'object' ? item.brand?._id : item.brand,
+        category: typeof item.category === 'object' ? item.category?.categoryId || item.category?._id : item.category,
+        unit: typeof item.unit === 'object' ? item.unit?._id : item.unit,
+        discType: 'value',
+      })),
+    });
+    setSelectedSupplier({ supplierId: bill.supplierId, supplierName: bill.supplierName, supplierPhoneNumber: bill.supplierPhoneNumber, supplierGstNumber: bill.supplierGSTIN });
+    setSupplierSearchTerm('');
+    setItemSearchTerm('');
+    setActiveSearchIndex(null);
     setShowAddModal(true);
   };
 
@@ -224,7 +267,7 @@ export default function PurchaseBills() {
     }
 
     try {
-      const supplier =
+      const supplier = editingBill ? selectedSupplier :
         selectedSupplier?.supplierName.toLowerCase() === formData.supplierName.trim().toLowerCase()
           ? selectedSupplier
           : (
@@ -269,14 +312,20 @@ export default function PurchaseBills() {
         CGSTplusSGST: billFormTotals.cgst + billFormTotals.sgst,
         packingExpense: Number(formData.packingExpense) || 0,
         discountAmount: Number(formData.discountAmount) || 0,
-        totalAmount: formData.totalAmount === ''
+        totalAmount: Number((formData.totalAmount === ''
           ? billFormTotals.total
-          : Number(formData.totalAmount),
+          : Number(formData.totalAmount)).toFixed(2)),
       };
 
-      await addPurchaseBill(payload);
-      toast.success('Purchase bill created and inventory updated.');
+      if (editingBill) {
+        await updatePurchaseBill({ id: editingBill.billId, ...payload });
+        toast.success('Purchase bill updated.');
+      } else {
+        await addPurchaseBill(payload);
+        toast.success('Purchase bill created and inventory updated.');
+      }
       setFormData(emptyForm);
+      setEditingBill(null);
       setShowAddModal(false);
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Failed to create purchase bill.');
@@ -296,6 +345,7 @@ export default function PurchaseBills() {
     totalValue: bills.reduce((sum, b) => sum + (b.totalAmount || 0), 0),
     totalGST: bills.reduce((sum, b) => sum + (b.CGSTplusSGST || 0), 0),
     itemsPurchased: bills.reduce((sum, b) => sum + (b.items || []).reduce((s, i) => s + (i.quantity || 0), 0), 0),
+    edited: bills.filter((b) => b.isEdited).length,
   }), [bills]);
 
   const billsPagination = usePagination(filteredBills);
@@ -339,7 +389,7 @@ export default function PurchaseBills() {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg shadow p-4">
           <p className="text-gray-600 text-sm">Total Bills</p>
           <p className="text-2xl font-bold text-gray-800 mt-1">{bills.length}</p>
@@ -355,6 +405,10 @@ export default function PurchaseBills() {
         <div className="bg-purple-50 rounded-lg shadow p-4 border border-purple-200">
           <p className="text-purple-600 text-sm">Items Purchased</p>
           <p className="text-2xl font-bold text-purple-600 mt-1">{billStats.itemsPurchased}</p>
+        </div>
+        <div className="bg-indigo-50 rounded-lg shadow p-4 border border-indigo-200">
+          <p className="text-indigo-600 text-sm">Edited Bills</p>
+          <p className="text-2xl font-bold text-indigo-600 mt-1">{billStats.edited}</p>
         </div>
       </div>
 
@@ -385,15 +439,16 @@ export default function PurchaseBills() {
                 <th className="px-4 py-3 text-right">GST</th>
                 <th className="px-4 py-3 text-right">Total</th>
                 <th className="px-4 py-3 text-center">Tally Sync</th>
+                <th className="px-4 py-3 text-center">Edit Status</th>
                 <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {billsLoading && (
-                <tr><td colSpan={10} className="px-4 py-6 text-center text-gray-500">Loading purchase bills...</td></tr>
+                <tr><td colSpan={11} className="px-4 py-6 text-center text-gray-500">Loading purchase bills...</td></tr>
               )}
               {!billsLoading && billsPagination.paginatedItems.length === 0 && (
-                <tr><td colSpan={10} className="px-4 py-6 text-center text-gray-500">No purchase bills found.</td></tr>
+                <tr><td colSpan={11} className="px-4 py-6 text-center text-gray-500">No purchase bills found.</td></tr>
               )}
               {billsPagination.paginatedItems.map(bill => (
                 <tr key={bill.billId} className="hover:bg-gray-50 transition-colors">
@@ -418,8 +473,9 @@ export default function PurchaseBills() {
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-gray-800">₹{(bill.taxableValue || 0).toLocaleString()}</td>
                   <td className="px-4 py-3 text-right text-gray-600">₹{(bill.CGSTplusSGST || 0).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right font-bold text-green-600">₹{(bill.totalAmount || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right font-bold text-green-600">₹{formatMoney(bill.totalAmount)}</td>
                   <td className="px-4 py-3 text-center"><TallySyncBadge bill={bill} /></td>
+                  <td className="px-4 py-3 text-center"><EditStatusBadge bill={bill} /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">
                       <button
@@ -429,6 +485,14 @@ export default function PurchaseBills() {
                         title="View"
                       >
                         <Eye size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(bill)}
+                        className="p-2 hover:bg-amber-50 rounded-lg transition-colors text-amber-600"
+                        title="Edit purchase bill"
+                      >
+                        <Pencil size={16} />
                       </button>
                       {/* <button
                         type="button"
@@ -577,7 +641,7 @@ export default function PurchaseBills() {
             <div className="flex justify-between items-center pt-2 border-t border-gray-200">
               <span className="text-base font-bold text-gray-800">Total Amount:</span>
               <span className="text-xl font-bold text-amber-600">
-                ₹{Number(viewingBill.totalAmount || 0).toLocaleString()}
+                ₹{formatMoney(viewingBill.totalAmount)}
               </span>
             </div>
           </div>
@@ -587,12 +651,12 @@ export default function PurchaseBills() {
       {/* Add Bill Modal */}
       {showAddModal && (
         <Modal
-          title="Add Purchase Bill with Pricing"
-          onClose={() => setShowAddModal(false)}
+          title={editingBill ? `Edit Purchase Bill — ${editingBill.billId}` : 'Add Purchase Bill with Pricing'}
+          onClose={() => { setShowAddModal(false); setEditingBill(null); }}
           size="xl"
           footer={
             <>
-              <button type="button" onClick={() => setShowAddModal(false)} className={modalSecondaryBtnClass}>
+              <button type="button" onClick={() => { setShowAddModal(false); setEditingBill(null); }} className={modalSecondaryBtnClass}>
                 Cancel
               </button>
               <button
@@ -601,7 +665,7 @@ export default function PurchaseBills() {
                 disabled={isSubmitting}
                 className={`${modalPrimaryBtnClass} disabled:opacity-60`}
               >
-                {isSubmitting ? 'Creating…' : 'Create Purchase Bill'}
+                {isSubmitting ? (editingBill ? 'Saving…' : 'Creating…') : (editingBill ? 'Save Changes' : 'Create Purchase Bill')}
               </button>
             </>
           }
@@ -894,9 +958,13 @@ export default function PurchaseBills() {
                 value={formData.totalAmount}
                 placeholder={billFormTotals.total.toFixed(2)}
                 onChange={(event) => setFormData((prev) => ({ ...prev, totalAmount: event.target.value }))}
+                onBlur={() => setFormData((prev) => ({
+                  ...prev,
+                  totalAmount: prev.totalAmount === '' ? '' : Number(prev.totalAmount || 0).toFixed(2),
+                }))}
                 className={`${modalInputClass} text-xl font-bold text-amber-600`}
               />
-              <p className="mt-1 text-xs text-gray-500">Calculated total: ₹{billFormTotals.total.toLocaleString()}</p>
+              <p className="mt-1 text-xs text-gray-500">Calculated total: ₹{formatMoney(billFormTotals.total)}</p>
             </div>
           </div>
         </Modal>

@@ -12,6 +12,15 @@ export function useAddPurchaseBill() {
     });
 }
 
+export function useUpdatePurchaseBill() {
+    return useApiMutation({
+        url: (variables) => `/purchasebill/updatepurchasebill/${variables.id}`,
+        method: "put",
+        invalidateKeys: [PURCHASE_BILL_KEY],
+        showErrorToast: false,
+    });
+}
+
 // Assuming a useApiQuery utility mirrors useApiMutation — adjust if the real signature differs
 export function useGetAllPurchaseBill() {
     return useApiQuery({
