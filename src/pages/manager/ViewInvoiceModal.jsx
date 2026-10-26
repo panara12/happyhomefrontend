@@ -106,9 +106,21 @@ export default function ViewInvoiceModal({ invoice, onClose, onPrint, onSendPdf,
             <p className="text-sm text-gray-500">Phone:</p>
             <p className="font-semibold text-gray-800">{invoice.customerPhone || '—'}</p>
           </div>
+          <div className="col-span-2">
+            <p className="text-sm text-gray-500">Customer Address:</p>
+            <p className="font-semibold text-gray-800">{invoice.customerAddress || '—'}</p>
+          </div>
           <div>
             <p className="text-sm text-gray-500">Date:</p>
             <p className="font-semibold text-gray-800">{formatDate(invoice.createdAt)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Created By:</p>
+            <p className="font-semibold text-gray-800">{invoice.createdBy || '—'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Approved By:</p>
+            <p className="font-semibold text-gray-800">{invoice.approvedBy || '—'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Store:</p>

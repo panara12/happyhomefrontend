@@ -47,6 +47,7 @@ export default function EditInvoiceModal({ invoice, onClose, onSave, isSaving })
       _id: invoice.customerId,
       name: invoice.customerName || '',
       phone: invoice.customerPhone || '',
+      address: invoice.customerAddress || '',
       gstNumber: invoice.customerGstNumber || '',
       loyaltyPoints: invoice.customerPoints || 0,
       clientType: invoice.customerType || 'Regular',

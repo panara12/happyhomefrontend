@@ -22,6 +22,17 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;');
 }
 
+function formatDateTime(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${formatDate(value)} ${d.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })}`;
+}
+
 function round2(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
@@ -166,9 +177,11 @@ function buildInvoiceModel(invoice, storeArg) {
     storePan: store.storePanNumber,
     storePhone: store.number,
     invoiceNumber: invoice.invoiceNumber || '—',
-    invoiceDate: formatDate(invoice.approvedAt || invoice.createdAt),
+    invoiceDate: formatDateTime(invoice.approvedAt || invoice.invoiceDate || invoice.createdAt),
     partyName: invoice.customerName || '—',
     partyPhone: invoice.customerPhone || '',
+    partyAddress: invoice.customerAddress || '',
+    partyEmail: invoice.customerEmail || '',
     partyGst: String(invoice.customerGstNumber || '').trim(),
     amountWords: numberToIndianWords(grandTotal),
     cash: Number(payment.cash) || 0,
@@ -469,9 +482,11 @@ function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscap
       <div>
         <h3>Bill To</h3>
         <p>${escapeHtml(m.partyName)}</p>
-        ${m.partyPhone ? `<p>Phone: ${escapeHtml(m.partyPhone)}</p>` : ''}
+        ${m.partyAddress ? `<p>${escapeHtml(m.partyAddress)}</p>` : ''}
+        ${m.partyPhone ? `<p>Mobile: ${escapeHtml(m.partyPhone)}</p>` : ''}
         ${m.partyGst ? `<p>GSTIN/UIN: ${escapeHtml(m.partyGst)}</p>` : ''}
         ${m.storeState || m.storeCode ? `<p>State Name : ${escapeHtml(m.storeState)}${m.storeCode ? `, Code : ${escapeHtml(m.storeCode)}` : ''}</p>` : ''}
+        ${m.partyEmail ? `<p>E-Mail: ${escapeHtml(m.partyEmail)}</p>` : ''}
       </div>
       <div>
         <h3>Store Details</h3>
@@ -713,6 +728,15 @@ export async function downloadInvoicePdfFile(invoice, store, orientation = 'land
     leftY += 3.6;
     if (m.partyPhone) {
       pdf.text(`Phone: ${m.partyPhone}`, leftX, leftY);
+      leftY += 3.6;
+    }
+    if (m.partyAddress) {
+      const addressLines = pdf.splitTextToSize(`Address: ${m.partyAddress}`, colW);
+      pdf.text(addressLines, leftX, leftY);
+      leftY += addressLines.length * 3.6;
+    }
+    if (m.partyEmail) {
+      pdf.text(`E-Mail: ${m.partyEmail}`, leftX, leftY);
       leftY += 3.6;
     }
     if (m.partyGst) {
