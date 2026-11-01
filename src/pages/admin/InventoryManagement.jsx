@@ -1485,7 +1485,8 @@ export default function InventoryManagement({ user }) {
       {showTallyUpdateModal && (
         <Modal
           title="Update Products in Tally"
-          size="lg"
+          size="xl"
+          className="max-w-[95vw]!"
           onClose={closeTallyUpdateModal}
           footer={
             <>
@@ -1550,7 +1551,7 @@ export default function InventoryManagement({ user }) {
                               aria-label="Select all products"
                             />
                           </th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-600">Name (editable)</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-600 min-w-[26rem]">Name (editable)</th>
                           <th className="px-3 py-2 text-left font-medium text-gray-600">Brand</th>
                           <th className="px-3 py-2 text-left font-medium text-gray-600">Category</th>
                           <th className="px-3 py-2 text-left font-medium text-gray-600">GST</th>
@@ -1574,7 +1575,8 @@ export default function InventoryManagement({ user }) {
                                   type="text"
                                   value={tallyNames[p._id] ?? p.barcode_text ?? ''}
                                   onChange={(e) => setTallyNames((prev) => ({ ...prev, [p._id]: e.target.value }))}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded"
+                                  title={tallyNames[p._id] ?? p.barcode_text ?? ''}
+                                  className="w-full min-w-[24rem] px-2 py-1 border border-gray-300 rounded"
                                 />
                                 {result && (
                                   <p className={`mt-1 text-xs ${result.success ? 'text-green-600' : 'text-red-600'}`}>
