@@ -62,7 +62,8 @@ function getLineBreakdown(item) {
   const rateExTax = round2(qty > 0 ? taxableAmount / qty : taxableAmount);
   const taxAmount = round2(Math.max(0, lineTotalInc - taxableAmount));
   const cgstAmount = round2(taxAmount / 2);
-  const sgstAmount = round2(taxAmount - cgstAmount);
+  // CGST and SGST are always equal; any paisa difference shows up as Round Off.
+  const sgstAmount = cgstAmount;
 
   return {
     qty,
@@ -539,6 +540,7 @@ function buildInvoiceHtml(invoice, store, { pdf = false, orientation = 'landscap
           <div class="row"><span class="lbl">Subtotal (Excl. GST) (Rs.)</span><span class="val">${escapeHtml(formatAmount(m.taxableTotal))}</span></div>
           <div class="row"><span class="lbl">CGST</span><span class="val">${escapeHtml(formatAmount(m.cgstTotal))}</span></div>
           <div class="row"><span class="lbl">SGST</span><span class="val">${escapeHtml(formatAmount(m.sgstTotal))}</span></div>
+          ${m.roundOff ? `<div class="row"><span class="lbl">Round Off</span><span class="val">${escapeHtml(formatAmount(m.roundOff))}</span></div>` : ''}
           <div class="row total"><span class="lbl">Final Total (Incl. GST) (Rs.)</span><span class="val">₹ ${escapeHtml(formatAmount(m.grandTotal))}</span></div>
         </div>
       </div>
@@ -838,6 +840,7 @@ export async function downloadInvoicePdfFile(invoice, store, orientation = 'land
       ['Subtotal (Excl. GST) (Rs.)', formatAmount(m.taxableTotal)],
       ['CGST', formatAmount(m.cgstTotal)],
       ['SGST', formatAmount(m.sgstTotal)],
+      ...(m.roundOff ? [['Round Off', formatAmount(m.roundOff)]] : []),
       ['Final Total (Incl. GST) (Rs.)', `Rs. ${formatAmount(m.grandTotal)}`],
     ];
     let ty = y;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Package, Search, Printer, Barcode, Minus, Plus, Edit2, Trash2, ChevronDown, Download, Upload } from 'lucide-react';
+import { Package, Search, Printer, Barcode, Minus, Plus, Edit2, Trash2, ChevronDown, Download, Upload, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import Modal, {
   modalInputClass,
@@ -10,7 +10,7 @@ import Modal, {
 import { useStoreContext } from '../../context/storeContext';
 import { useGetAllStockGroup } from '../../hooks/useStockGroup';
 import { useStockCategoryContext } from '../../context/stockcategoryContext';
-import { useAddProduct, useDeleteProduct, useGetAllProducts, useImportProductLocally, useUpdateProduct } from '../../hooks/useProduct';
+import { useAddProduct, useDeleteProduct, useGetAllProducts, useImportProductLocally, useUpdateProduct, useUpdateProductsInTally } from '../../hooks/useProduct';
 import { useGetAllAccountingConst } from '../../hooks/useGetAllAccountStates';
 import { useGetAllUnits } from '../../hooks/useUnit';
 import { usePagination } from '../../hooks/usePagination';
@@ -200,7 +200,16 @@ export default function InventoryManagement({ user }) {
   const bulkAddProductMutation = useImportProductLocally();
   const deleteProductMutation = useDeleteProduct();
   const updateProductMutation = useUpdateProduct();
+  const tallyUpdateMutation = useUpdateProductsInTally();
   const products = productsData?.products ?? [];
+
+  // Tally master update popup: pick store -> pick products (names editable) -> send
+  const [showTallyUpdateModal, setShowTallyUpdateModal] = useState(false);
+  const [tallyStoreId, setTallyStoreId] = useState('');
+  const [tallyNames, setTallyNames] = useState({});
+  const [tallySelected, setTallySelected] = useState({});
+  const [tallySearch, setTallySearch] = useState('');
+  const [tallyResults, setTallyResults] = useState([]);
 
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -617,6 +626,74 @@ export default function InventoryManagement({ user }) {
     setBarcodeQuantities({});
   };
 
+  const openTallyUpdateModal = () => {
+    setTallyStoreId(editableStores.length === 1 ? String(editableStores[0].storeId) : '');
+    setTallyNames({});
+    setTallySelected({});
+    setTallySearch('');
+    setTallyResults([]);
+    setShowTallyUpdateModal(true);
+  };
+
+  const closeTallyUpdateModal = () => {
+    if (tallyUpdateMutation.isPending) return;
+    setShowTallyUpdateModal(false);
+  };
+
+  const tallyVisibleProducts = useMemo(() => {
+    const term = tallySearch.trim().toLowerCase();
+    if (!term) return products;
+    return products.filter((p) => [p.barcode_text, p.alias, p.sku_code, p.product_code]
+      .some((value) => String(value || '').toLowerCase().includes(term)));
+  }, [products, tallySearch]);
+
+  const tallySelectedCount = Object.values(tallySelected).filter(Boolean).length;
+  const allTallyVisibleSelected = tallyVisibleProducts.length > 0
+    && tallyVisibleProducts.every((p) => tallySelected[p._id]);
+
+  const toggleAllTallyProducts = () => {
+    setTallySelected((prev) => {
+      const next = { ...prev };
+      tallyVisibleProducts.forEach((p) => { next[p._id] = !allTallyVisibleSelected; });
+      return next;
+    });
+  };
+
+  const handleSendToTally = () => {
+    if (!tallyStoreId) {
+      toast.error('Select a store first.');
+      return;
+    }
+    const payload = products
+      .filter((p) => tallySelected[p._id])
+      .map((p) => ({ id: p._id, name: (tallyNames[p._id] ?? p.barcode_text ?? '').trim() }));
+    if (!payload.length) {
+      toast.error('Select at least one product.');
+      return;
+    }
+    if (payload.some((p) => !p.name)) {
+      toast.error('Product name cannot be empty.');
+      return;
+    }
+
+    tallyUpdateMutation.mutate(
+      { storeId: tallyStoreId, products: payload },
+      {
+        onSuccess: (data) => {
+          const results = data?.results || [];
+          setTallyResults(results);
+          const failed = results.filter((r) => !r.success);
+          if (failed.length === 0) {
+            toast.success(data?.message || 'Products updated in Tally');
+            setShowTallyUpdateModal(false);
+          } else {
+            toast.error(`${failed.length} product(s) failed. See details in the popup.`);
+          }
+        },
+      }
+    );
+  };
+
   const openEdit = (product) => {
     setEditingProduct(product);
     setEditForm(buildEditForm(product, stores, units));
@@ -863,6 +940,16 @@ export default function InventoryManagement({ user }) {
             >
               <Upload size={20} />
               Import CSV
+            </button>
+          )}
+          {['admin', 'manager', 'accounting'].includes(role) && (
+            <button
+              type="button"
+              onClick={openTallyUpdateModal}
+              className="flex items-center gap-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-6 py-3 rounded-lg hover:from-teal-700 hover:to-cyan-700 transition-all shadow-lg"
+            >
+              <RefreshCw size={20} />
+              Update Products
             </button>
           )}
           {['admin', 'manager', 'accounting'].includes(role) && (
@@ -1391,6 +1478,128 @@ export default function InventoryManagement({ user }) {
                 placeholder="0"
               />
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {showTallyUpdateModal && (
+        <Modal
+          title="Update Products in Tally"
+          size="lg"
+          onClose={closeTallyUpdateModal}
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={closeTallyUpdateModal}
+                disabled={tallyUpdateMutation.isPending}
+                className={modalSecondaryBtnClass}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleSendToTally}
+                disabled={tallyUpdateMutation.isPending || !tallyStoreId || tallySelectedCount === 0}
+                className={modalPrimaryBtnClass}
+              >
+                {tallyUpdateMutation.isPending ? 'Sending...' : `Send to Tally (${tallySelectedCount})`}
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Updates name, stock group (brand), category, GST and HSN of the selected products in Tally.
+              Opening balance, quantity, rate and value are not changed.
+            </p>
+
+            <div>
+              <label className={modalLabelClass}>Store *</label>
+              <select
+                value={tallyStoreId}
+                onChange={(e) => setTallyStoreId(e.target.value)}
+                className={modalInputClass}
+              >
+                <option value="">Select store</option>
+                {editableStores.map((store) => (
+                  <option key={store.storeId} value={store.storeId}>{store.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {tallyStoreId && (
+              <>
+                <input
+                  type="text"
+                  value={tallySearch}
+                  onChange={(e) => setTallySearch(e.target.value)}
+                  placeholder="Search products..."
+                  className={modalInputClass}
+                />
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="max-h-96 overflow-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 w-10">
+                            <input
+                              type="checkbox"
+                              checked={allTallyVisibleSelected}
+                              onChange={toggleAllTallyProducts}
+                              aria-label="Select all products"
+                            />
+                          </th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-600">Name (editable)</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-600">Brand</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-600">Category</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-600">GST</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-600">HSN</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tallyVisibleProducts.map((p) => {
+                          const result = tallyResults.find((r) => String(r.id) === String(p._id));
+                          return (
+                            <tr key={p._id} className="border-t border-gray-100">
+                              <td className="px-3 py-2">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(tallySelected[p._id])}
+                                  onChange={() => setTallySelected((prev) => ({ ...prev, [p._id]: !prev[p._id] }))}
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="text"
+                                  value={tallyNames[p._id] ?? p.barcode_text ?? ''}
+                                  onChange={(e) => setTallyNames((prev) => ({ ...prev, [p._id]: e.target.value }))}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded"
+                                />
+                                {result && (
+                                  <p className={`mt-1 text-xs ${result.success ? 'text-green-600' : 'text-red-600'}`}>
+                                    {result.success ? 'Updated' : result.message}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-3 py-2">{getBrandName(p.brand?._id || p.brand)}</td>
+                              <td className="px-3 py-2">{getCategoryName(p.category)}</td>
+                              <td className="px-3 py-2">{p.gst ?? 0}%</td>
+                              <td className="px-3 py-2">{p.hsncode || '-'}</td>
+                            </tr>
+                          );
+                        })}
+                        {tallyVisibleProducts.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="px-3 py-6 text-center text-gray-500">No products found.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </Modal>
       )}

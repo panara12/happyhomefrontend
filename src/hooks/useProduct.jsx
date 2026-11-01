@@ -63,6 +63,14 @@ export function useUpdateProduct() {
     });
 }
 
+export function useUpdateProductsInTally() {
+    return useApiMutation({
+        url: "/products/updateTallyProducts",
+        method: "post",
+        invalidateKeys: [PRODUCTS_QUERY_KEY],
+    });
+}
+
 export function useDeleteProduct() {
     return useApiMutation({
         url: (id) => `/products/deleteproduct/${id}`,
