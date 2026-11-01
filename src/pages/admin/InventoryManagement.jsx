@@ -647,14 +647,18 @@ export default function InventoryManagement({ user }) {
       .some((value) => String(value || '').toLowerCase().includes(term)));
   }, [products, tallySearch]);
 
+  // 100 products per page; "select all" applies to the current page only.
+  const tallyPagination = usePagination(tallyVisibleProducts, { pageSize: 100 });
+  const tallyPageProducts = tallyPagination.paginatedItems;
+
   const tallySelectedCount = Object.values(tallySelected).filter(Boolean).length;
-  const allTallyVisibleSelected = tallyVisibleProducts.length > 0
-    && tallyVisibleProducts.every((p) => tallySelected[p._id]);
+  const allTallyPageSelected = tallyPageProducts.length > 0
+    && tallyPageProducts.every((p) => tallySelected[p._id]);
 
   const toggleAllTallyProducts = () => {
     setTallySelected((prev) => {
       const next = { ...prev };
-      tallyVisibleProducts.forEach((p) => { next[p._id] = !allTallyVisibleSelected; });
+      tallyPageProducts.forEach((p) => { next[p._id] = !allTallyPageSelected; });
       return next;
     });
   };
@@ -1546,9 +1550,10 @@ export default function InventoryManagement({ user }) {
                           <th className="px-3 py-2 w-10">
                             <input
                               type="checkbox"
-                              checked={allTallyVisibleSelected}
+                              checked={allTallyPageSelected}
                               onChange={toggleAllTallyProducts}
-                              aria-label="Select all products"
+                              aria-label="Select all products on this page"
+                              title="Select all products on this page"
                             />
                           </th>
                           <th className="px-3 py-2 text-left font-medium text-gray-600 min-w-[26rem]">Name (editable)</th>
@@ -1559,7 +1564,7 @@ export default function InventoryManagement({ user }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {tallyVisibleProducts.map((p) => {
+                        {tallyPageProducts.map((p) => {
                           const result = tallyResults.find((r) => String(r.id) === String(p._id));
                           return (
                             <tr key={p._id} className="border-t border-gray-100">
@@ -1599,6 +1604,13 @@ export default function InventoryManagement({ user }) {
                       </tbody>
                     </table>
                   </div>
+                  <Pagination
+                    page={tallyPagination.page}
+                    totalPages={tallyPagination.totalPages}
+                    totalItems={tallyPagination.totalItems}
+                    pageSize={tallyPagination.pageSize}
+                    onPageChange={tallyPagination.goToPage}
+                  />
                 </div>
               </>
             )}
