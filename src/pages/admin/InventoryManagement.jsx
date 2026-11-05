@@ -17,6 +17,8 @@ import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/ui/Pagination';
 import { BARCODE_STICKER_SPEC, printBarcodeStickers } from '../../utils/printBarcodeStickers';
 
+const SHOW_TALLY_UPDATE_BUTTON = false;
+
 function buildEditForm(product, stores, units) {
   const qtyByStore = {};
   stores.forEach((store) => {
@@ -946,7 +948,8 @@ export default function InventoryManagement({ user }) {
               Import CSV
             </button>
           )}
-          {['admin', 'manager', 'accounting'].includes(role) && (
+          {/* Update Products (Tally) button is hidden for now; flip SHOW_TALLY_UPDATE_BUTTON to bring it back. */}
+          {SHOW_TALLY_UPDATE_BUTTON && ['admin', 'manager', 'accounting'].includes(role) && (
             <button
               type="button"
               onClick={openTallyUpdateModal}
